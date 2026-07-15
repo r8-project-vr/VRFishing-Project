@@ -10,7 +10,8 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRPMCalculated, float, NewRPM);
 
 /**
- * コントローラーのスティック回転から擬似的にエルゴメーターのRPMを算出するデバッグ用コンポーネント
+ * コントローラーのスティック回転や、キーボードでの入力から
+ * 擬似的にエルゴメーターのRPMを算出するデバッグ用コンポーネント
  */
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -24,7 +25,11 @@ public:
 
 	// スティック入力と経過時間からRPM計算を更新
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
-	void UpdateReelSimulation(FVector2D StickInput, float DeltaTime);
+	void SimulateReelByStick(FVector2D StickInput, float DeltaTime);
+
+	// キーボードから直接RPMの数値を入力する
+	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
+	void SimulateReelByKey(float InputRPM);
 
 	// RPM算出時に実行されるイベント
 	UPROPERTY(BlueprintAssignable, Category = "Reel Simulator")
@@ -42,9 +47,9 @@ private:
 	// 累積角度（ラジアン）
 	float AccumulatedAngle;
 
-	// 1回転にかかった計測時間（秒）
-	float ElapsedTimeSinceLastRevolution;
+	// 現在の回転の経過時間（秒
+	float RevTime;
 
-	// 現在スティック入力を追跡中かどうかのフラグ
+	// 現在スティック入力を追跡中かどうか
 	bool bIsTracking;
 };
