@@ -13,7 +13,9 @@ UReelSimulatorComponent::UReelSimulatorComponent()
 
     LastAngle = 0.0f;
     AccumulatedAngleRad = 0.0f;
-    RevTime = 0.0f;
+    RotationStartTime = 0.0;
+    bIsMeasuringRotation = false;
+    // RevTime = 0.0f;
     bIsTracking = false;
 }
 
@@ -58,23 +60,46 @@ void UReelSimulatorComponent::SimulateReelByWheel(float DeltaTime)
 
 void UReelSimulatorComponent::CalculateRPM(float DeltaAngle, float DeltaTime)
 {
+    const UWorld* World = GetWorld();
+    if (!World) {
+        return;
+    }
+
+    const double CurrentTime = World->GetTimeSeconds();
+
+    // 最初の回転入力時に計測開始時間を記録
+    if (!bIsMeasuringRotation) {
+        RotationStartTime = CurrentTime;
+        bIsMeasuringRotation = true;
+        AccumulatedAngleRad = 0.0f;
+    }
+
     // 角度変化量を累積
     AccumulatedAngleRad += DeltaAngle;
-    // 経過時間を累積
-    RevTime += DeltaTime;
+    //// 経過時間を累積
+    //RevTime += DeltaTime;
 
     // 累積角度が1回転（2π）に達したか判定
     const float OneRevolutionRad = UE_TWO_PI;   // 2π ≒ 6.28318530717f
     if (AccumulatedAngleRad >= OneRevolutionRad) {
+        // 実時間での経過時間を算出
+        const double ElapsedTime = CurrentTime - RotationStartTime;
         // 0で割るのを防止してRPMを算出・通知
-        if (RevTime > 0.001f) {
-            const float CalculatedRPM = 60.0f / RevTime;
+        if (ElapsedTime > 0.001) {
+            const float CalculatedRPM = static_cast<float>(60.0 / ElapsedTime);
+            // 算出したRPMをバインド先へ通知
             OnRPMCalculated.Broadcast(CalculatedRPM);
         }
+        //// 0で割るのを防止してRPMを算出・通知
+        //if (RevTime > 0.001f) {
+        //    const float CalculatedRPM = 60.0f / RevTime;
+        //    OnRPMCalculated.Broadcast(CalculatedRPM);
+        //}
 
         // 累積角度と時間をリセット
         AccumulatedAngleRad -= OneRevolutionRad;   // 誤差の蓄積を防ぐため端数は残す
-        RevTime = 0.0f;
+        RotationStartTime = CurrentTime;
+        // RevTime = 0.0f;
     }
 }
 
