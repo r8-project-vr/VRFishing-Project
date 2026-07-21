@@ -9,6 +9,14 @@
 class UCameraComponent;
 class USceneComponent;
 
+/** 手の移動速度の判定状態 */
+UENUM(BlueprintType)
+enum class EHandSpeedState : uint8
+{
+	Good		UMETA(DisplayName = "適正"),
+	TooSlow		UMETA(DisplayName = "遅すぎ"),
+	TooFast		UMETA(DisplayName = "速すぎ")
+};
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class VRFISHING_API UHandHeightDetectorComponent : public UActorComponent
@@ -39,10 +47,28 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Height Detection|Debug")
 	bool bShowDebug = true;
 
+	// ==================== 移動速度 設定 ====================
+
+	/** 適正と判定する最小速度 (cm/s) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed Detection")
+	float MinGoodSpeed = 5.0f;
+
+	/** 適正と判定する最大速度 (cm/s) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed Detection")
+	float MaxGoodSpeed = 30.0f;
+
 	// ==================== 出力変数 ====================
 
 	UPROPERTY(BlueprintReadOnly, Category = "Height Detection")
 	float HandHeightPercent = 0.0f;
+
+	/** 手の現在の移動速度 (cm/s) */
+	UPROPERTY(BlueprintReadOnly, Category = "Speed Detection")
+	float CurrentHandSpeed = 0.0f;
+
+	/** 手の移動速度の判定状態 */
+	UPROPERTY(BlueprintReadOnly, Category = "Speed Detection")
+	EHandSpeedState HandSpeedState = EHandSpeedState::Good;
 
 	// ==================== コンポーネント参照 ====================
 
@@ -51,4 +77,11 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, BlueprintReadWrite, Category = "Height Detection|References")
 	TWeakObjectPtr<USceneComponent> HandRef;
+
+private:
+	/** 前フレームの手のワールド位置（速度計算用） */
+	FVector PreviousHandLocation = FVector::ZeroVector;
+
+	/** PreviousHandLocation が有効か（最初のフレームは無効） */
+	bool bHasPreviousLocation = false;
 };
