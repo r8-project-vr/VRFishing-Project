@@ -55,6 +55,13 @@ private:
 
 	float	LastAngle;				// 前フレームの入力角度（ラジアン）
 	float	AccumulatedAngleRad;	// 累積角度（ラジアン）
-	float	RevTime;				// 現在の回転の経過時間（秒）
+
+	// 1回転の計測を開始したタイムスタンプ（秒）
+	double RotationStartTime;
+	// 計測が開始されているかのフラグ
+	bool bIsMeasuringRotation;
+
 	bool	bIsTracking;			// 入力を追跡中かどうか
+
+	// float	RevTime;				// 現在の回転の経過時間（秒）
 };
