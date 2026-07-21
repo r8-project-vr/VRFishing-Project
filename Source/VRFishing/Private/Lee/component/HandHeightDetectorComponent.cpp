@@ -48,9 +48,10 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, ELevelTick Tic
 		return;
 	}
 
-	// @brief ワールド座標系での高さを取得
+	// @brief ワールド座標系での手の位置を取得
+	const FVector CurrentHandLocation = HandRef->GetComponentLocation();
 	const float HeadZ = CameraRef->GetComponentLocation().Z;
-	const float HandZ = HandRef->GetComponentLocation().Z;
+	const float HandZ = CurrentHandLocation.Z;
 
 	// @brief 絶対高さの範囲を計算
 	const float MinZ = HeadZ - BottomOffset;
@@ -63,16 +64,54 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, ELevelTick Tic
 		HandZ
 	);
 
+	// ==================== 移動速度の計算 ====================
+
+	if (bHasPreviousLocation)
+	{
+		// @brief 前フレームからの移動距離を DeltaTime で割って速度 (cm/s) を算出
+		const float Distance = FVector::Dist(CurrentHandLocation, PreviousHandLocation);
+		CurrentHandSpeed = Distance / DeltaTime;
+
+		// @brief 速度を閾値と比較して状態を判定
+		if (CurrentHandSpeed < MinGoodSpeed)
+		{
+			HandSpeedState = EHandSpeedState::TooSlow;
+		}
+		else if (CurrentHandSpeed > MaxGoodSpeed)
+		{
+			HandSpeedState = EHandSpeedState::TooFast;
+		}
+		else
+		{
+			HandSpeedState = EHandSpeedState::Good;
+		}
+	}
+
+	// @brief 次のフレームのために現在位置を保存
+	PreviousHandLocation = CurrentHandLocation;
+	bHasPreviousLocation = true;
+
+	// ==================== Debug 表示 ====================
+
 	if (bShowDebug)
 	{
 		// @brief 画面左上のテキストデバッグ
 		if (GEngine)
 		{
-			FString DebugMsg = FString::Printf(TEXT("Hand Percent: %.2f | Hand Z: %.1f | Head Z: %.1f"),
-				HandHeightPercent, HandZ, HeadZ);
+			const TCHAR* StateText = TEXT("???");
+			FColor StateColor = FColor::White;
+			switch (HandSpeedState)
+			{
+			case EHandSpeedState::TooSlow:	StateText = TEXT("TOO SLOW");  StateColor = FColor::Yellow;  break;
+			case EHandSpeedState::Good:		StateText = TEXT("GOOD");      StateColor = FColor::Green;   break;
+			case EHandSpeedState::TooFast:	StateText = TEXT("TOO FAST");  StateColor = FColor::Red;     break;
+			}
 
-			// @brief パラメータ説明：Key（1で前回のメッセージを上書き）, 持続時間（0で毎フレーム更新）, 色, テキスト内容
-			GEngine->AddOnScreenDebugMessage(1, 0.0f, FColor::Cyan, DebugMsg);
+			FString DebugMsg = FString::Printf(
+				TEXT("Hand: %.2f%% | Speed: %.1f cm/s [%s] | Hand Z: %.1f | Head Z: %.1f"),
+				HandHeightPercent, CurrentHandSpeed, StateText, HandZ, HeadZ);
+
+			GEngine->AddOnScreenDebugMessage(1, 0.0f, StateColor, DebugMsg);
 		}
 	}
 }
