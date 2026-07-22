@@ -36,6 +36,15 @@ void UHandHeightDetectorComponent::BeginPlay()
 	
 }
 
+// 谷村（後で消す）====================
+// === 追加：カウント初期化処理 ===
+void UHandHeightDetectorComponent::ResetUpAndDownCount()
+{
+	CurrentUpAndDownCount = 0;
+	bIsHandAtTop = false;
+}
+// 谷村（後で消す）====================
+
 
 // Called every frame
 void UHandHeightDetectorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -86,6 +95,26 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, ELevelTick Tic
 			HandSpeedState = EHandSpeedState::Good;
 		}
 	}
+
+	// 谷村（後で消す）====================
+	// 上げ下げ回数の判定
+
+	if (!bIsHandAtTop && HandHeightPercent >= UpperThresholdPercent) {
+		// 手が上端領域に到達
+		bIsHandAtTop = true;
+	}
+	else if (bIsHandAtTop && HandHeightPercent <= LowerThresholdPercent) {
+		// 上端に到達した状態から下端領域まで下がったため 1 回とカウント
+		bIsHandAtTop = false;
+		CurrentUpAndDownCount++;
+
+		// 目標回数（5回）に達したらイベントを発火
+		if (CurrentUpAndDownCount >= TargetUpAndDownCount) {
+			OnFishHit.Broadcast();
+			ResetUpAndDownCount();
+		}
+	}
+	// 谷村（後で消す）====================
 
 	// @brief 次のフレームのために現在位置を保存
 	PreviousHandLocation = CurrentHandLocation;
