@@ -10,14 +10,14 @@
     <Platform Name="Win64-arm64ec" />
   </Configurations>
   <Folder Name="/Engine/">
-    <Project Path="Intermediate/ProjectFiles/UE5.vcxproj" Id="7d9adc38-f005-3fd5-9a2a-c2b8ad0bca7e">
+    <Project Path="Intermediate/ProjectFiles/UE5.vcxproj" Id="0faa7334-d164-3243-9f43-d74f494e4834">
       <BuildType Project="BuiltWithUnrealBuildTool" />
       <Platform Project="Win64" />
       <Build Project="false" />
     </Project>
   </Folder>
   <Folder Name="/Games/">
-    <Project Path="Intermediate/ProjectFiles/VRFishing.vcxproj" Id="d8bdf27d-14a0-326e-8193-75347c7e4e25">
+    <Project Path="Intermediate/ProjectFiles/VRFishing.vcxproj" Id="25bec102-4581-3830-9d0a-575233e1c2ff">
       <BuildType Solution="DebugGame Editor|Win64" Project="DebugGame_Editor" />
       <BuildType Solution="DebugGame Editor|Win64-arm64" Project="Win64_arm64_DebugGame_Editor" />
       <BuildType Solution="DebugGame Editor|Win64-arm64ec" Project="Win64_arm64ec_DebugGame_Editor" />
