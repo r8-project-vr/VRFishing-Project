@@ -19,6 +19,14 @@ UReelSimulatorComponent::UReelSimulatorComponent()
     bIsStickTracking = false;
 }
 
+// === 追加：リセット処理の実装 ===
+void UReelSimulatorComponent::ResetRevolutionCount()
+{
+    CurrentRevolutionCount = 0;
+    AccumulatedAngleRad = 0.0f;
+    bIsMeasuringRotation = false;
+}
+
 void UReelSimulatorComponent::SimulateReelByStick(FVector2D StickInput)
 {
     // 入力値が閾値未満なら追跡しない
@@ -103,6 +111,12 @@ void UReelSimulatorComponent::CalculateRPM(float DeltaAngle)
         AccumulatedAngleRad -= OneRevolutionRad;   // 誤差の蓄積を防ぐため端数は残す
         RotationStartTime = CurrentTime;
         // RevTime = 0.0f;
+
+        // === 追加：回転数を加算し、目標に達したら通知 ===
+        CurrentRevolutionCount++;
+        if (CurrentRevolutionCount >= TargetRevolutionCount) {
+            OnTargetRevolutionsReached.Broadcast();
+        }
     }
 }
 
