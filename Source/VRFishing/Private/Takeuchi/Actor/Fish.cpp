@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Takeuchi/Actor/Fish.h"
 #include "DrawDebugHelpers.h"
@@ -186,6 +186,9 @@ void AFish::CatchFish()
 
 	//捕獲位置の300cm上を、移動中に変化しない吊り上げ先として固定する
 	CaughtTargetLocation = GetActorLocation() + FVector(0.0f, 0.0f, 300.0f);
+
+	SetActorRotation(FRotator(0.0f, GetActorRotation().Yaw, -90.0f));
+
 	OnCaught();
 }
 
