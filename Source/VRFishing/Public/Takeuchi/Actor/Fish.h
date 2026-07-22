@@ -42,48 +42,16 @@ public:
 	URotatingMovementComponent* RotatingMovementComp;
 
 	//魚の中心点
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Fish|Movement")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Fish|Movement") 
 	FVector CenterLocation;
 
-	//暴れるときの円運動の半径
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Movement", meta = (ClampMin = "0.0"))
+	//暴れるときの半径
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Movement")
 	float StruggleRadius = 30.0f;
 
-	//暴れるときの円運動の角速度
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Movement", meta = (ClampMin = "0.0"))
+	//暴れるときの回転速度
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Movement")
 	float CircleSpeed = 1.5f;
-
-	//中央から離れるときに、左右へずれる最大角度
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Movement", meta = (ClampMin = "0.0", ClampMax = "90.0"))
-	float MaxRetreatSideAngle = 60.0f;
-
-	//中央へつつきに行く速さ
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Poking", meta = (ClampMin = "0.0"))
-	float PokeApproachSpeed = 4.0f;
-
-	//つついた後に離れる速さ
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Poking", meta = (ClampMin = "0.0"))
-	float PokeRetreatSpeed = 1.5f;
-
-	//接近・後退を切り替える最小時間
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Poking", meta = (ClampMin = "0.0"))
-	float PokeIntervalMin = 2.0f;
-
-	//接近・後退を切り替える最大時間
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Poking", meta = (ClampMin = "0.0"))
-	float PokeIntervalMax = 4.0f;
-
-	//中央から離れる最小距離
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Poking", meta = (ClampMin = "0.0"))
-	float PokeRetreatDistanceMin = 50.0f;
-
-	//中央から離れる最大距離
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Poking", meta = (ClampMin = "0.0"))
-	float PokeRetreatDistanceMax = 80.0f;
-
-	//魚のActor原点から口先までの距離。口先が中央で止まるように使用する
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Poking", meta = (ClampMin = "0.0"))
-	float PokeContactOffset = 60.0f;
 
 	//仮処理、F1で暴れる
 	UFUNCTION(BlueprintCallable, Category = "Fish")
@@ -103,18 +71,14 @@ public:
 	void OnCaught();
 
 private:
+	float RunningTime = 0.0f;
 	FTimerHandle StateTimerHandle;
 	FTimerHandle PokeTimerHandle;
 
 	bool bApproaching = false;
-	float StruggleElapsedTime = 0.0f;
-	float StruggleStartAngle = 0.0f;
-	float StruggleCurrentRadius = 0.0f;
 	FVector PokeTargetLocation;
 	FVector CaughtTargetLocation;
 
 	void TransitionToMoveToCenter();
 	void DoPoke();
-	void RotateTowardCenter(float DeltaTime, float InterpSpeed);
-	void ClearStateTimers();
 };
