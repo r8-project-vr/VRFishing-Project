@@ -49,7 +49,9 @@ public:
 
 	// ==================== 移動速度 設定 ====================
 
-	/** 適正と判定する最小速度 (cm/s) */
+	/**
+	 * @brief 適正と判定する最小速度 (cm/s).
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed Detection")
 	float MinGoodSpeed = 5.0f;
 

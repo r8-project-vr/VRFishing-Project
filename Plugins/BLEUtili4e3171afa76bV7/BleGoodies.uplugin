@@ -1,0 +1,29 @@
+{
+	"FileVersion": 3,
+	"Version": 2010100,
+	"VersionName": "2.1.1",
+	"FriendlyName": "BLE Goodies",
+	"Description": "Bluetooth Low Energy plugin for Unreal Engine",
+	"Category": "Code Plugins",
+	"CreatedBy": "Nineva Studios",
+	"CreatedByURL": "https://ninevastudios.com/",
+	"DocsURL": "https://docs.ninevastudios.com/#/ue-plugins/ble-goodies",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/9ad1594e91da4da1aa72fb617697c9f7",
+	"SupportURL": "mailto:support@ninevastudios.com",
+	"EngineVersion": "5.8.0",
+	"CanContainContent": true,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "BleGoodies",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"PlatformAllowList": [
+				"Win64",
+				"Mac",
+				"Android",
+				"IOS"
+			]
+		}
+	]
+}
