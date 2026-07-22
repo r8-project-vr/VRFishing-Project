@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (c) 2020 Nineva Studios
+-->
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+    <init>
+        <log text="BLE Goodies Android UPL initialization"/>
+    </init>
+
+    <prebuildCopies>
+        <copyDir src="$S(PluginDir)/Private/Java" dst="$S(BuildDir)/src/com/ninevastudios/ble"/>
+    </prebuildCopies>
+
+    <!-- optional additions to proguard -->
+    <proguardAdditions>
+        <insert>
+            -dontwarn com.ninevastudios.**
+            -keep class com.ninevastudios.** { *; }
+            -keep interface com.ninevastudios.** { *; }
+        </insert>
+    </proguardAdditions>
+
+    <androidManifestUpdates>
+        <!-- Add permissions -->
+        <addPermission android:name="android.permission.BLUETOOTH"/>
+        <addPermission android:name="android.permission.BLUETOOTH_ADMIN"/>
+
+<!--        No longer needed on Android API 31+ -->
+        <!--      See https://developer.android.com/develop/connectivity/bluetooth/bt-permissions?hl=en#assert-never-for-location -->
+        <addPermission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+        <addPermission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+
+        <!-- New permissions for Android 12, also must be requested as runtime permission -->
+        <!-- See https://xizzhu.me/post/2021-10-05-android-12-bluetooth-permissions/ -->
+        <addPermission android:name="android.permission.BLUETOOTH_CONNECT"/>
+
+        <!--      See https://developer.android.com/develop/connectivity/bluetooth/bt-permissions?hl=en#assert-never-for-location -->
+        <addPermission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
+
+        <addFeature android:name="android.hardware.bluetooth_le" android:required="false"/>
+    </androidManifestUpdates>
+</root>
