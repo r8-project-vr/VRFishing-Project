@@ -25,11 +25,11 @@ public:
 
 	// スティック入力を基にRPMシミュレーションを実行
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
-	void SimulateReelByStick(FVector2D StickInput, float DeltaTime);
+	void SimulateReelByStick(FVector2D StickInput);
 
 	// マウスホイールが1ノッチ回るたびに呼ばれ、RPMシミュレーションを実行
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
-	void SimulateReelByWheel(float DeltaTime);
+	void SimulateReelByWheel();
 
 	//// キーボードから直接RPMの数値を入力する
 	//UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
@@ -51,17 +51,13 @@ protected:
 
 private:
 	// 角度変化量が1回転に達したらRPMを算出し、デリゲートを呼び出す
-	void CalculateRPM(float DeltaAngle, float DeltaTime);
+	void CalculateRPM(float DeltaAngle);
 
 	float	LastAngle;				// 前フレームの入力角度（ラジアン）
 	float	AccumulatedAngleRad;	// 累積角度（ラジアン）
-
-	// 1回転の計測を開始したタイムスタンプ（秒）
-	double RotationStartTime;
-	// 計測が開始されているかのフラグ
-	bool bIsMeasuringRotation;
-
-	bool	bIsTracking;			// 入力を追跡中かどうか
+	double	RotationStartTime;		// 回転の計測を開始した時間（秒）
+	bool	bIsMeasuringRotation;	// 計測が開始されているかのフラグ
+	bool	bIsStickTracking;		// 入力を追跡中かどうか（スティック操作時用）
 
 	// float	RevTime;				// 現在の回転の経過時間（秒）
 };
