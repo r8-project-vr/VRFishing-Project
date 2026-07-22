@@ -9,6 +9,9 @@
 // RPMが算出されたことを通知するデリゲート
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRPMCalculated, float, NewRPM);
 
+// === 追加：目標回転数に達したことを通知するデリゲート ===
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTargetRevolutionsReached);
+
 /**
  * MetaQuestコントローラのスティック回転や、マウスホイールの回転から
  * 擬似的にエルゴメーターのRPMを算出するデバッグ用コンポーネント
@@ -35,6 +38,15 @@ public:
 	//UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
 	//void SimulateReelByKey(float InputRPM);
 
+
+	// === 追加：回転カウントを初期化する関数 ===
+	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
+	void ResetRevolutionCount();
+	// === 追加：目標回転数到達イベント ===
+	UPROPERTY(BlueprintAssignable, Category = "Reel Simulator")
+	FOnTargetRevolutionsReached OnTargetRevolutionsReached;
+
+
 	// RPM算出時に実行されるイベント
 	UPROPERTY(BlueprintAssignable, Category = "Reel Simulator")
 	FOnRPMCalculated OnRPMCalculated;
@@ -48,6 +60,15 @@ protected:
 	// デフォルトは15度 ≒ 0.2618rad
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Debug", meta = (ClampMin = "0.01"))
 	float WheelNotchAngleRad;
+
+
+	// === 追加：目標回転数 ===
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator", meta = (ClampMin = "1"))
+	int32 TargetRevolutionCount;
+
+	// === 追加：現在の累積回転数 ===
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Reel Simulator")
+	int32 CurrentRevolutionCount;
 
 private:
 	// 角度変化量が1回転に達したらRPMを算出し、デリゲートを呼び出す
