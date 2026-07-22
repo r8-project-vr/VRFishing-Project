@@ -1,7 +1,8 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Takeuchi/Actor/Fish.h"
-#include "Kismet/KismetMathLibrary.h"
+#include "DrawDebugHelpers.h"
+#include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
 
 AFish::AFish()
@@ -9,7 +10,7 @@ AFish::AFish()
 	PrimaryActorTick.bCanEverTick = true;
 	CurrentState = EFishState::Circling;
 
-	// RotatingMovementComponentを作成し、回転速度を設定
+	//RotatingMovementComponentを作成し、回転速度を設定
     RotatingMovementComp = CreateDefaultSubobject<URotatingMovementComponent>(TEXT("RotatingMovementComp"));
     RotatingMovementComp->RotationRate = FRotator(0.0f, 90.0f, 0.0f); 
 }
@@ -18,14 +19,38 @@ void AFish::BeginPlay()
 {
     Super::BeginPlay();
 
-    //スポーン位置を中心にする
-    CenterLocation = GetActorLocation();
+	const FVector SpawnLocation = GetActorLocation();
 
-    //回転コンポーネントを有効化
-    if (RotatingMovementComp)
-    {
-        RotatingMovementComp->Activate();
-    }
+	//魚のスポーン位置は動かさず、PivotTranslationが示す周回中心を固定保存する
+	CenterLocation = SpawnLocation;
+	if (RotatingMovementComp)
+	{
+		const FVector RotatingPivotOffset = GetActorRotation().RotateVector(RotatingMovementComp->PivotTranslation);
+		CenterLocation += RotatingPivotOffset;
+		RotatingMovementComp->Activate();
+	}
+
+	FVector PivotTranslation = FVector::ZeroVector;
+	if (RotatingMovementComp)
+	{
+		PivotTranslation = RotatingMovementComp->PivotTranslation;
+	}
+	const FString CenterDebugMessage = FString::Printf(
+		TEXT("[Fish Debug] Spawn=%s | Center=%s | Pivot=%s"),
+		*SpawnLocation.ToCompactString(),
+		*CenterLocation.ToCompactString(),
+		*PivotTranslation.ToCompactString()
+	);
+
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *CenterDebugMessage);
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, CenterDebugMessage);
+	}
+
+	//赤い球が固定中心、緑の線がスポーン地点から中心までの距離を示す
+	DrawDebugSphere(GetWorld(), CenterLocation, 12.0f, 16, FColor::Red, true);
+	DrawDebugLine(GetWorld(), SpawnLocation, CenterLocation, FColor::Green, true, -1.0f, 0, 2.0f);
 
 	//中心へ移動する状態に遷移
     GetWorldTimerManager().SetTimer(StateTimerHandle, this, &AFish::TransitionToMoveToCenter, 4.0f, false);
@@ -46,6 +71,12 @@ void AFish::BeginPlay()
 
 void AFish::TransitionToMoveToCenter()
 {
+	//捕獲などで別の状態へ遷移済みなら、開始時のタイマーでは上書きしない
+	if (CurrentState != EFishState::Circling)
+	{
+		return;
+	}
+
     CurrentState = EFishState::MovingToCenter;
 
 	//移動するため回転コンポーネントを無効化
@@ -57,99 +88,152 @@ void AFish::TransitionToMoveToCenter()
 
 void AFish::DoPoke()
 {
-    if (CurrentState != EFishState::Poking) return;
+	if (CurrentState != EFishState::Poking) return;
 
     //離れたり近づいたりする
 	bApproaching = !bApproaching;
 
     if (bApproaching)
     {
-        //中心を目指す
-        PokeTargetLocation = CenterLocation;
+		//Actor原点ではなく口先が中央へ届くよう、現在いる側で手前に停止する
+		FVector ApproachSide = GetActorLocation() - CenterLocation;
+		ApproachSide.Z = 0.0f;
+
+		if (ApproachSide.IsNearlyZero())
+		{
+			ApproachSide = -GetActorRightVector();
+			ApproachSide.Z = 0.0f;
+		}
+
+		ApproachSide.Normalize();
+		PokeTargetLocation = CenterLocation + ApproachSide * PokeContactOffset;
     }
     else
     {
-        //【パターンB: 中央を向いたまま、円形に横へ動く ＋ ほんの少し手前に引く】
+		//中央から現在位置へ向かう方向を、後退の基準方向にする
+		FVector RetreatDirection = GetActorLocation() - CenterLocation;
+		RetreatDirection.Z = 0.0f;
 
-        //1. 0度〜360度のランダムな角度（ラジアン）を決める
-        float RandomAngle = FMath::RandRange(0.0f, PI * 2.0f);
+		//中央とほぼ同じ位置なら、ランダムな水平方向を基準にする
+		if (RetreatDirection.IsNearlyZero())
+		{
+			const float RandomBaseAngle = FMath::RandRange(0.0f, 360.0f);
+			RetreatDirection = FVector::ForwardVector.RotateAngleAxis(RandomBaseAngle, FVector::UpVector);
+		}
+		else
+		{
+			RetreatDirection.Normalize();
+		}
 
-        //2. 中心から離れる距離（半径）を小さく制限する（例: 15〜40単位程度）
-        // ※ここを大きくしすぎると遠くに逃げてしまうため、小さな値にします
-        float Distance = FMath::RandRange(15.0f, 40.0f);
+		//真後ろだけでなく、左右どちらかへランダムにずれながら離れる
+		const float SideAngle = FMath::RandRange(-MaxRetreatSideAngle, MaxRetreatSideAngle);
+		RetreatDirection = RetreatDirection.RotateAngleAxis(SideAngle, FVector::UpVector);
 
-        //3. 円運動の公式（CosとSin）を使って、中心のまわりの円周上の座標を計算！
-        float OffsetX = FMath::Cos(RandomAngle) * Distance;
-        float OffsetY = FMath::Sin(RandomAngle) * Distance;
-
-        //4. 中心座標に足し合わせる
-        PokeTargetLocation = CenterLocation + FVector(OffsetX, OffsetY, 0.0f);
+		const float MinDistance = FMath::Min(PokeRetreatDistanceMin, PokeRetreatDistanceMax);
+		const float MaxDistance = FMath::Max(PokeRetreatDistanceMin, PokeRetreatDistanceMax);
+		const float Distance = FMath::RandRange(MinDistance, MaxDistance);
+		PokeTargetLocation = CenterLocation + RetreatDirection * Distance;
     }
 
-	//次の突くまでの時間をランダムに設定
-    float NextDelay = FMath::RandRange(2.0f, 4.0f);
+	//次の接近・後退切り替えまでの時間をランダムに設定
+	const float MinInterval = FMath::Min(PokeIntervalMin, PokeIntervalMax);
+	const float MaxInterval = FMath::Max(PokeIntervalMin, PokeIntervalMax);
+	const float NextDelay = FMath::RandRange(MinInterval, MaxInterval);
     GetWorldTimerManager().SetTimer(PokeTimerHandle, this, &AFish::DoPoke, NextDelay, false);
 }
 
 void AFish::StartStruggling()
 {
-    if (CurrentState == EFishState::Struggling || CurrentState == EFishState::Caught) return;
+	if (CurrentState == EFishState::Struggling || CurrentState == EFishState::Caught) return;
 
     CurrentState = EFishState::Struggling;
-    GetWorldTimerManager().ClearTimer(PokeTimerHandle);
+	ClearStateTimers();
 
     if (RotatingMovementComp)
     {
         RotatingMovementComp->Deactivate();
     }
+
+	//現在位置から連続して円運動を始め、状態変更時の位置飛びを防ぐ
+	const FVector CurrentOffset = GetActorLocation() - CenterLocation;
+	StruggleStartAngle = FMath::Atan2(CurrentOffset.Y, CurrentOffset.X);
+	StruggleCurrentRadius = CurrentOffset.Size2D();
+	StruggleElapsedTime = 0.0f;
 
     OnStartStruggling();
 }
+
 void AFish::CatchFish()
 {
-    if (CurrentState == EFishState::Caught) return;
+	if (CurrentState == EFishState::Caught) return;
 
     CurrentState = EFishState::Caught;
-    GetWorldTimerManager().ClearTimer(PokeTimerHandle);
+	ClearStateTimers();
 
     if (RotatingMovementComp)
     {
         RotatingMovementComp->Deactivate();
     }
 
-    //釣られた瞬間の現在地から「Z軸方向（真上）に300単位」高い位置を最終目的地として一回だけ固定保存
+	//捕獲位置の300cm上を、移動中に変化しない吊り上げ先として固定する
     CaughtTargetLocation = GetActorLocation() + FVector(0.0f, 0.0f, 300.0f);
 
-    OnCaught(); //BPイベントの実行
+	OnCaught();
+}
+
+void AFish::RotateTowardCenter(float DeltaTime, float InterpSpeed)
+{
+	const FVector DirectionToCenter = CenterLocation - GetActorLocation();
+	if (DirectionToCenter.IsNearlyZero()) return;
+
+	FRotator TargetRotation = DirectionToCenter.Rotation();
+	TargetRotation.Yaw -= 90.0f;
+
+	const FRotator SmoothRotation = FMath::RInterpTo(
+		GetActorRotation(),
+		FRotator(0.0f, TargetRotation.Yaw, 0.0f),
+		DeltaTime,
+		InterpSpeed
+	);
+	SetActorRotation(SmoothRotation);
+}
+
+void AFish::ClearStateTimers()
+{
+	GetWorldTimerManager().ClearTimer(StateTimerHandle);
+	GetWorldTimerManager().ClearTimer(PokeTimerHandle);
 }
 
 void AFish::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    RunningTime += DeltaTime;
-
     switch (CurrentState)
     {
     case EFishState::Circling:
     {
+		//周回中の移動はRotatingMovementComponentが担当する
         break;
     }
     case EFishState::MovingToCenter:
     {
-		FVector CurrentLoc = GetActorLocation();
-        FVector NewLoc = FMath::VInterpTo(GetActorLocation(), CenterLocation, DeltaTime, 2.0f);
+		//初回接近でもActor原点ではなく、魚の口先が中央へ届く位置を目標にする
+		FVector ApproachSide = GetActorLocation() - CenterLocation;
+		ApproachSide.Z = 0.0f;
+
+		if (ApproachSide.IsNearlyZero())
+		{
+			ApproachSide = -GetActorRightVector();
+			ApproachSide.Z = 0.0f;
+		}
+
+		ApproachSide.Normalize();
+		const FVector InitialPokeTarget = CenterLocation + ApproachSide * PokeContactOffset;
+		const FVector NewLoc = FMath::VInterpTo(GetActorLocation(), InitialPokeTarget, DeltaTime, 2.0f);
         SetActorLocation(NewLoc);
+		RotateTowardCenter(DeltaTime, 5.0f);
 
-        FRotator TargetRotation = (CenterLocation - CurrentLoc).Rotation();
-
-        TargetRotation.Yaw -= 90.0f;
-
-        FRotator CurrentRot = GetActorRotation();
-        FRotator SmoothRot = FMath::RInterpTo(CurrentRot, FRotator(0.0f, TargetRotation.Yaw, 0.0f), DeltaTime, 5.0f);
-        SetActorRotation(SmoothRot);
-
-        if (FVector::Dist(GetActorLocation(), CenterLocation) < 20.0f)
+		if (FVector::Dist(GetActorLocation(), InitialPokeTarget) < 1.0f)
         {
             CurrentState = EFishState::Poking;
             bApproaching = false;
@@ -159,37 +243,39 @@ void AFish::Tick(float DeltaTime)
     }
     case EFishState::Poking:
     {
-        float InterpSpeed = bApproaching ? 4.0f : 1.5f; 
-        FVector CurrentLoc = GetActorLocation();
-        FVector NewLoc = FMath::VInterpTo(GetActorLocation(), PokeTargetLocation, DeltaTime, InterpSpeed);
-        SetActorLocation(NewLoc);
+		float InterpSpeed = PokeRetreatSpeed;
+		if (bApproaching)
+		{
+			InterpSpeed = PokeApproachSpeed;
+		}
 
-        FRotator TargetRotation = (CenterLocation - CurrentLoc).Rotation();
-        TargetRotation.Yaw -= 90.0f;
-        FRotator SmoothRot = FMath::RInterpTo(GetActorRotation(), FRotator(0.0f, TargetRotation.Yaw, 0.0f), DeltaTime, 5.0f);
-        SetActorRotation(SmoothRot);
+		const FVector NewLoc = FMath::VInterpTo(GetActorLocation(), PokeTargetLocation, DeltaTime, InterpSpeed);
+        SetActorLocation(NewLoc);
+		RotateTowardCenter(DeltaTime, 5.0f);
         break;
     }
     case EFishState::Struggling:
     {
-        float FastSpeed = CircleSpeed * 4.0f;
-        float X = CenterLocation.X + FMath::Cos(RunningTime * FastSpeed) * StruggleRadius;
-        float Y = CenterLocation.Y + FMath::Sin(RunningTime * FastSpeed) * StruggleRadius;
+		StruggleElapsedTime += DeltaTime;
+		StruggleCurrentRadius = FMath::FInterpTo(StruggleCurrentRadius, StruggleRadius, DeltaTime, 3.0f);
+		const float FastSpeed = CircleSpeed * 4.0f;
+		const float CurrentAngle = StruggleStartAngle + StruggleElapsedTime * FastSpeed;
+		const float X = CenterLocation.X + FMath::Cos(CurrentAngle) * StruggleCurrentRadius;
+		const float Y = CenterLocation.Y + FMath::Sin(CurrentAngle) * StruggleCurrentRadius;
         SetActorLocation(FVector(X, Y, GetActorLocation().Z));
-
-        FRotator TargetRotation = (CenterLocation - GetActorLocation()).Rotation();
-        TargetRotation.Yaw -= 90.0f;
-
-        FRotator SmoothRot = FMath::RInterpTo(GetActorRotation(), FRotator(0.0f, TargetRotation.Yaw, 0.0f), DeltaTime, 10.0f);
-        SetActorRotation(SmoothRot);
+		RotateTowardCenter(DeltaTime, 10.0f);
         break;
     }
     case EFishState::Caught:
     {
-		FVector CurrentLoc = GetActorLocation();
-		FVector NewLoc = FMath::VInterpTo(GetActorLocation(), CaughtTargetLocation, DeltaTime, 3.0f);
-		SetActorLocation(NewLoc);
+		if (FVector::DistSquared(GetActorLocation(), CaughtTargetLocation) <= FMath::Square(1.0f))
+		{
+			SetActorLocation(CaughtTargetLocation);
+			break;
+		}
 
+		const FVector NewLoc = FMath::VInterpTo(GetActorLocation(), CaughtTargetLocation, DeltaTime, 3.0f);
+		SetActorLocation(NewLoc);
         break;
     }
     }
