@@ -45,6 +45,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Fish|Movement")
 	FVector CenterLocation;
 
+	//釣り上げ完了から魚を初期位置へ再生成するまでの時間
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Respawn", meta = (ClampMin = "0.0"))
+	float RespawnDelay = 3.0f;
+
 	//暴れるときの円運動の半径
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Movement", meta = (ClampMin = "0.0"))
 	float StruggleRadius = 30.0f;
@@ -105,16 +109,20 @@ public:
 private:
 	FTimerHandle StateTimerHandle;
 	FTimerHandle PokeTimerHandle;
+	FTimerHandle RespawnTimerHandle;
 
 	bool bApproaching = false;
+	bool bRespawnScheduled = false;
 	float StruggleElapsedTime = 0.0f;
 	float StruggleStartAngle = 0.0f;
 	float StruggleCurrentRadius = 0.0f;
 	FVector PokeTargetLocation;
 	FVector CaughtTargetLocation;
+	FTransform InitialSpawnTransform;
 
 	void TransitionToMoveToCenter();
 	void DoPoke();
+	void RespawnFish();
 	void RotateTowardCenter(float DeltaTime, float InterpSpeed);
 	void ClearStateTimers();
 };

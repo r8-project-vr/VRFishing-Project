@@ -4,6 +4,9 @@
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
+#include "Tanimura/Actor/VRPawn.h"
+#include "Lee/component/HandHeightDetectorComponent.h"
+#include "Tanimura/Component/ReelSimulatorComponent.h"
 
 AFish::AFish()
 {
@@ -19,6 +22,8 @@ void AFish::BeginPlay()
 {
 	Super::BeginPlay();
 
+	//再生成時に戻す、レベル上での初期位置・回転・スケールを保存する
+	InitialSpawnTransform = GetActorTransform();
 	const FVector SpawnLocation = GetActorLocation();
 
 	//魚のスポーン位置は動かさず、PivotTranslationが示す周回中心を固定保存する
@@ -68,6 +73,21 @@ void AFish::BeginPlay()
 		{
 			InputComponent->BindKey(EKeys::F1, IE_Pressed, this, &AFish::StartStruggling);
 			InputComponent->BindKey(EKeys::F2, IE_Pressed, this, &AFish::CatchFish);
+		}
+	}
+
+	//VRPawnの既存イベントを、F1/F2と同じ魚の状態遷移へ接続する
+	AVRPawn* VRPawn = Cast<AVRPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+	if (VRPawn)
+	{
+		if (UHandHeightDetectorComponent* HandHeightDetector = VRPawn->FindComponentByClass<UHandHeightDetectorComponent>())
+		{
+			HandHeightDetector->OnFishHit.AddUniqueDynamic(this, &AFish::StartStruggling);
+		}
+
+		if (UReelSimulatorComponent* ReelSimulator = VRPawn->FindComponentByClass<UReelSimulatorComponent>())
+		{
+			ReelSimulator->OnTargetRevolutionsReached.AddUniqueDynamic(this, &AFish::CatchFish);
 		}
 	}
 }
@@ -192,6 +212,25 @@ void AFish::CatchFish()
 	OnCaught();
 }
 
+void AFish::RespawnFish()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FActorSpawnParameters SpawnParameters;
+	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	//BP_Fishなど、現在の個体と同じ実クラスを初期Transformへ生成する
+	AFish* NewFish = World->SpawnActor<AFish>(GetClass(), InitialSpawnTransform, SpawnParameters);
+	if (NewFish)
+	{
+		Destroy();
+	}
+}
+
 void AFish::RotateTowardCenter(float DeltaTime, float InterpSpeed)
 {
 	const FVector DirectionToCenter = CenterLocation - GetActorLocation();
@@ -285,6 +324,19 @@ void AFish::Tick(float DeltaTime)
 		if (FVector::DistSquared(GetActorLocation(), CaughtTargetLocation) <= FMath::Square(1.0f))
 		{
 			SetActorLocation(CaughtTargetLocation);
+
+			//吊り上げ先へ到達した時点から一度だけ再生成タイマーを開始する
+			if (!bRespawnScheduled)
+			{
+				bRespawnScheduled = true;
+				GetWorldTimerManager().SetTimer(
+					RespawnTimerHandle,
+					this,
+					&AFish::RespawnFish,
+					RespawnDelay,
+					false
+				);
+			}
 			break;
 		}
 
