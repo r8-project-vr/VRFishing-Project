@@ -1,9 +1,8 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Lee/widget/FishFightMeterWidget.h"
 #include "Tanimura/Component/ReelSimulatorComponent.h"
 #include "GameFramework/Pawn.h"
-#include "Kismet/GameplayStatics.h"
 #include "Engine/Engine.h"
 
 UFishFightMeterWidget::UFishFightMeterWidget(const FObjectInitializer& ObjectInitializer)
@@ -15,13 +14,10 @@ void UFishFightMeterWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	// Owner Pawn からコンポーネントを自動取得
 	APawn* OwnerPawn = GetOwningPlayerPawn();
 	if (!OwnerPawn)
 	{
-		// GetOwningPlayerPawn が null の場合、PlayerController 経由で再取得を試みる
-		APlayerController* PC = GetOwningPlayer();
-		if (PC)
+		if (APlayerController* PC = GetOwningPlayer())
 		{
 			OwnerPawn = PC->GetPawn();
 		}
@@ -32,7 +28,11 @@ void UFishFightMeterWidget::NativeConstruct()
 		HandHeightDetector = OwnerPawn->FindComponentByClass<UHandHeightDetectorComponent>();
 		ReelSimulator = OwnerPawn->FindComponentByClass<UReelSimulatorComponent>();
 
-		// OnRPMCalculated デリゲートにバインド
+		if (HandHeightDetector)
+		{
+			HandHeightDetector->OnFishHit.AddDynamic(this, &UFishFightMeterWidget::OnHandCyclesComplete);
+		}
+
 		if (ReelSimulator)
 		{
 			ReelSimulator->OnRPMCalculated.AddDynamic(this, &UFishFightMeterWidget::OnRPMUpdated);
@@ -40,6 +40,15 @@ void UFishFightMeterWidget::NativeConstruct()
 
 		bComponentsInitialized = true;
 	}
+
+	// 0 なら最初から解禁
+	if (RequiredCycles <= 0)
+	{
+		bReelUnlocked = true;
+	}
+
+	// RPM 表示を初期化
+	OnRPMChanged(0.0f, EHandSpeedState::TooSlow);
 }
 
 void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
@@ -51,47 +60,51 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 		return;
 	}
 
-	// 手の高さを取得
 	const float HandPercent = HandHeightDetector ? HandHeightDetector->HandHeightPercent : 0.0f;
 
-	// 矢印の状態遷移
-	TickArrow(InDeltaTime, HandPercent);
+	// ---- 手の往復カウント（HandHeightDetectorComponent に統一） ----
+	if (!bReelUnlocked)
+	{
+		CycleCount = HandHeightDetector ? HandHeightDetector->CurrentUpAndDownCount : 0;
+	}
 
-	// BP に矢印の状態を通知
+	TickArrow(InDeltaTime, HandPercent);
 	OnArrowUpdated(ArrowPosition, ArrowState);
 
-	// ==================== Debug 表示 ====================
+	// ==================== Debug ====================
 	if (GEngine)
 	{
 		const TCHAR* ArrowStateText = TEXT("???");
 		FColor ArrowColor = FColor::White;
 		switch (ArrowState)
 		{
-		case EFishArrowState::MovingUp:			ArrowStateText = TEXT("↑ 上昇中");		ArrowColor = FColor::Cyan;		break;
-		case EFishArrowState::WaitingAtTop:		ArrowStateText = TEXT("== 上部待機");	ArrowColor = FColor::Yellow;	break;
-		case EFishArrowState::MovingDown:		ArrowStateText = TEXT("↓ 下降中");		ArrowColor = FColor::Orange;	break;
-		case EFishArrowState::WaitingAtBottom:	ArrowStateText = TEXT("== 下部待機");	ArrowColor = FColor::Yellow;	break;
+		case EFishArrowState::MovingUp:			ArrowStateText = TEXT("↑");		ArrowColor = FColor::Cyan;		break;
+		case EFishArrowState::WaitingAtTop:		ArrowStateText = TEXT("WAIT_TOP");	ArrowColor = FColor::Yellow;	break;
+		case EFishArrowState::MovingDown:		ArrowStateText = TEXT("↓");		ArrowColor = FColor::Orange;	break;
+		case EFishArrowState::WaitingAtBottom:	ArrowStateText = TEXT("WAIT_BOT");	ArrowColor = FColor::Yellow;	break;
 		}
 
 		const FString ArrowMsg = FString::Printf(
-			TEXT("[Arrow] Pos: %.2f%% | %s | Hand: %.2f%%"),
-			ArrowPosition * 100.0f, ArrowStateText, HandPercent * 100.0f);
+			TEXT("[Arrow] Pos:%.0f%% %s | Hand:%.0f%% | %d/%d %s"),
+			ArrowPosition * 100.0f, ArrowStateText, HandPercent * 100.0f,
+			CycleCount, RequiredCycles,
+			bReelUnlocked ? TEXT("UNLOCKED") : TEXT("LOCKED"));
 
 		GEngine->AddOnScreenDebugMessage(2, 0.0f, ArrowColor, ArrowMsg);
 
-		// ---- RPM 状態（最終値を毎フレーム表示し続ける） ----
-		const TCHAR* RPMStateText = TEXT("???");
+		const TCHAR* RPMText = TEXT("???");
 		FColor RPMColor = FColor::White;
 		switch (RPMState)
 		{
-		case EHandSpeedState::Good:		RPMStateText = TEXT("Good");	RPMColor = FColor::Green;	break;
-		case EHandSpeedState::TooSlow:	RPMStateText = TEXT("Too Slow");	RPMColor = FColor::Yellow;	break;
-		case EHandSpeedState::TooFast:	RPMStateText = TEXT("Too Fast");	RPMColor = FColor::Red;		break;
+		case EHandSpeedState::Good:		RPMText = TEXT("OK");	RPMColor = FColor::Green;	break;
+		case EHandSpeedState::TooSlow:	RPMText = TEXT("SLOW");	RPMColor = FColor::Yellow;	break;
+		case EHandSpeedState::TooFast:	RPMText = TEXT("FAST");	RPMColor = FColor::Red;		break;
 		}
 
 		const FString RPMMsg = FString::Printf(
-			TEXT("[RPM] %.1f RPM [%s]  (Target: %.0f +/- %.0f)"),
-			CurrentRPM, RPMStateText, TargetRPM, RPMTolerance);
+			TEXT("[RPM] %.1f [%s] (%.0f+/-%.0f) %s"),
+			CurrentRPM, RPMText, TargetRPM, RPMTolerance,
+			bReelUnlocked ? TEXT("") : TEXT("| LOCKED"));
 
 		GEngine->AddOnScreenDebugMessage(3, 0.0f, RPMColor, RPMMsg);
 	}
@@ -114,7 +127,6 @@ void UFishFightMeterWidget::TickArrow(float InDeltaTime, float HandPercent)
 
 	case EFishArrowState::WaitingAtTop:
 	{
-		// プレイヤーの手が上部（100% 付近）に到達したら下降開始
 		if (HandPercent >= (1.0f - ArrowWaitThreshold))
 		{
 			ArrowState = EFishArrowState::MovingDown;
@@ -129,13 +141,13 @@ void UFishFightMeterWidget::TickArrow(float InDeltaTime, float HandPercent)
 		{
 			ArrowPosition = 0.0f;
 			ArrowState = EFishArrowState::WaitingAtBottom;
+
 		}
 		break;
 	}
 
 	case EFishArrowState::WaitingAtBottom:
 	{
-		// プレイヤーの手が下部（0% 付近）に到達したら上昇開始
 		if (HandPercent <= ArrowWaitThreshold)
 		{
 			ArrowState = EFishArrowState::MovingUp;
@@ -147,9 +159,14 @@ void UFishFightMeterWidget::TickArrow(float InDeltaTime, float HandPercent)
 
 void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 {
+	// 規定回数完了まで RPM 入力を受け付けない
+	if (!bReelUnlocked)
+	{
+		return;
+	}
+
 	CurrentRPM = NewRPM;
 
-	// RPM の適正判定（30±10 RPM）
 	if (NewRPM < TargetRPM - RPMTolerance)
 	{
 		RPMState = EHandSpeedState::TooSlow;
@@ -163,6 +180,11 @@ void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 		RPMState = EHandSpeedState::Good;
 	}
 
-	// BP に RPM 状態変化を通知
 	OnRPMChanged(CurrentRPM, RPMState);
+}
+
+void UFishFightMeterWidget::OnHandCyclesComplete()
+{
+	bReelUnlocked = true;
+	CycleCount = RequiredCycles;	// 表示を 5/5 に更新
 }

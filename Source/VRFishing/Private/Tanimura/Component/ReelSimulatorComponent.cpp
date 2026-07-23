@@ -29,6 +29,15 @@ void UReelSimulatorComponent::ResetRevolutionCount()
 
 void UReelSimulatorComponent::SimulateReelByStick(FVector2D StickInput)
 {
+    //Lee 26.7.24 start
+    // 非アクティブ時（非Reelingモード）は入力を無視
+    if (!IsActive())
+    {
+        return;
+    }
+    //Lee 26.7.24 end
+
+
     // 入力値が閾値未満なら追跡しない
     if (StickInput.SizeSquared() < FMath::Square(StickThreshold)) {
         bIsStickTracking = false;
@@ -59,6 +68,15 @@ void UReelSimulatorComponent::SimulateReelByStick(FVector2D StickInput)
 
 void UReelSimulatorComponent::SimulateReelByWheel()
 {
+    //Lee 26.7.24 start
+    // 非アクティブ時（非Reelingモード）は入力を無視
+    if (!IsActive())
+    {
+        return;
+    }
+    //Lee 26.7.24 end
+
+
     //// ホイール操作時はスティックの追跡状態をリセット
     //bIsStickTracking = false;
 
