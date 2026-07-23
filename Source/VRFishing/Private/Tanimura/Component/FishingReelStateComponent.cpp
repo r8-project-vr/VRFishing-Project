@@ -1,10 +1,10 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Tanimura/Component/ReelSimulatorComponent.h"
+#include "Tanimura/Component/FishingReelStateComponent.h"
 
 // Sets default values for this component's properties
-UReelSimulatorComponent::UReelSimulatorComponent()
+UFishingReelStateComponent::UFishingReelStateComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;  // Tickオフ
 
@@ -20,14 +20,14 @@ UReelSimulatorComponent::UReelSimulatorComponent()
 }
 
 // === 追加：リセット処理の実装 ===
-void UReelSimulatorComponent::ResetRevolutionCount()
+void UFishingReelStateComponent::ResetRevolutionCount()
 {
     CurrentRevolutionCount = 0;
     AccumulatedAngleRad = 0.0f;
     bIsMeasuringRotation = false;
 }
 
-void UReelSimulatorComponent::SimulateReelByStick(FVector2D StickInput)
+void UFishingReelStateComponent::SimulateReelByStick(FVector2D StickInput)
 {
     //Lee 26.7.24 start
     // 非アクティブ時（非Reelingモード）は入力を無視
@@ -66,7 +66,7 @@ void UReelSimulatorComponent::SimulateReelByStick(FVector2D StickInput)
     LastAngle = CurrentAngle;
 }
 
-void UReelSimulatorComponent::SimulateReelByWheel()
+void UFishingReelStateComponent::SimulateReelByWheel()
 {
     //Lee 26.7.24 start
     // 非アクティブ時（非Reelingモード）は入力を無視
@@ -84,7 +84,7 @@ void UReelSimulatorComponent::SimulateReelByWheel()
     CalculateRPM(WheelNotchAngleRad);
 }
 
-void UReelSimulatorComponent::CalculateRPM(float DeltaAngle)
+void UFishingReelStateComponent::CalculateRPM(float DeltaAngle)
 {
     const UWorld* World = GetWorld();
     if (!World) {
@@ -138,7 +138,7 @@ void UReelSimulatorComponent::CalculateRPM(float DeltaAngle)
     }
 }
 
-//void UReelSimulatorComponent::SimulateReelByKey(float InputRPM)
+//void UFishingReelStateComponent::SimulateReelByKey(float InputRPM)
 //{
 //    // 引数で受け取ったRPMの値をそのままデリゲートで通知
 //    OnRPMCalculated.Broadcast(InputRPM);

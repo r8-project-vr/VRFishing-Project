@@ -7,7 +7,7 @@
 #include "Lee/component/HandHeightDetectorComponent.h"
 #include "FishFightMeterWidget.generated.h"
 
-class UReelSimulatorComponent;
+class UFishingReelStateComponent;
 
 UENUM(BlueprintType)
 enum class EFishArrowState : uint8
@@ -90,7 +90,7 @@ private:
 	TObjectPtr<UHandHeightDetectorComponent> HandHeightDetector;
 
 	UPROPERTY()
-	TObjectPtr<UReelSimulatorComponent> ReelSimulator;
+	TObjectPtr<UFishingReelStateComponent> ReelSimulator;
 
 	bool bComponentsInitialized = false;
 };

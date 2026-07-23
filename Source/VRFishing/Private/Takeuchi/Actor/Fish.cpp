@@ -6,7 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Tanimura/Actor/VRPawn.h"
 #include "Lee/component/HandHeightDetectorComponent.h"
-#include "Tanimura/Component/ReelSimulatorComponent.h"
+#include "Tanimura/Component/FishingReelStateComponent.h"
 
 AFish::AFish()
 {
@@ -85,7 +85,7 @@ void AFish::BeginPlay()
 			HandHeightDetector->OnFishHit.AddUniqueDynamic(this, &AFish::StartStruggling);
 		}
 
-		if (UReelSimulatorComponent* ReelSimulator = VRPawn->FindComponentByClass<UReelSimulatorComponent>())
+		if (UFishingReelStateComponent* ReelSimulator = VRPawn->FindComponentByClass<UFishingReelStateComponent>())
 		{
 			ReelSimulator->OnTargetRevolutionsReached.AddUniqueDynamic(this, &AFish::CatchFish);
 		}
