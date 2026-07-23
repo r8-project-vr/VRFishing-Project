@@ -28,6 +28,11 @@ void UFishFightMeterWidget::NativeConstruct()
 		HandHeightDetector = OwnerPawn->FindComponentByClass<UHandHeightDetectorComponent>();
 		ReelSimulator = OwnerPawn->FindComponentByClass<UReelSimulatorComponent>();
 
+		if (HandHeightDetector)
+		{
+			HandHeightDetector->OnFishHit.AddDynamic(this, &UFishFightMeterWidget::OnHandCyclesComplete);
+		}
+
 		if (ReelSimulator)
 		{
 			ReelSimulator->OnRPMCalculated.AddDynamic(this, &UFishFightMeterWidget::OnRPMUpdated);
@@ -57,22 +62,10 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 
 	const float HandPercent = HandHeightDetector ? HandHeightDetector->HandHeightPercent : 0.0f;
 
-	// ---- 手の往復カウント（矢印の位置とは無関係） ----
+	// ---- 手の往復カウント（HandHeightDetectorComponent に統一） ----
 	if (!bReelUnlocked)
 	{
-		if (HandPercent >= (1.0f - ArrowWaitThreshold))
-		{
-			bHandReachedTop = true;
-		}
-		if (bHandReachedTop && HandPercent <= ArrowWaitThreshold)
-		{
-			bHandReachedTop = false;
-			CycleCount++;
-			if (CycleCount >= RequiredCycles)
-			{
-				bReelUnlocked = true;
-			}
-		}
+		CycleCount = HandHeightDetector ? HandHeightDetector->CurrentUpAndDownCount : 0;
 	}
 
 	TickArrow(InDeltaTime, HandPercent);
@@ -188,4 +181,10 @@ void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 	}
 
 	OnRPMChanged(CurrentRPM, RPMState);
+}
+
+void UFishFightMeterWidget::OnHandCyclesComplete()
+{
+	bReelUnlocked = true;
+	CycleCount = RequiredCycles;	// 表示を 5/5 に更新
 }

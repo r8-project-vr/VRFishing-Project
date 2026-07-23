@@ -80,6 +80,10 @@ private:
 	UFUNCTION()
 	void OnRPMUpdated(float NewRPM);
 
+	/** HandHeightDetector が目標回数に達したときのコールバック */
+	UFUNCTION()
+	void OnHandCyclesComplete();
+
 	void TickArrow(float InDeltaTime, float HandPercent);
 
 	UPROPERTY()
@@ -89,7 +93,4 @@ private:
 	TObjectPtr<UReelSimulatorComponent> ReelSimulator;
 
 	bool bComponentsInitialized = false;
-
-	/** 手が上部に到達したか（往復カウント用） */
-	bool bHandReachedTop = false;
 };
