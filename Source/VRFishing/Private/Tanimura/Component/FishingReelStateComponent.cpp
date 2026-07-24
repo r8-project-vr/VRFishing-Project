@@ -17,6 +17,7 @@ UFishingReelStateComponent::UFishingReelStateComponent()
     bIsMeasuringRotation = false;
     // RevTime = 0.0f;
     bIsStickTracking = false;
+    TargetRevolutionCount = 10;
 }
 
 // === 追加：リセット処理の実装 ===
