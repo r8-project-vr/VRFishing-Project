@@ -48,6 +48,20 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|RPM")
 	float RPMTolerance = 10.0f;
 
+	// ==================== スコアリング ====================
+
+	/** 手と矢印の位置誤差がこれ以下なら満点扱い (0.0〜1.0) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Scoring", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float ScoringPerfectThreshold = 0.05f;
+
+	/** 手と矢印の位置誤差がこれ以上なら0点扱い (0.0〜1.0) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Scoring", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float ScoringFailThreshold = 0.3f;
+
+	/** スコアの平滑化係数（大きいほど変動が速い） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Scoring", meta = (ClampMin = "0.1"))
+	float ScoreSmoothingFactor = 5.0f;
+
 	// ==================== 出力 ====================
 
 	UPROPERTY(BlueprintReadOnly, Category = "Meter|Arrow")
@@ -68,6 +82,16 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Meter|RPM")
 	EHandSpeedState RPMState = EHandSpeedState::Good;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Meter|Scoring")
+	float CurrentScore = 0.0f;
+
+	// ================================================================
+	// ★ FinalScore — 全回数終了後の総合得点（全フレーム平均 × 100）
+	//   以降のフェーズ（Catching / リザルト表示 etc）で参照する
+	// ================================================================
+	UPROPERTY(BlueprintReadOnly, Category = "Meter|Scoring")
+	float FinalScore = 0.0f;
+
 	// ==================== BP イベント ====================
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|Arrow")
@@ -75,6 +99,9 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|RPM")
 	void OnRPMChanged(float RPM, EHandSpeedState State);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|Scoring")
+	void OnScoreChanged(float Score);
 
 private:
 	UFUNCTION()
@@ -93,4 +120,8 @@ private:
 	TObjectPtr<UFishingReelStateComponent> ReelSimulator;
 
 	bool bComponentsInitialized = false;
+
+	// スコアの累積値（全フレーム平均算出用）
+	float TotalQualitySum = 0.0f;
+	int32 TotalFrameCount = 0;
 };
