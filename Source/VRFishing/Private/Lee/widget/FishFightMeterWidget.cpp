@@ -63,9 +63,45 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 	const float HandPercent = HandHeightDetector ? HandHeightDetector->HandHeightPercent : 0.0f;
 
 	// ---- 手の往復カウント（HandHeightDetectorComponent に統一） ----
+	CycleCount = HandHeightDetector ? HandHeightDetector->CurrentUpAndDownCount : 0;
+
+	// ---- 自動リロック：次の Attract フェーズでカウントが動き始めたら再ロック ----
+	if (bReelUnlocked && CycleCount > 0)
+	{
+		bReelUnlocked = false;
+		CurrentScore = 0.0f;
+		TotalQualitySum = 0.0f;
+		TotalFrameCount = 0;
+		ArrowPosition = 0.0f;
+		ArrowState = EFishArrowState::MovingUp;
+	}
+
+	// ---- スコア計算（Attract フェーズ中のみ） ----
 	if (!bReelUnlocked)
 	{
-		CycleCount = HandHeightDetector ? HandHeightDetector->CurrentUpAndDownCount : 0;
+		const float PositionError = FMath::Abs(HandPercent - ArrowPosition);
+		float MatchQuality;
+		if (PositionError <= ScoringPerfectThreshold)
+		{
+			MatchQuality = 1.0f;
+		}
+		else if (PositionError >= ScoringFailThreshold)
+		{
+			MatchQuality = 0.0f;
+		}
+		else
+		{
+			MatchQuality = 1.0f - (PositionError - ScoringPerfectThreshold) / (ScoringFailThreshold - ScoringPerfectThreshold);
+		}
+
+		// 全フレーム累積（最終的な平均点算出用）
+		TotalQualitySum += MatchQuality;
+		TotalFrameCount++;
+
+		const float Alpha = FMath::Clamp(ScoreSmoothingFactor * InDeltaTime, 0.0f, 1.0f);
+		CurrentScore = FMath::Lerp(CurrentScore, MatchQuality * 100.0f, Alpha);
+
+		OnScoreChanged(CurrentScore);
 	}
 
 	TickArrow(InDeltaTime, HandPercent);
@@ -107,6 +143,12 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 			bReelUnlocked ? TEXT("") : TEXT("| LOCKED"));
 
 		GEngine->AddOnScreenDebugMessage(3, 0.0f, RPMColor, RPMMsg);
+
+		const FColor ScoreColor = FinalScore >= 80.0f ? FColor::Green : (FinalScore >= 50.0f ? FColor::Yellow : FColor::Red);
+		const FString ScoreMsg = FString::Printf(
+			TEXT("[Score] Final: %.0f / 100 | Live: %.0f"),
+			FinalScore, CurrentScore);
+		GEngine->AddOnScreenDebugMessage(4, 0.0f, ScoreColor, ScoreMsg);
 	}
 }
 
@@ -187,4 +229,11 @@ void UFishFightMeterWidget::OnHandCyclesComplete()
 {
 	bReelUnlocked = true;
 	CycleCount = RequiredCycles;	// 表示を 5/5 に更新
+	// 全フレームの真の平均点を最終スコアとする
+	// ================================================================
+	// ★ FinalScore = 全フレームの真の平均点
+	//   リール解禁時に確定し、以降のフェーズで参照される
+	// ================================================================
+	FinalScore = (TotalFrameCount > 0) ? (TotalQualitySum / TotalFrameCount) * 100.0f : 0.0f;
+	OnScoreChanged(FinalScore);
 }
