@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "ReelSimulatorComponent.generated.h"
+#include "FishingReelStateComponent.generated.h"
 
 // RPMが算出されたことを通知するデリゲート
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRPMCalculated, float, NewRPM);
@@ -18,13 +18,13 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTargetRevolutionsReached);
  */
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class VRFISHING_API UReelSimulatorComponent : public UActorComponent
+class VRFISHING_API UFishingReelStateComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
 public:	
 	// Sets default values for this component's properties
-	UReelSimulatorComponent();
+	UFishingReelStateComponent();
 
 	// スティック入力を基にRPMシミュレーションを実行
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")

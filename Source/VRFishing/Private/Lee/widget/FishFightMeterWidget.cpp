@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Lee/widget/FishFightMeterWidget.h"
-#include "Tanimura/Component/ReelSimulatorComponent.h"
+#include "Tanimura/Component/FishingReelStateComponent.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/Engine.h"
 
@@ -26,7 +26,7 @@ void UFishFightMeterWidget::NativeConstruct()
 	if (OwnerPawn)
 	{
 		HandHeightDetector = OwnerPawn->FindComponentByClass<UHandHeightDetectorComponent>();
-		ReelSimulator = OwnerPawn->FindComponentByClass<UReelSimulatorComponent>();
+		ReelSimulator = OwnerPawn->FindComponentByClass<UFishingReelStateComponent>();
 
 		if (HandHeightDetector)
 		{
