@@ -3,32 +3,27 @@
 
 #include "Tanimura/Component/FishingStateComponentBase.h"
 
-// Sets default values for this component's properties
 UFishingStateComponentBase::UFishingStateComponentBase()
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
-
-	// ...
+	PrimaryComponentTick.bCanEverTick = false;
+	bAutoActivate = false;
 }
 
 
-// Called when the game starts
 void UFishingStateComponentBase::BeginPlay()
 {
 	Super::BeginPlay();
-
-	// ...
-	
 }
 
 
-// Called every frame
-void UFishingStateComponentBase::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void UFishingStateComponentBase::EnterState_Implementation()
 {
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// ...
+	// コンポーネントを有効化
+	Activate(true);
 }
 
+void UFishingStateComponentBase::ExitState_Implementation()
+{
+	// コンポーネントを無効化
+	Deactivate();
+}
