@@ -6,6 +6,8 @@
 #include "Components/ActorComponent.h"
 #include "FishingStateComponentBase.generated.h"
 
+// 各ステート（モード）において、完了したことを通知するデリゲートの型
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnFishingStateCompleted);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class VRFISHING_API UFishingStateComponentBase : public UActorComponent
@@ -13,16 +15,24 @@ class VRFISHING_API UFishingStateComponentBase : public UActorComponent
 	GENERATED_BODY()
 
 public:	
-	// Sets default values for this component's properties
 	UFishingStateComponentBase();
 
+	// ステート開始時に呼び出す関数
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Fishing|State")
+	void EnterState();
+
+	// ステート終了時に呼び出す関数
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Fishing|State")
+	void ExitState();
+
+	// ステート完了時に発火するイベント
+	UPROPERTY(BlueprintAssignable, Category = "Fishing|State")
+	FOnFishingStateCompleted OnFishingStateCompleted;
+
 protected:
-	// Called when the game starts
 	virtual void BeginPlay() override;
 
-public:	
-	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
-		
+	// C++ 側の Enter/Exit 処理の実装用 
+	virtual void EnterState_Implementation();
+	virtual void ExitState_Implementation();
 };
