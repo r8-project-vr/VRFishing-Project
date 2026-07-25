@@ -21,6 +21,8 @@ Saved/
 *.slnx
 *.csproj
 *.xcodeproj
+# 追加（新しいメンバーが入ったら、共有したほうがセットアップ楽かも）
+.vsconfig
 
 # OS-specific junk
 .DS_Store
