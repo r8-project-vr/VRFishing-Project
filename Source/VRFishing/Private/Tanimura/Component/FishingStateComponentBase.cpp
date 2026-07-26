@@ -22,6 +22,11 @@ void UFishingStateComponentBase::EnterState_Implementation()
 	Activate(true);
 }
 
+void UFishingStateComponentBase::UpdateState(float DeltaTime)
+{
+
+}
+
 void UFishingStateComponentBase::ExitState_Implementation()
 {
 	// コンポーネントを無効化
