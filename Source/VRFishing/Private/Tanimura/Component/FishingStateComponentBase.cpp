@@ -5,25 +5,17 @@
 
 UFishingStateComponentBase::UFishingStateComponentBase()
 {
-	PrimaryComponentTick.bCanEverTick = false;
-	bAutoActivate = false;
+    PrimaryComponentTick.bCanEverTick = false;
 }
 
-
-void UFishingStateComponentBase::BeginPlay()
+void UFishingStateComponentBase::EnterState()
 {
-	Super::BeginPlay();
 }
 
-
-void UFishingStateComponentBase::EnterState_Implementation()
+void UFishingStateComponentBase::UpdateState(float DeltaTime)
 {
-	// コンポーネントを有効化
-	Activate(true);
 }
 
-void UFishingStateComponentBase::ExitState_Implementation()
+void UFishingStateComponentBase::ExitState()
 {
-	// コンポーネントを無効化
-	Deactivate();
 }

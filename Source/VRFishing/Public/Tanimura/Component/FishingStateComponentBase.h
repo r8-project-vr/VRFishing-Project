@@ -6,33 +6,31 @@
 #include "Components/ActorComponent.h"
 #include "FishingStateComponentBase.generated.h"
 
-// 各ステート（モード）において、完了したことを通知するデリゲートの型
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnFishingStateCompleted);
+// ステート完了時に発火するデリゲートの型宣言
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFishingStateCompleted, bool, bIsSuccess);
 
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+UCLASS(Abstract, Blueprintable, ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class VRFISHING_API UFishingStateComponentBase : public UActorComponent
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
-public:	
-	UFishingStateComponentBase();
+public:
+    UFishingStateComponentBase();
 
-	// ステート開始時に呼び出す関数
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Fishing|State")
-	void EnterState();
+    // ステート開始時の共通処理
+    UFUNCTION(BlueprintCallable, Category = "Fishing|State")
+    virtual void EnterState();
 
-	// ステート終了時に呼び出す関数
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Fishing|State")
-	void ExitState();
+    // ステート更新時の共通処理
+    UFUNCTION(BlueprintCallable, Category = "Fishing|State")
+    virtual void UpdateState(float DeltaTime);
 
-	// ステート完了時に発火するイベント
-	UPROPERTY(BlueprintAssignable, Category = "Fishing|State")
-	FOnFishingStateCompleted OnFishingStateCompleted;
+    // ステート終了時の共通処理
+    UFUNCTION(BlueprintCallable, Category = "Fishing|State")
+    virtual void ExitState();
 
-protected:
-	virtual void BeginPlay() override;
-
-	// C++ 側の Enter/Exit 処理の実装用 
-	virtual void EnterState_Implementation();
-	virtual void ExitState_Implementation();
+public:
+    // ステート完了を外部へ通知するデリゲートインスタンス
+    UPROPERTY(BlueprintAssignable, Category = "Fishing|Events")
+    FOnFishingStateCompleted OnFishingStateCompleted;
 };
