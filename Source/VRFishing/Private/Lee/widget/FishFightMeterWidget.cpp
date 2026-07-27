@@ -30,7 +30,7 @@ void UFishFightMeterWidget::NativeConstruct()
 
 		if (HandHeightDetector)
 		{
-			HandHeightDetector->OnFishHit.AddDynamic(this, &UFishFightMeterWidget::OnHandCyclesComplete);
+			HandHeightDetector->OnFishingStateCompleted.AddDynamic(this, &UFishFightMeterWidget::OnHandUpDownCompleted);
 		}
 
 		if (ReelSimulator)
@@ -225,11 +225,15 @@ void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 	OnRPMChanged(CurrentRPM, RPMState);
 }
 
-void UFishFightMeterWidget::OnHandCyclesComplete()
+void UFishFightMeterWidget::OnHandUpDownCompleted(bool bIsSuccess)
 {
+	if (!bIsSuccess)
+	{
+		return;
+	}
+
 	bReelUnlocked = true;
 	CycleCount = RequiredCycles;	// 表示を 5/5 に更新
-	// 全フレームの真の平均点を最終スコアとする
 	// ================================================================
 	// ★ FinalScore = 全フレームの真の平均点
 	//   リール解禁時に確定し、以降のフェーズで参照される

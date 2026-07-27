@@ -9,14 +9,10 @@
 #include "Engine/Engine.h"
 #include "DrawDebugHelpers.h"
 
-// Sets default values for this component's properties
 UHandHeightDetectorComponent::UHandHeightDetectorComponent()
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
-
-	// ...
+	// ステート単体でのTickは無効化（Manager経由でUpdateStateが呼ばれる）
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 
@@ -36,20 +32,26 @@ void UHandHeightDetectorComponent::BeginPlay()
 	
 }
 
-// 谷村（後で消す）====================
-// === 追加：カウント初期化処理 ===
-void UHandHeightDetectorComponent::ResetUpAndDownCount()
+void UHandHeightDetectorComponent::EnterState()
 {
+	Super::EnterState();
+
+	// カウンターと状態フラグを初期化
 	CurrentUpAndDownCount = 0;
 	bIsHandAtTop = false;
+	bIsCompleted = false;
+	bHasPreviousLocation = false;
 }
-// 谷村（後で消す）====================
 
-
-// Called every frame
-void UHandHeightDetectorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void UHandHeightDetectorComponent::UpdateState(float DeltaTime)
 {
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	Super::UpdateState(DeltaTime);
+
+	// 処理完了済みなら判定を行わない（二重発火防止）
+	if (bIsCompleted)
+	{
+		return;
+	}
 
 	// @brief 両方の必須コンポーネントが取得されていることを確認
 	if (!CameraRef.IsValid() || !HandRef.IsValid())
@@ -96,25 +98,26 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, ELevelTick Tic
 		}
 	}
 
-	// 谷村（後で消す）====================
-	// 上げ下げ回数の判定
+	// ==================== 腕上下回数の判定 ====================
 
-	if (!bIsHandAtTop && HandHeightPercent >= UpperThresholdPercent) {
+	if (!bIsHandAtTop && HandHeightPercent >= UpperThresholdPercent)
+	{
 		// 手が上端領域に到達
 		bIsHandAtTop = true;
 	}
-	else if (bIsHandAtTop && HandHeightPercent <= LowerThresholdPercent) {
+	else if (bIsHandAtTop && HandHeightPercent <= LowerThresholdPercent)
+	{
 		// 上端に到達した状態から下端領域まで下がったため 1 回とカウント
 		bIsHandAtTop = false;
 		CurrentUpAndDownCount++;
 
-		// 目標回数（5回）に達したらイベントを発火
-		if (CurrentUpAndDownCount >= TargetUpAndDownCount) {
-			OnFishHit.Broadcast();
-			ResetUpAndDownCount();
+		// 目標回数に達したらステート完了を通知
+		if (CurrentUpAndDownCount >= TargetUpAndDownCount)
+		{
+			bIsCompleted = true;
+			OnFishingStateCompleted.Broadcast(true);
 		}
 	}
-	// 谷村（後で消す）====================
 
 	// @brief 次のフレームのために現在位置を保存
 	PreviousHandLocation = CurrentHandLocation;
@@ -143,5 +146,15 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, ELevelTick Tic
 			GEngine->AddOnScreenDebugMessage(1, 0.0f, StateColor, DebugMsg);
 		}
 	}
+}
+
+void UHandHeightDetectorComponent::ExitState()
+{
+	Super::ExitState();
+
+	// 変数リセット
+	CurrentUpAndDownCount = 0;
+	bIsHandAtTop = false;
+	bIsCompleted = false;
 }
 

@@ -10,7 +10,9 @@
 // 各モードコンポーネントの前方宣言
 class UFishingStateManagerComponent;
 class UFishingStateWait;            // モード１
-//class UHandHeightDetectorComponent; // モード２
+// 2026.07.27 Lee start
+class UHandHeightDetectorComponent; // モード２
+// 2026.07.27 Lee end
 class UFishingReelStateComponent;            // モード３
 class UFishingCatchingStateComponent;        // モード４
 class UUserWidget;
@@ -43,6 +45,12 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UFishingStateWait> WaitStateComponent;
 
+    // 2026.07.27 Lee start
+    // 手の上下運動検出ステートコンポーネント（モード２）
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    TObjectPtr<UHandHeightDetectorComponent> HandUpDownComponent;
+    // 2026.07.27 Lee end
+
     // リール回転状態コンポーネント
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UFishingReelStateComponent> ReelStateComponent;
@@ -59,6 +67,12 @@ private:
     // 待機ステート完了時の通知を受け取るハンドラー
     UFUNCTION()
     void OnWaitStateCompleted(bool bIsSuccess);
+
+    // 2026.07.27 Lee start
+    // 手の上下運動完了時の通知を受け取るハンドラー
+    UFUNCTION()
+    void OnHandUpDownCompleted(bool bIsSuccess);
+    // 2026.07.27 Lee end
 
     // リール目標回転数達成時の通知を受け取るハンドラー
     UFUNCTION()

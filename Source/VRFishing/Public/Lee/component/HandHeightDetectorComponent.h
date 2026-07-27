@@ -3,15 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/ActorComponent.h"
+#include "Tanimura/Component/FishingStateComponentBase.h"
 #include "HandHeightDetectorComponent.generated.h"
 
 class UCameraComponent;
 class USceneComponent;
-
-// 谷村（後で消す）
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnFishHit);
-// 谷村（後で消す）
 
 /** 手の移動速度の判定状態 */
 UENUM(BlueprintType)
@@ -23,30 +19,24 @@ enum class EHandSpeedState : uint8
 };
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class VRFISHING_API UHandHeightDetectorComponent : public UActorComponent
+class VRFISHING_API UHandHeightDetectorComponent : public UFishingStateComponentBase
 {
 	GENERATED_BODY()
 
-public:	
+public:
 	// Sets default values for this component's properties
 	UHandHeightDetectorComponent();
 
-	// 谷村（後で消す）
-	UPROPERTY(BlueprintAssignable, Category = "Fishing Events")
-	FOnFishHit OnFishHit;
-
-	UFUNCTION(BlueprintCallable, Category = "Height Detection")
-	void ResetUpAndDownCount();
-	// 谷村（後で消す）
+	// --- UFishingStateComponentBase overrides ---
+	virtual void EnterState() override;
+	virtual void UpdateState(float DeltaTime) override;
+	virtual void ExitState() override;
 
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
-public:	
-	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
+public:
 	// ==================== 設定パラメータ ====================
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Height Detection")
@@ -92,23 +82,23 @@ public:
 	UPROPERTY(BlueprintReadWrite, BlueprintReadWrite, Category = "Height Detection|References")
 	TWeakObjectPtr<USceneComponent> HandRef;
 
-	// 谷村（後で消す）==================== 
-	// === 追加：ヒットまでに必要な上げ下げの目標回数 ===
+	// ==================== 腕上下カウント ====================
+
+	/// @brief ヒットまでに必要な上げ下げの目標回数
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Height Detection|Count")
 	int32 TargetUpAndDownCount = 5;
 
-	// === 追加：手を「上がった」と判定するパーセンテージ閾値 (0.0～1.0) ===
+	/// @brief 手を「上がった」と判定するパーセンテージ閾値 (0.0～1.0)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Height Detection|Count", meta = (ClampMin = "0.5", ClampMax = "1.0"))
 	float UpperThresholdPercent = 0.8f;
 
-	// === 追加：手を「下がった」と判定するパーセンテージ閾値 (0.0～1.0) ===
+	/// @brief 手を「下がった」と判定するパーセンテージ閾値 (0.0～1.0)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Height Detection|Count", meta = (ClampMin = "0.0", ClampMax = "0.5"))
 	float LowerThresholdPercent = 0.2f;
 
-	// === 追加：現在の上げ下げ達成回数 ===
+	/// @brief 現在の上げ下げ達成回数
 	UPROPERTY(BlueprintReadOnly, Category = "Height Detection|Count")
 	int32 CurrentUpAndDownCount = 0;
-	// 谷村（後で消す）==================== 
 
 private:
 	/** 前フレームの手のワールド位置（速度計算用） */
@@ -117,8 +107,9 @@ private:
 	/** PreviousHandLocation が有効か（最初のフレームは無効） */
 	bool bHasPreviousLocation = false;
 
-	// 谷村（後で消す）==================== 
-	// === 追加：手が現在「上位置」に達しているかのフラグ ===
+	/** 手が現在「上位置」に達しているかのフラグ */
 	bool bIsHandAtTop = false;
-	// 谷村（後で消す）==================== 
+
+	/** 完了フラグ（OnFishingStateCompleted の二重発火防止） */
+	bool bIsCompleted = false;
 };
