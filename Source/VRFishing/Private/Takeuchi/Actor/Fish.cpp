@@ -11,7 +11,9 @@
 #include "Tanimura/Component/FishingStateWait.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
 #include "Tanimura/Component/FishingCatchingStateComponent.h"
-// #include "Lee/component/HandHeightDetectorComponent.h" // [追加準備] HandHeightDetectorComponent作成後に有効化
+// 2026.07.27 Lee start
+#include "Lee/component/HandHeightDetectorComponent.h"
+// 2026.07.27 Lee end
 // 2026.07.27 谷村　endーーーーーーーーーー
 
 AFish::AFish()
@@ -124,12 +126,12 @@ void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 			}
 		}
 	}
-	/* [追加準備] HandHeightDetectorComponent 作成後にコメントアウトを解除してください
+	// 2026.07.27 Lee start
 	// 高さ検知モード (HandHeight): 中心移動 (MovingToCenter) 経由で つつき (Poking) へ
 	else if (NewState->IsA<UHandHeightDetectorComponent>()) {
 		TransitionToMoveToCenter();
 	}
-	*/
+	// 2026.07.27 Lee end
 	// リール回転モード (Reel): 暴れる (Struggling)
 	else if (NewState->IsA<UFishingReelStateComponent>()) {
 		StartStruggling();

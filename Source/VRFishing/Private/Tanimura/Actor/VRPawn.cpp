@@ -17,6 +17,9 @@ AVRPawn::AVRPawn()
     // 各ステートコンポーネントおよびマネージャーの生成
     StateManagerComponent = CreateDefaultSubobject<UFishingStateManagerComponent>(TEXT("StateManagerComponent"));
     WaitStateComponent = CreateDefaultSubobject<UFishingStateWait>(TEXT("WaitStateComponent"));
+    // 2026.07.27 Lee start
+    HandUpDownComponent = CreateDefaultSubobject<UHandHeightDetectorComponent>(TEXT("HandUpDownComponent"));
+    // 2026.07.27 Lee end
     ReelStateComponent = CreateDefaultSubobject<UFishingReelStateComponent>(TEXT("ReelStateComponent"));
     CatchingStateComponent = CreateDefaultSubobject<UFishingCatchingStateComponent>(TEXT("CatchingStateComponent"));
 }
@@ -34,6 +37,13 @@ void AVRPawn::BeginPlay()
     if (ReelStateComponent) {
         ReelStateComponent->OnTargetRevolutionsReached.AddDynamic(this, &AVRPawn::OnReelTargetReached);
     }
+
+    // 2026.07.27 Lee start
+    // 手の上下運動ステートの完了イベントをバインド
+    if (HandUpDownComponent) {
+        HandUpDownComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnHandUpDownCompleted);
+    }
+    // 2026.07.27 Lee end
 
     // 釣り上げステートの完了イベントをバインド
     if (CatchingStateComponent) {
@@ -64,10 +74,12 @@ void AVRPawn::InjectReelWheelInput()
 
 void AVRPawn::OnWaitStateCompleted(bool bIsSuccess)
 {
-    // 待機条件達成時にリールステートへ遷移
-    if (bIsSuccess && StateManagerComponent && ReelStateComponent) {
-        StateManagerComponent->ChangeState(ReelStateComponent);
+    // 2026.07.27 Lee start
+    // 旧: StateManagerComponent->ChangeState(ReelStateComponent);
+    if (bIsSuccess && StateManagerComponent && HandUpDownComponent) {
+        StateManagerComponent->ChangeState(HandUpDownComponent);
     }
+    // 2026.07.27 Lee end
 }
 
 void AVRPawn::OnReelTargetReached()
@@ -88,3 +100,13 @@ void AVRPawn::OnCatchingStateCompleted(bool bIsSuccess)
         }
     }
 }
+
+// 2026.07.27 Lee start
+void AVRPawn::OnHandUpDownCompleted(bool bIsSuccess)
+{
+    // 手の上下運動完了時にリールステートへ遷移
+    if (bIsSuccess && StateManagerComponent && ReelStateComponent) {
+        StateManagerComponent->ChangeState(ReelStateComponent);
+    }
+}
+// 2026.07.27 Lee end

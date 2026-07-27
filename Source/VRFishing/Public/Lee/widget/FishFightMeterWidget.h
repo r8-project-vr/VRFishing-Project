@@ -109,7 +109,7 @@ private:
 
 	/** HandHeightDetector が目標回数に達したときのコールバック */
 	UFUNCTION()
-	void OnHandCyclesComplete();
+	void OnHandUpDownCompleted(bool bIsSuccess);
 
 	void TickArrow(float InDeltaTime, float HandPercent);
 
