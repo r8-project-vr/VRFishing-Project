@@ -5,8 +5,14 @@
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
 #include "Tanimura/Actor/VRPawn.h"
-#include "Lee/component/HandHeightDetectorComponent.h"
+
+// 2026.07.27 谷村　startーーーーーーーーーー
+#include "Tanimura/Component/FishingStateManagerComponent.h"
+#include "Tanimura/Component/FishingStateWait.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
+#include "Tanimura/Component/FishingCatchingStateComponent.h"
+// #include "Lee/component/HandHeightDetectorComponent.h" // [追加準備] HandHeightDetectorComponent作成後に有効化
+// 2026.07.27 谷村　endーーーーーーーーーー
 
 AFish::AFish()
 {
@@ -61,8 +67,10 @@ void AFish::BeginPlay()
 	DrawDebugSphere(GetWorld(), CenterLocation, 12.0f, 16, FColor::Red, true);
 	DrawDebugLine(GetWorld(), SpawnLocation, CenterLocation, FColor::Green, true, -1.0f, 0, 2.0f);
 
-	//4秒後に中心へ移動する状態へ遷移する
-	GetWorldTimerManager().SetTimer(StateTimerHandle, this, &AFish::TransitionToMoveToCenter, 4.0f, false);
+	// 2026.07.27 谷村　startーーーーーーーーーー
+	////4秒後に中心へ移動する状態へ遷移する
+	//GetWorldTimerManager().SetTimer(StateTimerHandle, this, &AFish::TransitionToMoveToCenter, 4.0f, false);
+	// 2026.07.27 谷村　endーーーーーーーーーー
 
 	//仮処理 F1で暴れ、F2で釣り上げる
 	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
@@ -76,11 +84,17 @@ void AFish::BeginPlay()
 		}
 	}
 
+	// 2026.07.27 谷村　startーーーーーーーーーー
 	//VRPawnの既存イベントを、F1/F2と同じ魚の状態遷移へ接続する
 	AVRPawn* VRPawn = Cast<AVRPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
 	if (VRPawn)
 	{
-		if (UHandHeightDetectorComponent* HandHeightDetector = VRPawn->FindComponentByClass<UHandHeightDetectorComponent>())
+		// FishingStateManagerComponentの通知デリゲートへハンドラーを登録
+		if (UFishingStateManagerComponent* StateManager = VRPawn->FindComponentByClass<UFishingStateManagerComponent>()) {
+			StateManager->OnFishingStateChanged.AddUniqueDynamic(this, &AFish::OnFishingStateChanged);
+		}
+
+		/*if (UHandHeightDetectorComponent* HandHeightDetector = VRPawn->FindComponentByClass<UHandHeightDetectorComponent>())
 		{
 			HandHeightDetector->OnFishHit.AddUniqueDynamic(this, &AFish::StartStruggling);
 		}
@@ -88,9 +102,44 @@ void AFish::BeginPlay()
 		if (UFishingReelStateComponent* ReelSimulator = VRPawn->FindComponentByClass<UFishingReelStateComponent>())
 		{
 			ReelSimulator->OnTargetRevolutionsReached.AddUniqueDynamic(this, &AFish::CatchFish);
+		}*/
+	}
+	// 2026.07.27 谷村　endーーーーーーーーーー
+}
+
+// 2026.07.27 谷村　startーーーーーーーーーー
+// 釣りモードのステート変更に応じて魚の挙動を制御するハンドラー
+void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
+{
+	if (!NewState) {
+		return;
+	}
+
+	// 待機モード (Wait): 周回運動 (Circling)
+	if (NewState->IsA<UFishingStateWait>()) {
+		if (CurrentState != EFishState::Circling) {
+			CurrentState = EFishState::Circling;
+			if (RotatingMovementComp && !RotatingMovementComp->IsActive()) {
+				RotatingMovementComp->Activate();
+			}
 		}
 	}
+	/* [追加準備] HandHeightDetectorComponent 作成後にコメントアウトを解除してください
+	// 高さ検知モード (HandHeight): 中心移動 (MovingToCenter) 経由で つつき (Poking) へ
+	else if (NewState->IsA<UHandHeightDetectorComponent>()) {
+		TransitionToMoveToCenter();
+	}
+	*/
+	// リール回転モード (Reel): 暴れる (Struggling)
+	else if (NewState->IsA<UFishingReelStateComponent>()) {
+		StartStruggling();
+	}
+	// 釣り上げモード (Catching): 釣られた (Caught)
+	else if (NewState->IsA<UFishingCatchingStateComponent>()) {
+		CatchFish();
+	}
 }
+// 2026.07.27 谷村　endーーーーーーーーーー
 
 void AFish::TransitionToMoveToCenter()
 {

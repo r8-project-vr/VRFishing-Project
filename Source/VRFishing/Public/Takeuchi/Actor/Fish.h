@@ -7,6 +7,11 @@
 #include "GameFramework/RotatingMovementComponent.h"
 #include "Fish.generated.h"
 
+// 2026.07.27 谷村　startーーーーーーーーーー
+// 前方宣言を追加
+class UFishingStateComponentBase;
+// 2026.07.27 谷村　endーーーーーーーーーー
+
 /**
  * 魚の状態を定義する列挙型
  */
@@ -125,4 +130,10 @@ private:
 	void RespawnFish();
 	void RotateTowardCenter(float DeltaTime, float InterpSpeed);
 	void ClearStateTimers();
+
+	// 2026.07.27 谷村　startーーーーーーーーーー
+	// マネージャーからの状態変更通知を受け取るハンドラー関数
+	UFUNCTION()
+	void OnFishingStateChanged(UFishingStateComponentBase* NewState);
+	// 2026.07.27 谷村　endーーーーーーーーーー
 };
