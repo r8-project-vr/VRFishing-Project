@@ -11,8 +11,9 @@
 class UFishingStateManagerComponent;
 class UFishingStateWait;            // モード１
 //class UHandHeightDetectorComponent; // モード２
-class UFishingReelStateComponent;   // モード３
-//class UCatchingSimulatorComponent;  // モード４
+class UFishingReelStateComponent;            // モード３
+class UFishingCatchingStateComponent;        // モード４
+class UUserWidget;
 
 UCLASS()
 class VRFISHING_API AVRPawn : public APawn
@@ -46,6 +47,14 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UFishingReelStateComponent> ReelStateComponent;
 
+    // 釣り上げ状態コンポーネント
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    TObjectPtr<UFishingCatchingStateComponent> CatchingStateComponent;
+
+    // 釣り上げ完了時に前面表示するリザルトWidgetクラス
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+    TSubclassOf<UUserWidget> CatchingResultWidgetClass;
+
 private:
     // 待機ステート完了時の通知を受け取るハンドラー
     UFUNCTION()
@@ -54,4 +63,8 @@ private:
     // リール目標回転数達成時の通知を受け取るハンドラー
     UFUNCTION()
     void OnReelTargetReached();
+
+    // 釣り上げステート完了時の通知を受け取るハンドラー
+    UFUNCTION()
+    void OnCatchingStateCompleted(bool bIsSuccess);
 };

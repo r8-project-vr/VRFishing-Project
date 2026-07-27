@@ -6,7 +6,9 @@
 #include "Tanimura/Component/FishingStateWait.h"
 #include "Lee/component//HandHeightDetectorComponent.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
-//#include "Tanimura/Component/CatchingSimulatorComponent.h"
+#include "Tanimura/Component/FishingCatchingStateComponent.h"
+#include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
 
 AVRPawn::AVRPawn()
 {
@@ -16,7 +18,7 @@ AVRPawn::AVRPawn()
     StateManagerComponent = CreateDefaultSubobject<UFishingStateManagerComponent>(TEXT("StateManagerComponent"));
     WaitStateComponent = CreateDefaultSubobject<UFishingStateWait>(TEXT("WaitStateComponent"));
     ReelStateComponent = CreateDefaultSubobject<UFishingReelStateComponent>(TEXT("ReelStateComponent"));
-    //CatchingComponent = CreateDefaultSubobject<UCatchingSimulatorComponent>(TEXT("CatchingComponent"));
+    CatchingStateComponent = CreateDefaultSubobject<UFishingCatchingStateComponent>(TEXT("CatchingStateComponent"));
 }
 
 void AVRPawn::BeginPlay()
@@ -31,6 +33,11 @@ void AVRPawn::BeginPlay()
     // リールステートの目標回転数達成イベントをバインド
     if (ReelStateComponent) {
         ReelStateComponent->OnTargetRevolutionsReached.AddDynamic(this, &AVRPawn::OnReelTargetReached);
+    }
+
+    // 釣り上げステートの完了イベントをバインド
+    if (CatchingStateComponent) {
+        CatchingStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnCatchingStateCompleted);
     }
 
     // 初期状態として待機ステートを設定
@@ -65,8 +72,19 @@ void AVRPawn::OnWaitStateCompleted(bool bIsSuccess)
 
 void AVRPawn::OnReelTargetReached()
 {
-    // リール回転完了時に待機ステートへ復帰
-    if (StateManagerComponent && WaitStateComponent) {
-        StateManagerComponent->ChangeState(WaitStateComponent);
+    // リール回転完了時に釣り上げステートへ遷移
+    if (StateManagerComponent && CatchingStateComponent) {
+        StateManagerComponent->ChangeState(CatchingStateComponent);
+    }
+}
+
+void AVRPawn::OnCatchingStateCompleted(bool bIsSuccess)
+{
+    // 釣り上げ完了時にリザルトWidgetを前面表示
+    if (CatchingResultWidgetClass) {
+        UUserWidget* ResultWidget = CreateWidget<UUserWidget>(GetWorld(), CatchingResultWidgetClass);
+        if (ResultWidget) {
+            ResultWidget->AddToViewport(100);
+        }
     }
 }
