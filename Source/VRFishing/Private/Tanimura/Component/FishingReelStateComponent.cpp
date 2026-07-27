@@ -1,43 +1,60 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 
 #include "Tanimura/Component/FishingReelStateComponent.h"
 
-// Sets default values for this component's properties
 UFishingReelStateComponent::UFishingReelStateComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;  // Tickオフ
+    // ステート単体でのTickは無効化（Manager経由でUpdateStateが呼ばれる）
+    PrimaryComponentTick.bCanEverTick = false;
 
     StickThreshold = 0.6f;
-    WheelNotchAngleRad = UE_PI / 12.0f; // π/12　≒ 0.2618rad（15度）
+    WheelNotchAngleRad = UE_PI / 12.0f; // π/12 ≒ 0.2618rad（15度）
 
     LastAngle = 0.0f;
     AccumulatedAngleRad = 0.0f;
     RotationStartTime = 0.0;
     bIsMeasuringRotation = false;
-    // RevTime = 0.0f;
     bIsStickTracking = false;
     TargetRevolutionCount = 10;
+    CurrentRevolutionCount = 0;
 }
 
-// === 追加：リセット処理の実装 ===
+void UFishingReelStateComponent::EnterState()
+{
+    Super::EnterState();
+
+    // ステート開始時にリール状態を初期化
+    ResetRevolutionCount();
+}
+
+void UFishingReelStateComponent::UpdateState(float DeltaTime)
+{
+    Super::UpdateState(DeltaTime);
+}
+
+void UFishingReelStateComponent::ExitState()
+{
+    Super::ExitState();
+
+    //// 終了時にリール状態をリセット
+    //ResetRevolutionCount();
+}
+
 void UFishingReelStateComponent::ResetRevolutionCount()
 {
     CurrentRevolutionCount = 0;
     AccumulatedAngleRad = 0.0f;
     bIsMeasuringRotation = false;
+    bIsStickTracking = false;
 }
 
 void UFishingReelStateComponent::SimulateReelByStick(FVector2D StickInput)
 {
-    //Lee 26.7.24 start
-    // 非アクティブ時（非Reelingモード）は入力を無視
-    if (!IsActive())
-    {
-        return;
-    }
-    //Lee 26.7.24 end
-
+    //// 非アクティブ時は入力を無視
+    //if (!IsActive()) {
+    //    return;
+    //}
 
     // 入力値が閾値未満なら追跡しない
     if (StickInput.SizeSquared() < FMath::Square(StickThreshold)) {
@@ -69,17 +86,10 @@ void UFishingReelStateComponent::SimulateReelByStick(FVector2D StickInput)
 
 void UFishingReelStateComponent::SimulateReelByWheel()
 {
-    //Lee 26.7.24 start
-    // 非アクティブ時（非Reelingモード）は入力を無視
-    if (!IsActive())
-    {
-        return;
-    }
-    //Lee 26.7.24 end
-
-
-    //// ホイール操作時はスティックの追跡状態をリセット
-    //bIsStickTracking = false;
+    //// 非アクティブ時は入力を無視
+    //if (!IsActive()) {
+    //    return;
+    //}
 
     // ホイール1ノッチ分の回転角（固定）を流し込む
     CalculateRPM(WheelNotchAngleRad);
@@ -103,8 +113,6 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle)
 
     // 角度変化量を累積
     AccumulatedAngleRad += DeltaAngle;
-    //// 経過時間を累積
-    //RevTime += DeltaTime;
 
     // 累積角度が1回転（2π）に達したか判定
     const float OneRevolutionRad = UE_TWO_PI;   // 2π ≒ 6.28318530717f
@@ -120,27 +128,14 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle)
             OnRPMCalculated.Broadcast(CalculatedRPM);
         }
 
-        //// 0で割るのを防止してRPMを算出・通知
-        //if (RevTime > 0.001f) {
-        //    const float CalculatedRPM = 60.0f / RevTime;
-        //    OnRPMCalculated.Broadcast(CalculatedRPM);
-        //}
-
         // 累積角度と時間をリセット
         AccumulatedAngleRad -= OneRevolutionRad;   // 誤差の蓄積を防ぐため端数は残す
         RotationStartTime = CurrentTime;
-        // RevTime = 0.0f;
 
-        // === 追加：回転数を加算し、目標に達したら通知 ===
+        // 回転数を加算し、目標に達したら通知
         CurrentRevolutionCount++;
         if (CurrentRevolutionCount >= TargetRevolutionCount) {
             OnTargetRevolutionsReached.Broadcast();
         }
     }
 }
-
-//void UFishingReelStateComponent::SimulateReelByKey(float InputRPM)
-//{
-//    // 引数で受け取ったRPMの値をそのままデリゲートで通知
-//    OnRPMCalculated.Broadcast(InputRPM);
-//}

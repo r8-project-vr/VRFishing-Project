@@ -3,28 +3,30 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/ActorComponent.h"
+#include "Tanimura/Component/FishingStateComponentBase.h"
 #include "FishingReelStateComponent.generated.h"
 
 // RPMが算出されたことを通知するデリゲート
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRPMCalculated, float, NewRPM);
 
-// === 追加：目標回転数に達したことを通知するデリゲート ===
+// 目標回転数に達したことを通知するデリゲート
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTargetRevolutionsReached);
 
 /**
- * MetaQuestコントローラのスティック回転や、マウスホイールの回転から
- * 擬似的にエルゴメーターのRPMを算出するデバッグ用コンポーネント
+ * 掛かった魚を巻き上げるためのリール操作を管理するステートコンポーネント
  */
-
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class VRFISHING_API UFishingReelStateComponent : public UActorComponent
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
+class VRFISHING_API UFishingReelStateComponent : public UFishingStateComponentBase
 {
 	GENERATED_BODY()
 
-public:	
-	// Sets default values for this component's properties
+public:
 	UFishingReelStateComponent();
+
+	// 基底クラスオーバーライド
+	virtual void EnterState() override;
+	virtual void UpdateState(float DeltaTime) override;
+	virtual void ExitState() override;
 
 	// スティック入力を基にRPMシミュレーションを実行
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
@@ -34,18 +36,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
 	void SimulateReelByWheel();
 
-	//// キーボードから直接RPMの数値を入力する
-	//UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
-	//void SimulateReelByKey(float InputRPM);
-
-
-	// === 追加：回転カウントを初期化する関数 ===
+	// 回転カウントを初期化する関数
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
 	void ResetRevolutionCount();
-	// === 追加：目標回転数到達イベント ===
+
+	// 目標回転数到達イベント
 	UPROPERTY(BlueprintAssignable, Category = "Reel Simulator")
 	FOnTargetRevolutionsReached OnTargetRevolutionsReached;
-
 
 	// RPM算出時に実行されるイベント
 	UPROPERTY(BlueprintAssignable, Category = "Reel Simulator")
@@ -57,16 +54,14 @@ protected:
 	float StickThreshold;
 
 	// ホイール1ノッチ入力あたりの回転角度（ラジアン）
-	// デフォルトは15度 ≒ 0.2618rad
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Debug", meta = (ClampMin = "0.01"))
 	float WheelNotchAngleRad;
 
-
-	// === 追加：目標回転数 ===
+	// 目標回転数
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator", meta = (ClampMin = "1"))
 	int32 TargetRevolutionCount;
 
-	// === 追加：現在の累積回転数 ===
+	// 現在の累積回転数
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Reel Simulator")
 	int32 CurrentRevolutionCount;
 
@@ -79,6 +74,4 @@ private:
 	double	RotationStartTime;		// 回転の計測を開始した時間（秒）
 	bool	bIsMeasuringRotation;	// 計測が開始されているかのフラグ
 	bool	bIsStickTracking;		// 入力を追跡中かどうか（スティック操作時用）
-
-	// float	RevTime;				// 現在の回転の経過時間（秒）
 };

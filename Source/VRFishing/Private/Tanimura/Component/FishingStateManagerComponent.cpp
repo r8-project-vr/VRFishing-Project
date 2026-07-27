@@ -11,11 +11,6 @@ UFishingStateManagerComponent::UFishingStateManagerComponent()
 	CurrentState = nullptr;
 }
 
-void UFishingStateManagerComponent::BeginPlay()
-{
-	Super::BeginPlay();
-}
-
 void UFishingStateManagerComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -47,4 +42,7 @@ void UFishingStateManagerComponent::ChangeState(UFishingStateComponentBase* NewS
         CurrentState->Activate();
         CurrentState->EnterState();
     }
+
+    // ステート変更を外部通知
+    OnFishingStateChanged.Broadcast(CurrentState);
 }
