@@ -8,17 +8,11 @@
 
 
 // 各モードコンポーネントの前方宣言
-class UHandHeightDetectorComponent;
-class UFishingReelStateComponent;
-// class UCatchingSimulatorComponent;
-
-UENUM(BlueprintType)
-enum class EFishingMode : uint8
-{
-    Attract,  // 1. 誘うモード (HandHeightDetector)
-    Reeling,  // 2. リールを巻くモード (ReelSimulator)
-    // Catching  // 3. 魚を釣り上げるモード (CatchingSimulator)
-};
+class UFishingStateManagerComponent;
+class UFishingStateWait;            // モード１
+//class UHandHeightDetectorComponent; // モード２
+class UFishingReelStateComponent;   // モード３
+//class UCatchingSimulatorComponent;  // モード４
 
 UCLASS()
 class VRFISHING_API AVRPawn : public APawn
@@ -28,34 +22,36 @@ class VRFISHING_API AVRPawn : public APawn
 public:
     AVRPawn();
 
+    // スティック入力発生時に呼び出すハンドラー
+    UFUNCTION(BlueprintCallable, Category = "Fishing|Input")
+    void InjectReelStickInput(FVector2D StickInput);
+
+    // マウスホイール入力発生時に呼び出すハンドラー
+    UFUNCTION(BlueprintCallable, Category = "Fishing|Input")
+    void InjectReelWheelInput();
+
 protected:
     virtual void BeginPlay() override;
 
-    // 手動でもモードを切り替えられる関数（BPからも呼び出し可能）
-    UFUNCTION(BlueprintCallable, Category = "Fishing System")
-    void ChangeFishingMode(EFishingMode NewMode);
-
-    // ポーンにアタッチされている各コンポーネントの参照
+protected:
+    // ステートマシンマネージャーコンポーネント
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UHandHeightDetectorComponent> HandHeightDetectorComponent;
+    TObjectPtr<UFishingStateManagerComponent> StateManagerComponent;
 
+    // 待機状態コンポーネント
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UFishingReelStateComponent> ReelComponent;
+    TObjectPtr<UFishingStateWait> WaitStateComponent;
 
-    //UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    //TObjectPtr<UCatchingSimulatorComponent> CatchingComponent;
+    // リール回転状態コンポーネント
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    TObjectPtr<UFishingReelStateComponent> ReelStateComponent;
 
 private:
-    // 現在のモード
-    EFishingMode CurrentMode;
-
-    // 各コンポーネントからのイベントを受け取るハンドラー関数
+    // 待機ステート完了時の通知を受け取るハンドラー
     UFUNCTION()
-    void OnFishHit();
+    void OnWaitStateCompleted(bool bIsSuccess);
 
+    // リール目標回転数達成時の通知を受け取るハンドラー
     UFUNCTION()
     void OnReelTargetReached();
-
-    //UFUNCTION()
-    //void OnFishingCompleted();
 };

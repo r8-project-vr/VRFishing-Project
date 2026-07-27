@@ -8,6 +8,9 @@
 
 class UFishingStateComponentBase;
 
+// ステート変更時に発火するデリゲート型宣言
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFishingStateChanged, UFishingStateComponentBase*, NewState);
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class VRFISHING_API UFishingStateManagerComponent : public UActorComponent
 {
@@ -23,8 +26,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Fishing|Manager")
 	void ChangeState(UFishingStateComponentBase* NewState);
 
-protected:
-	virtual void BeginPlay() override;
+	// ステート変更を通知するデリゲートのインスタンス
+	UPROPERTY(BlueprintAssignable, Category = "Fishing|Events")
+	FOnFishingStateChanged OnFishingStateChanged;
 
 public:	
 	// 現在アクティブなステートの参照（一時的に保持）

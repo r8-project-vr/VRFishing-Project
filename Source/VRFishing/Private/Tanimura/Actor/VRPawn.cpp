@@ -2,6 +2,8 @@
 
 
 #include "Tanimura/Actor/VRPawn.h"
+#include "Tanimura/Component/FishingStateManagerComponent.h"
+#include "Tanimura/Component/FishingStateWait.h"
 #include "Lee/component//HandHeightDetectorComponent.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
 //#include "Tanimura/Component/CatchingSimulatorComponent.h"
@@ -10,94 +12,61 @@ AVRPawn::AVRPawn()
 {
     PrimaryActorTick.bCanEverTick = false;
 
-    // コンポーネントの生成
-    HandHeightDetectorComponent = CreateDefaultSubobject<UHandHeightDetectorComponent>(TEXT("HandHeightDetectorComponent"));
-    ReelComponent = CreateDefaultSubobject<UFishingReelStateComponent>(TEXT("ReelComponent"));
+    // 各ステートコンポーネントおよびマネージャーの生成
+    StateManagerComponent = CreateDefaultSubobject<UFishingStateManagerComponent>(TEXT("StateManagerComponent"));
+    WaitStateComponent = CreateDefaultSubobject<UFishingStateWait>(TEXT("WaitStateComponent"));
+    ReelStateComponent = CreateDefaultSubobject<UFishingReelStateComponent>(TEXT("ReelStateComponent"));
     //CatchingComponent = CreateDefaultSubobject<UCatchingSimulatorComponent>(TEXT("CatchingComponent"));
-
-    CurrentMode = EFishingMode::Attract;
 }
 
 void AVRPawn::BeginPlay()
 {
     Super::BeginPlay();
 
-    // 1. 誘うモード：魚がヒットしたらリールモードへ
-    if (HandHeightDetectorComponent) {
-        HandHeightDetectorComponent->OnFishHit.AddDynamic(this, &AVRPawn::OnFishHit);
+    // 待機ステートの完了イベントをバインド
+    if (WaitStateComponent) {
+        WaitStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnWaitStateCompleted);
     }
 
-    // 2. 巻くモード：規定回転数に達したらキャッチモードへ
-    if (ReelComponent) {
-        ReelComponent->OnTargetRevolutionsReached.AddDynamic(this, &AVRPawn::OnReelTargetReached);
+    // リールステートの目標回転数達成イベントをバインド
+    if (ReelStateComponent) {
+        ReelStateComponent->OnTargetRevolutionsReached.AddDynamic(this, &AVRPawn::OnReelTargetReached);
     }
 
-    // 3. 釣り上げるモード：完了/失敗したら誘うモードへ復帰
-    //if (CatchingComponent) {
-    //    CatchingComponent->OnFishingCompleted.AddDynamic(this, &AVRPawn::OnFishingCompleted);
-    //}
-
-    // 初期モード（誘うモード）に設定
-    ChangeFishingMode(EFishingMode::Attract);
-}
-
-void AVRPawn::ChangeFishingMode(EFishingMode NewMode)
-{
-    CurrentMode = NewMode;
-
-    // すべてのコンポーネントを一旦停止（Deactivate）
-    if (HandHeightDetectorComponent) {
-        HandHeightDetectorComponent->Deactivate();
-    }
-    if (ReelComponent) {
-        ReelComponent->Deactivate();
-    }
-    //if (CatchingComponent) {
-    //    CatchingComponent->Deactivate();
-    //}
-
-    // 該当するコンポーネントのみ起動（Activate）
-    switch (CurrentMode) {
-    case EFishingMode::Attract:
-        if (HandHeightDetectorComponent) {
-            HandHeightDetectorComponent->Activate();
-        }
-        break;
-
-    case EFishingMode::Reeling:
-        if (ReelComponent) {
-            ReelComponent->ResetRevolutionCount();
-            ReelComponent->Activate();
-        }
-        break;
-
-    //case EFishingMode::Catching:
-    //    if (CatchingComponent) {
-    //        CatchingComponent->Activate();
-    //    }
-    //    break;
-
-    default:
-        break;
+    // 初期状態として待機ステートを設定
+    if (StateManagerComponent && WaitStateComponent) {
+        StateManagerComponent->ChangeState(WaitStateComponent);
     }
 }
 
-void AVRPawn::OnFishHit()
+void AVRPawn::InjectReelStickInput(FVector2D StickInput)
 {
-    ChangeFishingMode(EFishingMode::Reeling);
+    // 現在のステートがリールステートである場合のみ入力を処理
+    if (ReelStateComponent && ReelStateComponent->IsActive()) {
+        ReelStateComponent->SimulateReelByStick(StickInput);
+    }
+}
+
+void AVRPawn::InjectReelWheelInput()
+{
+    // 現在のステートがリールステートである場合のみ入力を処理
+    if (ReelStateComponent && ReelStateComponent->IsActive()) {
+        ReelStateComponent->SimulateReelByWheel();
+    }
+}
+
+void AVRPawn::OnWaitStateCompleted(bool bIsSuccess)
+{
+    // 待機条件達成時にリールステートへ遷移
+    if (bIsSuccess && StateManagerComponent && ReelStateComponent) {
+        StateManagerComponent->ChangeState(ReelStateComponent);
+    }
 }
 
 void AVRPawn::OnReelTargetReached()
 {
-    ChangeFishingMode(EFishingMode::Attract);
+    // リール回転完了時に待機ステートへ復帰
+    if (StateManagerComponent && WaitStateComponent) {
+        StateManagerComponent->ChangeState(WaitStateComponent);
+    }
 }
-
-//void AVRPawn::OnReelTargetReached()
-//{
-//    ChangeFishingMode(EFishingMode::Catching);
-//}
-//
-//void AVRPawn::OnFishingCompleted()
-//{
-//    ChangeFishingMode(EFishingMode::Attract);
-//}
