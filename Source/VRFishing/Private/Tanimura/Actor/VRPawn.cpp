@@ -9,6 +9,7 @@
 #include "Tanimura/Component/FishingCatchingStateComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
+#include "Components/WidgetComponent.h"
 
 AVRPawn::AVRPawn()
 {
@@ -92,12 +93,34 @@ void AVRPawn::OnReelTargetReached()
 
 void AVRPawn::OnCatchingStateCompleted(bool bIsSuccess)
 {
-    // 釣り上げ完了時にリザルトWidgetを前面表示
-    if (CatchingResultWidgetClass) {
-        UUserWidget* ResultWidget = CreateWidget<UUserWidget>(GetWorld(), CatchingResultWidgetClass);
-        if (ResultWidget) {
-            ResultWidget->AddToViewport(100);
-        }
+    // [変更] 2D Viewportへの追加から、ワールド空間(WidgetComponent)での配置に変更
+    if (!CatchingResultWidgetClass) {
+        return;
+    }
+
+    // すでに生成されている場合は重複生成を避ける
+    if (ResultWidgetComponent) {
+        ResultWidgetComponent->SetVisibility(true);
+        return;
+    }
+
+    // 動的に WidgetComponent を生成
+    ResultWidgetComponent = NewObject<UWidgetComponent>(this, UWidgetComponent::StaticClass());
+    if (ResultWidgetComponent) {
+        ResultWidgetComponent->RegisterComponent();
+
+        // 空間上の描画設定
+        ResultWidgetComponent->SetWidgetSpace(EWidgetSpace::World);
+        ResultWidgetComponent->SetWidgetClass(CatchingResultWidgetClass);
+        ResultWidgetComponent->SetDrawSize(ResultDrawSize);
+
+        // プレイヤーの位置・回転に基づき、目の前のワールド座標へ配置
+        const FVector SpawnLocation = GetActorLocation() + GetActorRotation().RotateVector(ResultUIOffset);
+
+        // プレイヤーの方向（Yaw）を向くように回転を設定
+        const FRotator SpawnRotation = FRotator(0.0f, GetActorRotation().Yaw + 180.0f, 0.0f);
+
+        ResultWidgetComponent->SetWorldLocationAndRotation(SpawnLocation, SpawnRotation);
     }
 }
 
