@@ -22,8 +22,10 @@ enum class EFishState : uint8
 	MovingToCenter	UMETA(DisplayName = "Moving To Center"),	//中心移動
 	Poking			UMETA(DisplayName = "Poking"),				//突く
 	Struggling		UMETA(DisplayName = "Struggling"),			//暴れる
+	CatchDelay		UMETA(DisplayName = "Catch Delay"),		//釣り上げ前待機
 	Caught			UMETA(DisplayName = "Caught")				//釣られた
 };
+
 UCLASS()
 class VRFISHING_API AFish : public AActor
 {
@@ -94,7 +96,27 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Poking", meta = (ClampMin = "0.0"))
 	float PokeContactOffset = 60.0f;
 
-	//仮処理、F1で暴れる
+	//中央へ移動する速度
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Movement", meta = (ClampMin = "0.0"))
+	float MoveToCenterSpeed = 2.0f;
+
+	//釣り上げる高さ
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Caught", meta = (ClampMin = "0.0"))
+	float CaughtHeight = 300.0f;
+
+	//釣り上げる速度
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Caught", meta = (ClampMin = "0.0"))
+	float CaughtMoveSpeed = 3.0f;
+
+	//暴れる速度の倍率
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Struggle", meta = (ClampMin = "0.0"))
+	float StruggleSpeedMultiplier = 4.0f;
+
+	//リール完了後から釣り上げ開始までの待機時間
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Caught", meta = (ClampMin = "0.0"))
+	float PreCatchingWaitTime = 1.0f;
+
+	//リール操作開始時に、魚が暴れる状態へ切り替える
 	UFUNCTION(BlueprintCallable, Category = "Fish")
 	void StartStruggling();
 
@@ -112,9 +134,9 @@ public:
 	void OnCaught();
 
 private:
-	FTimerHandle StateTimerHandle;
 	FTimerHandle PokeTimerHandle;
 	FTimerHandle RespawnTimerHandle;
+	FTimerHandle PreCatchingTimerHandle;
 
 	bool bApproaching = false;
 	bool bRespawnScheduled = false;
@@ -127,6 +149,7 @@ private:
 
 	void TransitionToMoveToCenter();
 	void DoPoke();
+	void StartCatchDelay();
 	void RespawnFish();
 	void RotateTowardCenter(float DeltaTime, float InterpSpeed);
 	void ClearStateTimers();
