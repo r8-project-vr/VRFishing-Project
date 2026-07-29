@@ -2,7 +2,6 @@
 
 #include "Lee/widget/FishFightMeterWidget.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
-#include "Lee/component/FishingStateHandUpDown.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/Engine.h"
 
@@ -30,8 +29,6 @@ void UFishFightMeterWidget::NativeConstruct()
 		HandUpDownState = OwnerPawn->FindComponentByClass<UFishingStateHandUpDown>();
 		ReelSimulator = OwnerPawn->FindComponentByClass<UFishingReelStateComponent>();
 
-		// センサ(HandHeightDetector)は OnFishingStateCompleted を持たないため、
-		// 完了イベントは上下運動プレイステート(HandUpDownState)から受ける
 		if (HandUpDownState)
 		{
 			HandUpDownState->OnFishingStateCompleted.AddDynamic(this, &UFishFightMeterWidget::OnHandUpDownCompleted);
@@ -43,12 +40,6 @@ void UFishFightMeterWidget::NativeConstruct()
 		}
 
 		bComponentsInitialized = true;
-	}
-
-	// 0 なら最初から解禁
-	if (RequiredCycles <= 0)
-	{
-		bReelUnlocked = true;
 	}
 
 	// RPM 表示を初期化
@@ -66,50 +57,25 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 
 	const float HandPercent = HandHeightDetector ? HandHeightDetector->HandHeightPercent : 0.0f;
 
-	// ---- 手の往復カウント（上下運動プレイステートから取得） ----
-	CycleCount = HandUpDownState ? HandUpDownState->CurrentUpAndDownCount : 0;
-
-	// ---- 自動リロック：次の Attract フェーズでカウントが動き始めたら再ロック ----
-	if (bReelUnlocked && CycleCount > 0)
+	// ---- コンポーネントから表示データを読み取り ----
+	if (HandUpDownState)
 	{
-		bReelUnlocked = false;
-		CurrentScore = 0.0f;
-		TotalQualitySum = 0.0f;
-		TotalFrameCount = 0;
-		ArrowPosition = 0.0f;
-		ArrowState = EFishArrowState::MovingUp;
+		ArrowPosition = HandUpDownState->ArrowPosition;
+		ArrowState = HandUpDownState->ArrowState;
+		CycleCount = HandUpDownState->CurrentUpAndDownCount;
+		CurrentScore = HandUpDownState->CurrentScore;
+		FinalScore = HandUpDownState->FinalScore;
+
+		// リロック検出：次の Attract フェーズでカウントが動き始めたら再ロック
+		if (bReelUnlocked && CycleCount > 0)
+		{
+			bReelUnlocked = false;
+		}
 	}
 
-	// ---- スコア計算（Attract フェーズ中のみ） ----
-	if (!bReelUnlocked)
-	{
-		const float PositionError = FMath::Abs(HandPercent - ArrowPosition);
-		float MatchQuality;
-		if (PositionError <= ScoringPerfectThreshold)
-		{
-			MatchQuality = 1.0f;
-		}
-		else if (PositionError >= ScoringFailThreshold)
-		{
-			MatchQuality = 0.0f;
-		}
-		else
-		{
-			MatchQuality = 1.0f - (PositionError - ScoringPerfectThreshold) / (ScoringFailThreshold - ScoringPerfectThreshold);
-		}
-
-		// 全フレーム累積（最終的な平均点算出用）
-		TotalQualitySum += MatchQuality;
-		TotalFrameCount++;
-
-		const float Alpha = FMath::Clamp(ScoreSmoothingFactor * InDeltaTime, 0.0f, 1.0f);
-		CurrentScore = FMath::Lerp(CurrentScore, MatchQuality * 100.0f, Alpha);
-
-		OnScoreChanged(CurrentScore);
-	}
-
-	TickArrow(InDeltaTime, HandPercent);
+	// ---- BP イベント発火 ----
 	OnArrowUpdated(ArrowPosition, ArrowState);
+	OnScoreChanged(CurrentScore);
 
 	// ==================== Debug ====================
 	if (GEngine)
@@ -124,10 +90,11 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 		case EFishArrowState::WaitingAtBottom:	ArrowStateText = TEXT("WAIT_BOT");	ArrowColor = FColor::Yellow;	break;
 		}
 
+		const int32 TargetCount = HandUpDownState ? HandUpDownState->TargetUpAndDownCount : 0;
 		const FString ArrowMsg = FString::Printf(
 			TEXT("[Arrow] Pos:%.0f%% %s | Hand:%.0f%% | %d/%d %s"),
 			ArrowPosition * 100.0f, ArrowStateText, HandPercent * 100.0f,
-			CycleCount, RequiredCycles,
+			CycleCount, TargetCount,
 			bReelUnlocked ? TEXT("UNLOCKED") : TEXT("LOCKED"));
 
 		GEngine->AddOnScreenDebugMessage(2, 0.0f, ArrowColor, ArrowMsg);
@@ -153,53 +120,6 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 			TEXT("[Score] Final: %.0f / 100 | Live: %.0f"),
 			FinalScore, CurrentScore);
 		GEngine->AddOnScreenDebugMessage(4, 0.0f, ScoreColor, ScoreMsg);
-	}
-}
-
-void UFishFightMeterWidget::TickArrow(float InDeltaTime, float HandPercent)
-{
-	switch (ArrowState)
-	{
-	case EFishArrowState::MovingUp:
-	{
-		ArrowPosition += RecommendedSpeed * InDeltaTime;
-		if (ArrowPosition >= 1.0f)
-		{
-			ArrowPosition = 1.0f;
-			ArrowState = EFishArrowState::WaitingAtTop;
-		}
-		break;
-	}
-
-	case EFishArrowState::WaitingAtTop:
-	{
-		if (HandPercent >= (1.0f - ArrowWaitThreshold))
-		{
-			ArrowState = EFishArrowState::MovingDown;
-		}
-		break;
-	}
-
-	case EFishArrowState::MovingDown:
-	{
-		ArrowPosition -= RecommendedSpeed * InDeltaTime;
-		if (ArrowPosition <= 0.0f)
-		{
-			ArrowPosition = 0.0f;
-			ArrowState = EFishArrowState::WaitingAtBottom;
-
-		}
-		break;
-	}
-
-	case EFishArrowState::WaitingAtBottom:
-	{
-		if (HandPercent <= ArrowWaitThreshold)
-		{
-			ArrowState = EFishArrowState::MovingUp;
-		}
-		break;
-	}
 	}
 }
 
@@ -237,11 +157,13 @@ void UFishFightMeterWidget::OnHandUpDownCompleted(bool bIsSuccess)
 	}
 
 	bReelUnlocked = true;
-	CycleCount = RequiredCycles;	// 表示を 5/5 に更新
-	// ================================================================
-	// ★ FinalScore = 全フレームの真の平均点
-	//   リール解禁時に確定し、以降のフェーズで参照される
-	// ================================================================
-	FinalScore = (TotalFrameCount > 0) ? (TotalQualitySum / TotalFrameCount) * 100.0f : 0.0f;
+
+	// 表示を 5/5 等に更新（コンポーネントの CurrentUpAndDownCount は既に目標値に達している）
+	if (HandUpDownState)
+	{
+		CycleCount = HandUpDownState->CurrentUpAndDownCount;
+		FinalScore = HandUpDownState->FinalScore;
+	}
+
 	OnScoreChanged(FinalScore);
 }

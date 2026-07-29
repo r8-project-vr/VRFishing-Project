@@ -20,6 +20,16 @@ void UFishingStateHandUpDown::EnterState()
 	bIsHandAtTop = false;
 	bIsCompleted = false;
 
+	// 矢印状態を初期化
+	ArrowPosition = 0.0f;
+	ArrowState = EFishArrowState::MovingUp;
+
+	// スコア状態を初期化
+	CurrentScore = 0.0f;
+	FinalScore = 0.0f;
+	TotalQualitySum = 0.0f;
+	TotalFrameCount = 0;
+
 	// センサを所有者から取得（未取得の場合のみ）
 	if (!Detector.IsValid() && GetOwner())
 	{
@@ -45,7 +55,34 @@ void UFishingStateHandUpDown::UpdateState(float DeltaTime)
 
 	const float HandHeightPercent = Detector->HandHeightPercent;
 
-	// ==================== 腕上下回数の判定 ====================
+	// ==================== 1. 矢印状態の更新 ====================
+	TickArrow(DeltaTime, HandHeightPercent);
+
+	// ==================== 2. スコア計算（毎フレーム） ====================
+	{
+		const float PositionError = FMath::Abs(HandHeightPercent - ArrowPosition);
+		float MatchQuality;
+		if (PositionError <= ScoringPerfectThreshold)
+		{
+			MatchQuality = 1.0f;
+		}
+		else if (PositionError >= ScoringFailThreshold)
+		{
+			MatchQuality = 0.0f;
+		}
+		else
+		{
+			MatchQuality = 1.0f - (PositionError - ScoringPerfectThreshold) / (ScoringFailThreshold - ScoringPerfectThreshold);
+		}
+
+		TotalQualitySum += MatchQuality;
+		TotalFrameCount++;
+
+		const float Alpha = FMath::Clamp(ScoreSmoothingFactor * DeltaTime, 0.0f, 1.0f);
+		CurrentScore = FMath::Lerp(CurrentScore, MatchQuality * 100.0f, Alpha);
+	}
+
+	// ==================== 3. 腕上下回数の判定 ====================
 
 	if (!bIsHandAtTop && HandHeightPercent >= UpperThresholdPercent)
 	{
@@ -61,6 +98,9 @@ void UFishingStateHandUpDown::UpdateState(float DeltaTime)
 		// 目標回数に達したらステート完了を通知
 		if (CurrentUpAndDownCount >= TargetUpAndDownCount)
 		{
+			// 最終スコアを全フレームの真の平均から算出
+			FinalScore = (TotalFrameCount > 0) ? (TotalQualitySum / TotalFrameCount) * 100.0f : 0.0f;
+
 			bIsCompleted = true;
 			OnFishingStateCompleted.Broadcast(true);
 		}
@@ -75,4 +115,61 @@ void UFishingStateHandUpDown::ExitState()
 	CurrentUpAndDownCount = 0;
 	bIsHandAtTop = false;
 	bIsCompleted = false;
+
+	// 矢印状態をリセット
+	ArrowPosition = 0.0f;
+	ArrowState = EFishArrowState::MovingUp;
+
+	// スコア状態をリセット
+	CurrentScore = 0.0f;
+	FinalScore = 0.0f;
+	TotalQualitySum = 0.0f;
+	TotalFrameCount = 0;
+}
+
+void UFishingStateHandUpDown::TickArrow(float InDeltaTime, float HandPercent)
+{
+	switch (ArrowState)
+	{
+	case EFishArrowState::MovingUp:
+	{
+		ArrowPosition += RecommendedSpeed * InDeltaTime;
+		if (ArrowPosition >= 1.0f)
+		{
+			ArrowPosition = 1.0f;
+			ArrowState = EFishArrowState::WaitingAtTop;
+		}
+		break;
+	}
+
+	case EFishArrowState::WaitingAtTop:
+	{
+		if (HandPercent >= (1.0f - ArrowWaitThreshold))
+		{
+			ArrowState = EFishArrowState::MovingDown;
+		}
+		break;
+	}
+
+	case EFishArrowState::MovingDown:
+	{
+		ArrowPosition -= RecommendedSpeed * InDeltaTime;
+		if (ArrowPosition <= 0.0f)
+		{
+			ArrowPosition = 0.0f;
+			ArrowState = EFishArrowState::WaitingAtBottom;
+
+		}
+		break;
+	}
+
+	case EFishArrowState::WaitingAtBottom:
+	{
+		if (HandPercent <= ArrowWaitThreshold)
+		{
+			ArrowState = EFishArrowState::MovingUp;
+		}
+		break;
+	}
+	}
 }
