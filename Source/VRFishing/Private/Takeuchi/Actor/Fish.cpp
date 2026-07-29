@@ -36,6 +36,7 @@ void AFish::BeginPlay()
 
 	//魚のスポーン位置は動かさず、PivotTranslationが示す周回中心を固定保存する
 	CenterLocation = SpawnLocation;
+
 	if (RotatingMovementComp)
 	{
 		const FVector RotatingPivotOffset = GetActorRotation().RotateVector(RotatingMovementComp->PivotTranslation);
@@ -74,8 +75,8 @@ void AFish::BeginPlay()
 	//GetWorldTimerManager().SetTimer(StateTimerHandle, this, &AFish::TransitionToMoveToCenter, 4.0f, false);
 	// 2026.07.27 谷村　endーーーーーーーーーー
 
-	//仮処理 F1で暴れ、F2で釣り上げる
-	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+	//仮処理 F1で暴れ、F2で釣り上げる(現在無効化)
+	/*APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 	if (PC)
 	{
 		EnableInput(PC);
@@ -84,7 +85,7 @@ void AFish::BeginPlay()
 			InputComponent->BindKey(EKeys::F1, IE_Pressed, this, &AFish::StartStruggling);
 			InputComponent->BindKey(EKeys::F2, IE_Pressed, this, &AFish::CatchFish);
 		}
-	}
+	}*/
 
 	// 2026.07.27 谷村　startーーーーーーーーーー
 	//VRPawnの既存イベントを、F1/F2と同じ魚の状態遷移へ接続する
@@ -121,6 +122,7 @@ void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 	if (NewState->IsA<UFishingStateWait>()) {
 		if (CurrentState != EFishState::Circling) {
 			CurrentState = EFishState::Circling;
+			ClearStateTimers();
 			if (RotatingMovementComp && !RotatingMovementComp->IsActive()) {
 				RotatingMovementComp->Activate();
 			}
@@ -138,14 +140,14 @@ void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 	}
 	// 釣り上げモード (Catching): 釣られた (Caught)
 	else if (NewState->IsA<UFishingCatchingStateComponent>()) {
-		CatchFish();
+		StartCatchDelay();
 	}
 }
 // 2026.07.27 谷村　endーーーーーーーーーー
 
 void AFish::TransitionToMoveToCenter()
 {
-	//捕獲などで別の状態へ遷移済みなら、開始時のタイマーでは上書きしない
+	//通知を受けた時点で周回状態の場合のみ、中央へ移動する状態へ変更する
 	if (CurrentState != EFishState::Circling)
 	{
 		return;
@@ -240,6 +242,36 @@ void AFish::StartStruggling()
 	OnStartStruggling();
 }
 
+void AFish::StartCatchDelay()
+{
+	if (CurrentState == EFishState::CatchDelay || CurrentState == EFishState::Caught)
+	{
+		return;
+	}
+
+	CurrentState = EFishState::CatchDelay;
+	ClearStateTimers();
+
+	if (RotatingMovementComp)
+	{
+		RotatingMovementComp->Deactivate();
+	}
+
+	if (PreCatchingWaitTime <= 0.0f)
+	{
+		CatchFish();
+		return;
+	}
+
+	GetWorldTimerManager().SetTimer(
+		PreCatchingTimerHandle,
+		this,
+		&AFish::CatchFish,
+		PreCatchingWaitTime,
+		false
+	);
+}
+
 void AFish::CatchFish()
 {
 	if (CurrentState == EFishState::Caught)
@@ -255,8 +287,8 @@ void AFish::CatchFish()
 		RotatingMovementComp->Deactivate();
 	}
 
-	//捕獲位置の300cm上を、移動中に変化しない吊り上げ先として固定する
-	CaughtTargetLocation = GetActorLocation() + FVector(0.0f, 0.0f, 300.0f);
+	//捕獲位置のCaughtHeight分上を、移動中に変化しない吊り上げ先として固定する
+	CaughtTargetLocation = GetActorLocation() + FVector(0.0f, 0.0f, CaughtHeight);
 
 	SetActorRotation(FRotator(0.0f, GetActorRotation().Yaw, -90.0f));
 
@@ -278,6 +310,18 @@ void AFish::RespawnFish()
 	AFish* NewFish = World->SpawnActor<AFish>(GetClass(), InitialSpawnTransform, SpawnParameters);
 	if (NewFish)
 	{
+		AVRPawn* VRPawn = Cast<AVRPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+		if (VRPawn)
+		{
+			UFishingStateManagerComponent* StateManager = VRPawn->FindComponentByClass<UFishingStateManagerComponent>();
+			UFishingStateWait* WaitState = VRPawn->FindComponentByClass<UFishingStateWait>();
+
+			if (StateManager && WaitState)
+			{
+				StateManager->ChangeState(WaitState);
+			}
+		}
+
 		Destroy();
 	}
 }
@@ -304,8 +348,10 @@ void AFish::RotateTowardCenter(float DeltaTime, float InterpSpeed)
 
 void AFish::ClearStateTimers()
 {
-	GetWorldTimerManager().ClearTimer(StateTimerHandle);
 	GetWorldTimerManager().ClearTimer(PokeTimerHandle);
+	GetWorldTimerManager().ClearTimer(PreCatchingTimerHandle);
+	GetWorldTimerManager().ClearTimer(RespawnTimerHandle);
+	bRespawnScheduled = false;
 }
 
 void AFish::Tick(float DeltaTime)
@@ -333,7 +379,7 @@ void AFish::Tick(float DeltaTime)
 
 		ApproachSide.Normalize();
 		const FVector InitialPokeTarget = CenterLocation + ApproachSide * PokeContactOffset;
-		const FVector NewLocation = FMath::VInterpTo(GetActorLocation(), InitialPokeTarget, DeltaTime, 2.0f);
+		const FVector NewLocation = FMath::VInterpTo(GetActorLocation(), InitialPokeTarget, DeltaTime, MoveToCenterSpeed);
 		SetActorLocation(NewLocation);
 		RotateTowardCenter(DeltaTime, 5.0f);
 
@@ -362,12 +408,16 @@ void AFish::Tick(float DeltaTime)
 	{
 		StruggleElapsedTime += DeltaTime;
 		StruggleCurrentRadius = FMath::FInterpTo(StruggleCurrentRadius, StruggleRadius, DeltaTime, 3.0f);
-		const float FastSpeed = CircleSpeed * 4.0f;
+		const float FastSpeed = CircleSpeed * StruggleSpeedMultiplier;
 		const float CurrentAngle = StruggleStartAngle + StruggleElapsedTime * FastSpeed;
 		const float X = CenterLocation.X + FMath::Cos(CurrentAngle) * StruggleCurrentRadius;
 		const float Y = CenterLocation.Y + FMath::Sin(CurrentAngle) * StruggleCurrentRadius;
 		SetActorLocation(FVector(X, Y, GetActorLocation().Z));
 		RotateTowardCenter(DeltaTime, 10.0f);
+		break;
+	}
+	case EFishState::CatchDelay:
+	{
 		break;
 	}
 	case EFishState::Caught:
@@ -391,7 +441,7 @@ void AFish::Tick(float DeltaTime)
 			break;
 		}
 
-		const FVector NewLocation = FMath::VInterpTo(GetActorLocation(), CaughtTargetLocation, DeltaTime, 3.0f);
+		const FVector NewLocation = FMath::VInterpTo(GetActorLocation(), CaughtTargetLocation, DeltaTime, CaughtMoveSpeed);
 		SetActorLocation(NewLocation);
 		break;
 	}
