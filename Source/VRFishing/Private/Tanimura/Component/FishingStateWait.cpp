@@ -4,6 +4,9 @@
 #include "Tanimura/Component/FishingStateWait.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+// 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+#include "Lee/component/HandHeightDetectorComponent.h"
+// 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 UFishingStateWait::UFishingStateWait()
 {
@@ -32,11 +35,19 @@ void UFishingStateWait::UpdateState(float DeltaTime)
         return;
     }
 
-    const FVector HUDLocation = GetHUDLocation();
-    const FVector HandLocation = GetRightHandLocation();
-
-    // HUDより指定距離以上低い位置に手があるか判定
-    const bool bIsHandLowered = (HUDLocation.Z - HandLocation.Z) >= RequiredDownDistance;
+    // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 手部運動センサから手の下がり量を取得して判定（従来の Actor 位置参照の誤判定を修正）
+    if (!HandHeightDetector.IsValid() && GetOwner())
+    {
+        HandHeightDetector = GetOwner()->FindComponentByClass<UHandHeightDetectorComponent>();
+    }
+    const bool bIsHandLowered = HandHeightDetector.IsValid()
+        && (HandHeightDetector->GetHandHeightBelowHeadCm() >= RequiredDownDistance);
+    // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    //const FVector HUDLocation = GetHUDLocation();
+    //const FVector HandLocation = GetRightHandLocation();
+    //// HUDより指定距離以上低い位置に手があるか判定
+    //const bool bIsHandLowered = (HUDLocation.Z - HandLocation.Z) >= RequiredDownDistance;←もともとのコードも消さない！
 
     if (bIsHandLowered) {
         // 条件を満たしている時間を累積

@@ -11,10 +11,13 @@
 #include "Tanimura/Component/FishingStateWait.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
 #include "Tanimura/Component/FishingCatchingStateComponent.h"
+// 2026.07.27 谷村　endーーーーーーーーーー
 // 2026.07.27 Lee start
 #include "Lee/component/HandHeightDetectorComponent.h"
 // 2026.07.27 Lee end
-// 2026.07.27 谷村　endーーーーーーーーーー
+// 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+#include "Lee/component/FishingStateHandUpDown.h"
+// 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 AFish::AFish()
 {
@@ -128,10 +131,16 @@ void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 	}
 	// 2026.07.27 Lee start
 	// 高さ検知モード (HandHeight): 中心移動 (MovingToCenter) 経由で つつき (Poking) へ
-	else if (NewState->IsA<UHandHeightDetectorComponent>()) {
+	//else if (NewState->IsA<UHandHeightDetectorComponent>()) {←もともとのコードも消さない！
+	//	TransitionToMoveToCenter();
+	//}
+	// 2026.07.27 Lee end
+	// 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// センサ(HandHeightDetector)はステートでなくなったため、上下運動プレイステートで判定する
+	else if (NewState->IsA<UFishingStateHandUpDown>()) {
 		TransitionToMoveToCenter();
 	}
-	// 2026.07.27 Lee end
+	// 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	// リール回転モード (Reel): 暴れる (Struggling)
 	else if (NewState->IsA<UFishingReelStateComponent>()) {
 		StartStruggling();

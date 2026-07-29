@@ -6,6 +6,9 @@
 #include "Tanimura/Component/FishingStateWait.h"
 #include "Lee/component//HandHeightDetectorComponent.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
+// 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+#include "Lee/component/FishingStateHandUpDown.h"
+// 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 #include "Tanimura/Component/FishingCatchingStateComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
@@ -21,6 +24,9 @@ AVRPawn::AVRPawn()
     // 2026.07.27 Lee start
     HandUpDownComponent = CreateDefaultSubobject<UHandHeightDetectorComponent>(TEXT("HandUpDownComponent"));
     // 2026.07.27 Lee end
+    // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    HandUpDownStateComponent = CreateDefaultSubobject<UFishingStateHandUpDown>(TEXT("HandUpDownStateComponent"));
+    // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     ReelStateComponent = CreateDefaultSubobject<UFishingReelStateComponent>(TEXT("ReelStateComponent"));
     CatchingStateComponent = CreateDefaultSubobject<UFishingCatchingStateComponent>(TEXT("CatchingStateComponent"));
 }
@@ -41,10 +47,17 @@ void AVRPawn::BeginPlay()
 
     // 2026.07.27 Lee start
     // 手の上下運動ステートの完了イベントをバインド
-    if (HandUpDownComponent) {
-        HandUpDownComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnHandUpDownCompleted);
-    }
+    //if (HandUpDownComponent) {
+    //    HandUpDownComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnHandUpDownCompleted);
+    //}←もともとのコードも消さない！
     // 2026.07.27 Lee end
+    // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // センサ(HandUpDownComponent)は常駐化して OnFishingStateCompleted を持たないため、
+    // 完了イベントは上下運動プレイステート(HandUpDownStateComponent)へバインドする
+    if (HandUpDownStateComponent) {
+        HandUpDownStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnHandUpDownCompleted);
+    }
+    // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
     // 釣り上げステートの完了イベントをバインド
     if (CatchingStateComponent) {
@@ -77,10 +90,16 @@ void AVRPawn::OnWaitStateCompleted(bool bIsSuccess)
 {
     // 2026.07.27 Lee start
     // 旧: StateManagerComponent->ChangeState(ReelStateComponent);
-    if (bIsSuccess && StateManagerComponent && HandUpDownComponent) {
-        StateManagerComponent->ChangeState(HandUpDownComponent);
-    }
+    //if (bIsSuccess && StateManagerComponent && HandUpDownComponent) {
+    //    StateManagerComponent->ChangeState(HandUpDownComponent);
+    //}←もともとのコードも消さない！
     // 2026.07.27 Lee end
+    // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 待機完了後は上下運動プレイステートへ遷移（センサではなくステート側へ）
+    if (bIsSuccess && StateManagerComponent && HandUpDownStateComponent) {
+        StateManagerComponent->ChangeState(HandUpDownStateComponent);
+    }
+    // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
 
 void AVRPawn::OnReelTargetReached()
