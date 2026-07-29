@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Lee/component/HandHeightDetectorComponent.h"
@@ -11,8 +11,8 @@
 
 UHandHeightDetectorComponent::UHandHeightDetectorComponent()
 {
-	// ステート単体でのTickは無効化（Manager経由でUpdateStateが呼ばれる）
-	PrimaryComponentTick.bCanEverTick = false;
+	// 常駐センサとして毎フレーム自律 Tick する
+	PrimaryComponentTick.bCanEverTick = true;
 }
 
 
@@ -29,29 +29,11 @@ void UHandHeightDetectorComponent::BeginPlay()
 	{
 		CameraRef = Cast<UCameraComponent>(Owner->GetComponentByClass(UCameraComponent::StaticClass()));
 	}
-	
 }
 
-void UHandHeightDetectorComponent::EnterState()
+void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
-	Super::EnterState();
-
-	// カウンターと状態フラグを初期化
-	CurrentUpAndDownCount = 0;
-	bIsHandAtTop = false;
-	bIsCompleted = false;
-	bHasPreviousLocation = false;
-}
-
-void UHandHeightDetectorComponent::UpdateState(float DeltaTime)
-{
-	Super::UpdateState(DeltaTime);
-
-	// 処理完了済みなら判定を行わない（二重発火防止）
-	if (bIsCompleted)
-	{
-		return;
-	}
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	// @brief 両方の必須コンポーネントが取得されていることを確認
 	if (!CameraRef.IsValid() || !HandRef.IsValid())
@@ -63,6 +45,10 @@ void UHandHeightDetectorComponent::UpdateState(float DeltaTime)
 	const FVector CurrentHandLocation = HandRef->GetComponentLocation();
 	const float HeadZ = CameraRef->GetComponentLocation().Z;
 	const float HandZ = CurrentHandLocation.Z;
+
+	// cm 语义インターフェース用にキャッシュ
+	CachedHeadZ = HeadZ;
+	CachedHandZ = HandZ;
 
 	// @brief 絶対高さの範囲を計算
 	const float MinZ = HeadZ - BottomOffset;
@@ -98,27 +84,6 @@ void UHandHeightDetectorComponent::UpdateState(float DeltaTime)
 		}
 	}
 
-	// ==================== 腕上下回数の判定 ====================
-
-	if (!bIsHandAtTop && HandHeightPercent >= UpperThresholdPercent)
-	{
-		// 手が上端領域に到達
-		bIsHandAtTop = true;
-	}
-	else if (bIsHandAtTop && HandHeightPercent <= LowerThresholdPercent)
-	{
-		// 上端に到達した状態から下端領域まで下がったため 1 回とカウント
-		bIsHandAtTop = false;
-		CurrentUpAndDownCount++;
-
-		// 目標回数に達したらステート完了を通知
-		if (CurrentUpAndDownCount >= TargetUpAndDownCount)
-		{
-			bIsCompleted = true;
-			OnFishingStateCompleted.Broadcast(true);
-		}
-	}
-
 	// @brief 次のフレームのために現在位置を保存
 	PreviousHandLocation = CurrentHandLocation;
 	bHasPreviousLocation = true;
@@ -148,13 +113,8 @@ void UHandHeightDetectorComponent::UpdateState(float DeltaTime)
 	}
 }
 
-void UHandHeightDetectorComponent::ExitState()
+float UHandHeightDetectorComponent::GetHandHeightBelowHeadCm() const
 {
-	Super::ExitState();
-
-	// 変数リセット
-	CurrentUpAndDownCount = 0;
-	bIsHandAtTop = false;
-	bIsCompleted = false;
+	// 正 = 手が頭より下にある
+	return CachedHeadZ - CachedHandZ;
 }
-

@@ -13,6 +13,9 @@ class UFishingStateWait;            // モード１
 // 2026.07.27 Lee start
 class UHandHeightDetectorComponent; // モード２
 // 2026.07.27 Lee end
+// 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+class UFishingStateHandUpDown; // モード２（上下運動プレイステート）
+// 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 class UFishingReelStateComponent;            // モード３
 class UFishingCatchingStateComponent;        // モード４
 class UUserWidget;
@@ -51,6 +54,13 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UHandHeightDetectorComponent> HandUpDownComponent;
     // 2026.07.27 Lee end
+
+    // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 手の上下運動プレイステートコンポーネント（モード２）。感知は HandUpDownComponent(センサ)が常駐で行い、
+    // カウント等のプレイロジックはこのステートが担う。
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    TObjectPtr<UFishingStateHandUpDown> HandUpDownStateComponent;
+    // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
     // リール回転状態コンポーネント
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")

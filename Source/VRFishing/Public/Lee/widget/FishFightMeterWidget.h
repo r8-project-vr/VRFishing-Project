@@ -8,6 +8,7 @@
 #include "FishFightMeterWidget.generated.h"
 
 class UFishingReelStateComponent;
+class UFishingStateHandUpDown;
 
 UENUM(BlueprintType)
 enum class EFishArrowState : uint8
@@ -115,6 +116,10 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UHandHeightDetectorComponent> HandHeightDetector;
+
+	/// @brief 上下運動プレイステート（カウント取得・完了イベント受信用）
+	UPROPERTY()
+	TObjectPtr<UFishingStateHandUpDown> HandUpDownState;
 
 	UPROPERTY()
 	TObjectPtr<UFishingReelStateComponent> ReelSimulator;

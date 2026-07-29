@@ -2,6 +2,7 @@
 
 #include "Lee/widget/FishFightMeterWidget.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
+#include "Lee/component/FishingStateHandUpDown.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/Engine.h"
 
@@ -26,11 +27,14 @@ void UFishFightMeterWidget::NativeConstruct()
 	if (OwnerPawn)
 	{
 		HandHeightDetector = OwnerPawn->FindComponentByClass<UHandHeightDetectorComponent>();
+		HandUpDownState = OwnerPawn->FindComponentByClass<UFishingStateHandUpDown>();
 		ReelSimulator = OwnerPawn->FindComponentByClass<UFishingReelStateComponent>();
 
-		if (HandHeightDetector)
+		// センサ(HandHeightDetector)は OnFishingStateCompleted を持たないため、
+		// 完了イベントは上下運動プレイステート(HandUpDownState)から受ける
+		if (HandUpDownState)
 		{
-			HandHeightDetector->OnFishingStateCompleted.AddDynamic(this, &UFishFightMeterWidget::OnHandUpDownCompleted);
+			HandUpDownState->OnFishingStateCompleted.AddDynamic(this, &UFishFightMeterWidget::OnHandUpDownCompleted);
 		}
 
 		if (ReelSimulator)
@@ -62,8 +66,8 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 
 	const float HandPercent = HandHeightDetector ? HandHeightDetector->HandHeightPercent : 0.0f;
 
-	// ---- 手の往復カウント（HandHeightDetectorComponent に統一） ----
-	CycleCount = HandHeightDetector ? HandHeightDetector->CurrentUpAndDownCount : 0;
+	// ---- 手の往復カウント（上下運動プレイステートから取得） ----
+	CycleCount = HandUpDownState ? HandUpDownState->CurrentUpAndDownCount : 0;
 
 	// ---- 自動リロック：次の Attract フェーズでカウントが動き始めたら再ロック ----
 	if (bReelUnlocked && CycleCount > 0)

@@ -6,6 +6,10 @@
 #include "Tanimura/Component/FishingStateComponentBase.h"
 #include "FishingStateWait.generated.h"
 
+// 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+class UHandHeightDetectorComponent;
+// 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 /**
  * ゲーム開始直後の「待機モード」
  * HUDを基準に、指定の高さ(初期値50cm)より低い位置で数秒(初期値2秒)待つと、次のモードへ
@@ -39,6 +43,12 @@ protected:
 	// 次のステートに進むために、準備完了状態でキープしなければいけない時間 (秒)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Fishing|Wait")
     float RequiredWaitTime = 2.0f;
+
+    // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 手部運動センサへの参照（未取得時は所有者から FindComponentByClass で取得）
+    UPROPERTY(Transient, BlueprintReadOnly, Category = "Fishing|Wait")
+    TWeakObjectPtr<UHandHeightDetectorComponent> HandHeightDetector;
+    // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 private:
     // 条件を満たしている累積時間
