@@ -35,6 +35,63 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	// ==================== 外部データソース（BLE IMU等）パス ====================
+	if (bUseExternalData)
+	{
+		// @brief HandRef の代わりに注入された値を使用
+		HandHeightPercent = ExternalHeightPercent;
+
+		// @brief GetHandHeightBelowHeadCm() 用に仮想 Z 座標を計算
+		if (CameraRef.IsValid())
+		{
+			CachedHeadZ = CameraRef->GetComponentLocation().Z;
+			// HandHeightPercent(0=下,1=上) を BottomOffset〜-TopOffset にマッピング
+			const float VirtualZOffset = FMath::Lerp(BottomOffset, -TopOffset, ExternalHeightPercent);
+			CachedHandZ = CachedHeadZ - VirtualZOffset;
+		}
+
+		// @brief 速度の処理（注入された速度が有効な場合のみ）
+		if (ExternalSpeed >= 0.0f)
+		{
+			CurrentHandSpeed = ExternalSpeed;
+
+			if (CurrentHandSpeed < MinGoodSpeed)
+			{
+				HandSpeedState = EHandSpeedState::TooSlow;
+			}
+			else if (CurrentHandSpeed > MaxGoodSpeed)
+			{
+				HandSpeedState = EHandSpeedState::TooFast;
+			}
+			else
+			{
+				HandSpeedState = EHandSpeedState::Good;
+			}
+		}
+
+		// @brief Debug 表示（外部データモード時）
+		if (bShowDebug && GEngine)
+		{
+			const TCHAR* StateText = TEXT("???");
+			FColor StateColor = FColor::White;
+			switch (HandSpeedState)
+			{
+			case EHandSpeedState::TooSlow:	StateText = TEXT("TOO SLOW");  StateColor = FColor::Yellow;  break;
+			case EHandSpeedState::Good:		StateText = TEXT("GOOD");      StateColor = FColor::Green;   break;
+			case EHandSpeedState::TooFast:	StateText = TEXT("TOO FAST");  StateColor = FColor::Red;     break;
+			}
+
+			FString DebugMsg = FString::Printf(
+				TEXT("[EXT] Hand: %.2f%% | Speed: %.1f [%s]"),
+				HandHeightPercent, CurrentHandSpeed, StateText);
+
+			GEngine->AddOnScreenDebugMessage(1, 0.0f, StateColor, DebugMsg);
+		}
+		return;
+	}
+
+	// ==================== OpenXR HandTracking パス（変更禁止） ====================
+
 	// @brief 両方の必須コンポーネントが取得されていることを確認
 	if (!CameraRef.IsValid() || !HandRef.IsValid())
 	{
@@ -46,7 +103,7 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 	const float HeadZ = CameraRef->GetComponentLocation().Z;
 	const float HandZ = CurrentHandLocation.Z;
 
-	// cm 语义インターフェース用にキャッシュ
+	// cm 意味インターフェース用にキャッシュ
 	CachedHeadZ = HeadZ;
 	CachedHandZ = HandZ;
 
@@ -90,26 +147,22 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 
 	// ==================== Debug 表示 ====================
 
-	if (bShowDebug)
+	if (bShowDebug && GEngine)
 	{
-		// @brief 画面左上のテキストデバッグ
-		if (GEngine)
+		const TCHAR* StateText = TEXT("???");
+		FColor StateColor = FColor::White;
+		switch (HandSpeedState)
 		{
-			const TCHAR* StateText = TEXT("???");
-			FColor StateColor = FColor::White;
-			switch (HandSpeedState)
-			{
-			case EHandSpeedState::TooSlow:	StateText = TEXT("TOO SLOW");  StateColor = FColor::Yellow;  break;
-			case EHandSpeedState::Good:		StateText = TEXT("GOOD");      StateColor = FColor::Green;   break;
-			case EHandSpeedState::TooFast:	StateText = TEXT("TOO FAST");  StateColor = FColor::Red;     break;
-			}
-
-			FString DebugMsg = FString::Printf(
-				TEXT("Hand: %.2f%% | Speed: %.1f cm/s [%s] | Hand Z: %.1f | Head Z: %.1f"),
-				HandHeightPercent, CurrentHandSpeed, StateText, HandZ, HeadZ);
-
-			GEngine->AddOnScreenDebugMessage(1, 0.0f, StateColor, DebugMsg);
+		case EHandSpeedState::TooSlow:	StateText = TEXT("TOO SLOW");  StateColor = FColor::Yellow;  break;
+		case EHandSpeedState::Good:		StateText = TEXT("GOOD");      StateColor = FColor::Green;   break;
+		case EHandSpeedState::TooFast:	StateText = TEXT("TOO FAST");  StateColor = FColor::Red;     break;
 		}
+
+		FString DebugMsg = FString::Printf(
+			TEXT("Hand: %.2f%% | Speed: %.1f cm/s [%s] | Hand Z: %.1f | Head Z: %.1f"),
+			HandHeightPercent, CurrentHandSpeed, StateText, HandZ, HeadZ);
+
+		GEngine->AddOnScreenDebugMessage(1, 0.0f, StateColor, DebugMsg);
 	}
 }
 
@@ -117,4 +170,18 @@ float UHandHeightDetectorComponent::GetHandHeightBelowHeadCm() const
 {
 	// 正 = 手が頭より下にある
 	return CachedHeadZ - CachedHandZ;
+}
+
+void UHandHeightDetectorComponent::SetExternalHandData(float InHeightPercent, float InSpeed)
+{
+	ExternalHeightPercent = FMath::Clamp(InHeightPercent, 0.0f, 1.0f);
+	ExternalSpeed = InSpeed;
+	bUseExternalData = true;
+}
+
+void UHandHeightDetectorComponent::ClearExternalHandData()
+{
+	bUseExternalData = false;
+	ExternalHeightPercent = 0.0f;
+	ExternalSpeed = 0.0f;
 }
