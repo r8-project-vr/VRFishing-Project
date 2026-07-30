@@ -49,7 +49,7 @@ void AVRPawn::BeginPlay()
     // 手の上下運動ステートの完了イベントをバインド
     //if (HandUpDownComponent) {
     //    HandUpDownComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnHandUpDownCompleted);
-    //}←もともとのコードも消さない！
+    //}
     // 2026.07.27 Lee end
     // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     // センサ(HandUpDownComponent)は常駐化して OnFishingStateCompleted を持たないため、
@@ -92,7 +92,7 @@ void AVRPawn::OnWaitStateCompleted(bool bIsSuccess)
     // 旧: StateManagerComponent->ChangeState(ReelStateComponent);
     //if (bIsSuccess && StateManagerComponent && HandUpDownComponent) {
     //    StateManagerComponent->ChangeState(HandUpDownComponent);
-    //}←もともとのコードも消さない！
+    //}
     // 2026.07.27 Lee end
     // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     // 待機完了後は上下運動プレイステートへ遷移（センサではなくステート側へ）

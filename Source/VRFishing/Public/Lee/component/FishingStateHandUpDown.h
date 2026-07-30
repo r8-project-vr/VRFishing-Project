@@ -9,9 +9,22 @@
 class UHandHeightDetectorComponent;
 
 /**
+ * @brief 矢印ガイドの状態を定義する列挙型。
+ */
+UENUM(BlueprintType)
+enum class EFishArrowState : uint8
+{
+	MovingUp        UMETA(DisplayName = "上昇中"),
+	WaitingAtTop    UMETA(DisplayName = "上部で待機"),
+	MovingDown      UMETA(DisplayName = "下降中"),
+	WaitingAtBottom UMETA(DisplayName = "下部で待機")
+};
+
+/**
  * @brief 手の上下運動ステート（モード２）。
  * @note 感知(HandHeightDetectorComponent)とプレイロジック(カウント)を分離した薄状態。
  *       毎フレームセンサの HandHeightPercent を読み、閾値で上下往復をカウントして目標回数到達で完了。
+ * @note 矢印ガイド・スコアリングのプレイロジックもここで管理し、Widgetは表示のみ行う。
  */
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class VRFISHING_API UFishingStateHandUpDown : public UFishingStateComponentBase
@@ -28,8 +41,10 @@ public:
 
 	// ==================== 設定パラメータ ====================
 
+	// ---- 上下カウント ----
+
 	/// @brief ヒットまでに必要な上げ下げの目標回数
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Count")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Count", meta = (ClampMin = "1"))
 	int32 TargetUpAndDownCount = 5;
 
 	/// @brief 手を「上がった」と判定するパーセンテージ閾値 (0.0～1.0)
@@ -40,11 +55,55 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Count", meta = (ClampMin = "0.0", ClampMax = "0.5"))
 	float LowerThresholdPercent = 0.2f;
 
+	// ---- 矢印ガイド ----
+
+	/// @brief 矢印の移動速度（0.0～1.0 の範囲を何秒で移動するか）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Arrow")
+	float RecommendedSpeed = 0.2f;
+
+	/// @brief 矢印が上端/下端で手を待つ閾値（0.0～1.0、小さいほど敏感）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Arrow")
+	float ArrowWaitThreshold = 0.20f;
+
+	// ---- スコアリング ----
+
+	/// @brief 手と矢印の位置誤差がこれ以下なら満点扱い (0.0～1.0)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Scoring", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float ScoringPerfectThreshold = 0.05f;
+
+	/// @brief 手と矢印の位置誤差がこれ以上なら0点扱い (0.0～1.0)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Scoring", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float ScoringFailThreshold = 0.3f;
+
+	/// @brief スコアの平滑化係数（大きいほど変動が速い）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Scoring", meta = (ClampMin = "0.1"))
+	float ScoreSmoothingFactor = 5.0f;
+
 	// ==================== 出力 ====================
 
 	/// @brief 現在の上げ下げ達成回数
 	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Count")
 	int32 CurrentUpAndDownCount = 0;
+
+	/// @brief 矢印の現在位置（0.0～1.0）
+	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Arrow")
+	float ArrowPosition = 0.0f;
+
+	/// @brief 矢印の現在状態
+	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Arrow")
+	EFishArrowState ArrowState = EFishArrowState::MovingUp;
+
+	/// @brief 現在のライブスコア（平滑化後、0～100）
+	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Scoring")
+	float CurrentScore = 0.0f;
+
+	/// @brief 最終総合スコア（全フレーム平均×100、完了時に確定）
+	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Scoring")
+	float FinalScore = 0.0f;
+
+	/// @brief ステート完了フラグ（Widget表示用／二重発火防止）
+	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Count")
+	bool bIsCompleted = false;
 
 private:
 	/// @brief 手部運動センサへの参照（EnterState で所有者から取得）
@@ -53,6 +112,12 @@ private:
 	/** 手が現在「上位置」に達しているかのフラグ */
 	bool bIsHandAtTop = false;
 
-	/** 完了フラグ（OnFishingStateCompleted の二重発火防止） */
-	bool bIsCompleted = false;
+	/** スコアの累積値（全フレーム平均算出用） */
+	float TotalQualitySum = 0.0f;
+
+	/** 累積フレーム数 */
+	int32 TotalFrameCount = 0;
+
+	/** @brief 矢印状態を更新する */
+	void TickArrow(float DeltaTime, float HandPercent);
 };

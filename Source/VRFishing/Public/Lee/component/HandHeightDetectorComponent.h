@@ -92,6 +92,26 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Height Detection")
 	float GetHandHeightBelowHeadCm() const;
 
+	// ==================== 外部データソース用 I/F ====================
+
+	/**
+	 * @brief 外部デバイス（BLE IMU等）のデータで HandRef を上書きする。
+	 * @param InHeightPercent 正規化された手の高さ（0.0=下, 1.0=上）
+	 * @param InSpeed 手の移動速度(cm/s)。-1.0f で速度計算をスキップ
+	 * @note 呼び出し後は毎フレームこの値を出力に使用する。
+	 *       ClearExternalHandData() で解除し HandRef ベースへ戻る。
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Height Detection|External")
+	void SetExternalHandData(float InHeightPercent, float InSpeed = -1.0f);
+
+	/// @brief 外部データモードを解除し、HandRef ベースの通常動作へ戻す
+	UFUNCTION(BlueprintCallable, Category = "Height Detection|External")
+	void ClearExternalHandData();
+
+	/// @brief 現在外部データモードかどうか
+	UFUNCTION(BlueprintCallable, Category = "Height Detection|External")
+	bool IsUsingExternalData() const { return bUseExternalData; }
+
 private:
 	/** 前フレームの手のワールド位置（速度計算用） */
 	FVector PreviousHandLocation = FVector::ZeroVector;
@@ -104,4 +124,15 @@ private:
 
 	/// @brief 直近フレームの手のZ座標（GetHandHeightBelowHeadCm 用にキャッシュ）
 	float CachedHandZ = 0.0f;
+
+	// ==================== 外部データソース用 内部状態 ====================
+
+	/** @brief 外部データモードフラグ（true 時は HandRef の代わりに External* 値を使用） */
+	bool bUseExternalData = false;
+
+	/** @brief 外部から注入された手の高さ（0.0〜1.0） */
+	float ExternalHeightPercent = 0.0f;
+
+	/** @brief 外部から注入された手の速度（cm/s） */
+	float ExternalSpeed = 0.0f;
 };
