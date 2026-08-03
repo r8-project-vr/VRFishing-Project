@@ -109,6 +109,10 @@ void AFish::BeginPlay()
 		{
 			ReelSimulator->OnTargetRevolutionsReached.AddUniqueDynamic(this, &AFish::CatchFish);
 		}*/
+		//釣り上げステートの完了通知イベントをバインド
+		if (UFishingCatchingStateComponent* CatchingState = VRPawn->FindComponentByClass<UFishingCatchingStateComponent>()) {
+			CatchingState->OnFishingStateCompleted.AddUniqueDynamic(this, &AFish::OnCatchingStateCompleted);
+		}
 	}
 	// 2026.07.27 谷村　endーーーーーーーーーー
 }
@@ -147,13 +151,20 @@ void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 	else if (NewState->IsA<UFishingReelStateComponent>()) {
 		StartStruggling();
 	}
-	// 釣り上げモード (Catching): 釣られた (Caught)
+	// 釣り上げモード (Catching): 完了イベントで処理するため開始時は処理なし
 	else if (NewState->IsA<UFishingCatchingStateComponent>()) {
-		StartCatchDelay();
+		//StartCatchDelay();
 	}
 }
 // 2026.07.27 谷村　endーーーーーーーーーー
 
+void AFish::OnCatchingStateCompleted(bool bIsSuccess)
+{
+	if (bIsSuccess)
+	{
+		CatchFish();
+	}
+}
 void AFish::TransitionToMoveToCenter()
 {
 	//通知を受けた時点で周回状態の場合のみ、中央へ移動する状態へ変更する
