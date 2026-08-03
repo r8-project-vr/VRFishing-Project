@@ -159,4 +159,6 @@ private:
 	UFUNCTION()
 	void OnFishingStateChanged(UFishingStateComponentBase* NewState);
 	// 2026.07.27 谷村　endーーーーーーーーーー
+	UFUNCTION()
+	void OnCatchingStateCompleted(bool bIsSuccess);
 };
