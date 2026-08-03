@@ -3,6 +3,7 @@
 
 #include "Tanimura/Actor/VRPawn.h"
 #include "Tanimura/Component/FishingStateManagerComponent.h"
+#include "Tanimura/Component/FishingStateComponentBase.h"
 #include "Tanimura/Component/FishingStateWait.h"
 #include "Lee/component//HandHeightDetectorComponent.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
@@ -13,6 +14,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Components/WidgetComponent.h"
+#include "Engine/Engine.h"
 
 AVRPawn::AVRPawn()
 {
@@ -34,6 +36,11 @@ AVRPawn::AVRPawn()
 void AVRPawn::BeginPlay()
 {
     Super::BeginPlay();
+
+    // ステート変更イベントをバインド（初期ステート設定より前に登録する必要があります）
+    if (StateManagerComponent) {
+        StateManagerComponent->OnFishingStateChanged.AddUniqueDynamic(this, &AVRPawn::OnFishingStateChanged);
+    }
 
     // 待機ステートの完了イベントをバインド
     if (WaitStateComponent) {
@@ -152,3 +159,23 @@ void AVRPawn::OnHandUpDownCompleted(bool bIsSuccess)
     }
 }
 // 2026.07.27 Lee end
+
+// 釣りモード変更時の処理
+void AVRPawn::OnFishingStateChanged(UFishingStateComponentBase* NewState)
+{
+    if (!NewState) {
+        return;
+    }
+
+    // 新しいステートのクラス名を取得して整形
+    const FString StateName = NewState->GetClass()->GetName();
+    const FString DisplayMessage = FString::Printf(TEXT("[Fishing Mode] Current State: %s"), *StateName);
+
+    // ログへ出力
+    UE_LOG(LogTemp, Log, TEXT("%s"), *DisplayMessage);
+
+    // 画面上（ビューポート）に5秒間表示
+    if (GEngine) {
+        GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Cyan, DisplayMessage);
+    }
+}

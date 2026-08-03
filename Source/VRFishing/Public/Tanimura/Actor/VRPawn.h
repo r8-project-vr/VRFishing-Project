@@ -9,6 +9,7 @@
 
 // 各モードコンポーネントの前方宣言
 class UFishingStateManagerComponent;
+class UFishingStateComponentBase;
 class UFishingStateWait;            // モード１
 // 2026.07.27 Lee start
 class UHandHeightDetectorComponent; // モード２
@@ -104,4 +105,8 @@ private:
     // 釣り上げステート完了時の通知を受け取るハンドラー
     UFUNCTION()
     void OnCatchingStateCompleted(bool bIsSuccess);
+
+    // ステート変更時の通知を受け取るハンドラー
+    UFUNCTION()
+    void OnFishingStateChanged(UFishingStateComponentBase* NewState);
 };
