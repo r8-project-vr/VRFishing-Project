@@ -78,14 +78,14 @@ void AFish::BeginPlay()
 	//GetWorldTimerManager().SetTimer(StateTimerHandle, this, &AFish::TransitionToMoveToCenter, 4.0f, false);
 	// 2026.07.27 谷村　endーーーーーーーーーー
 
-	//仮処理 F1で暴れ、F2で釣り上げる(現在無効化)
+	//挙動確認用(現在無効化)
 	/*APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 	if (PC)
 	{
 		EnableInput(PC);
 		if (InputComponent)
 		{
-			InputComponent->BindKey(EKeys::F1, IE_Pressed, this, &AFish::StartStruggling);
+			InputComponent->BindKey(EKeys::B, IE_Pressed, this, &AFish::EscapeFish);
 			InputComponent->BindKey(EKeys::F2, IE_Pressed, this, &AFish::CatchFish);
 		}
 	}*/
@@ -163,6 +163,10 @@ void AFish::OnCatchingStateCompleted(bool bIsSuccess)
 	if (bIsSuccess)
 	{
 		CatchFish();
+	}
+	else
+	{
+		EscapeFish();
 	}
 }
 void AFish::TransitionToMoveToCenter()
@@ -311,8 +315,6 @@ void AFish::CatchFish()
 	CaughtTargetLocation = GetActorLocation() + FVector(0.0f, 0.0f, CaughtHeight);
 
 	SetActorRotation(FRotator(0.0f, GetActorRotation().Yaw, -90.0f));
-
-	OnCaught();
 }
 
 void AFish::RespawnFish()
@@ -372,6 +374,43 @@ void AFish::ClearStateTimers()
 	GetWorldTimerManager().ClearTimer(PreCatchingTimerHandle);
 	GetWorldTimerManager().ClearTimer(RespawnTimerHandle);
 	bRespawnScheduled = false;
+}
+
+void AFish::EscapeFish()
+{
+	if (CurrentState == EFishState::Escape || CurrentState == EFishState::Caught)
+	{
+		return;
+	}
+
+	CurrentState = EFishState::Escape;
+	ClearStateTimers();
+
+	if (RotatingMovementComp)
+	{
+		RotatingMovementComp->Deactivate();
+	}
+
+	//中心から現在位置へ向かう外向きのベクトルを算出
+	FVector EscapeDirection = GetActorLocation() - CenterLocation;
+	EscapeDirection.Z = 0.0f;
+
+	if (EscapeDirection.IsNearlyZero())
+	{
+		EscapeDirection = -GetActorRightVector();
+		EscapeDirection.Z = 0.0f;
+	}
+	EscapeDirection.Normalize();
+
+	//開始位置、外側の目標位置、初期スケールを保存
+	EscapeStartLocation = GetActorLocation();
+	EscapeTargetLocation = EscapeStartLocation + EscapeDirection * EscapeDistance;
+	EscapeStartScale = GetActorScale3D();
+
+	//頭を外側に向ける
+	FRotator TargetRotation = EscapeDirection.Rotation();
+	TargetRotation.Yaw -= 90.0f;
+	SetActorRotation(FRotator(0.0f, TargetRotation.Yaw, 0.0f));
 }
 
 void AFish::Tick(float DeltaTime)
@@ -463,6 +502,46 @@ void AFish::Tick(float DeltaTime)
 
 		const FVector NewLocation = FMath::VInterpTo(GetActorLocation(), CaughtTargetLocation, DeltaTime, CaughtMoveSpeed);
 		SetActorLocation(NewLocation);
+		break;
+	}
+	case EFishState::Escape:
+	{
+		//外側の目標位置へ移動
+		const FVector NewLocation = FMath::VInterpTo(GetActorLocation(), EscapeTargetLocation, DeltaTime, EscapeSpeed);
+		SetActorLocation(NewLocation);
+
+		//頭を常に外側へ向け続ける
+		FVector EscapeDirection = EscapeTargetLocation - EscapeStartLocation;
+		EscapeDirection.Z = 0.0f;
+		if (!EscapeDirection.IsNearlyZero())
+		{
+			FRotator TargetRotation = EscapeDirection.Rotation();
+			TargetRotation.Yaw -= 90.0f; //頭を外側に向ける補正
+
+			const FRotator SmoothRotation = FMath::RInterpTo(
+				GetActorRotation(),
+				FRotator(0.0f, TargetRotation.Yaw, 0.0f),
+				DeltaTime,
+				10.0f
+			);
+			SetActorRotation(SmoothRotation);
+		}
+
+		//残り距離に応じてスケールを滑らかに小さくする
+		const float TotalDistance = FVector::Dist(EscapeStartLocation, EscapeTargetLocation);
+		const float RemainingDistance = FVector::Dist(GetActorLocation(), EscapeTargetLocation);
+
+		if (TotalDistance > 0.0f)
+		{
+			const float Alpha = FMath::Clamp(RemainingDistance / TotalDistance, 0.0f, 1.0f);
+			SetActorScale3D(EscapeStartScale * Alpha);
+		}
+
+		//目標地点に到達したらアクターを破棄する
+		if (RemainingDistance <= 10.0f)
+		{
+			Destroy();
+		}
 		break;
 	}
 	}
