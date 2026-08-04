@@ -47,9 +47,9 @@ void AVRPawn::BeginPlay()
         WaitStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnWaitStateCompleted);
     }
 
-    // リールステートの目標回転数達成イベントをバインド
+    // リールステートの完了イベントをバインド
     if (ReelStateComponent) {
-        ReelStateComponent->OnTargetRevolutionsReached.AddDynamic(this, &AVRPawn::OnReelTargetReached);
+        ReelStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnReelStateCompleted);
     }
 
     // 2026.07.27 Lee start
@@ -109,10 +109,10 @@ void AVRPawn::OnWaitStateCompleted(bool bIsSuccess)
     // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
 
-void AVRPawn::OnReelTargetReached()
+void AVRPawn::OnReelStateCompleted(bool bIsSuccess)
 {
     // リール回転完了時に釣り上げステートへ遷移
-    if (StateManagerComponent && CatchingStateComponent) {
+    if (bIsSuccess && StateManagerComponent && CatchingStateComponent) {
         StateManagerComponent->ChangeState(CatchingStateComponent);
     }
 }

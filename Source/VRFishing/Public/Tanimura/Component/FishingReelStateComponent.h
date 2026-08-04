@@ -9,9 +9,6 @@
 // RPMが算出されたことを通知するデリゲート
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRPMCalculated, float, NewRPM);
 
-// 目標回転数に達したことを通知するデリゲート
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTargetRevolutionsReached);
-
 /**
  * 掛かった魚を巻き上げるためのリール操作を管理するステートコンポーネント
  */
@@ -39,10 +36,6 @@ public:
 	// 回転カウントを初期化する関数
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
 	void ResetRevolutionCount();
-
-	// 目標回転数到達イベント
-	UPROPERTY(BlueprintAssignable, Category = "Reel Simulator")
-	FOnTargetRevolutionsReached OnTargetRevolutionsReached;
 
 	// RPM算出時に実行されるイベント
 	UPROPERTY(BlueprintAssignable, Category = "Reel Simulator")

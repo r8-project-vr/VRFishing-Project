@@ -135,7 +135,7 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle)
         // 回転数を加算し、目標に達したら通知
         CurrentRevolutionCount++;
         if (CurrentRevolutionCount >= TargetRevolutionCount) {
-            OnTargetRevolutionsReached.Broadcast();
+            OnFishingStateCompleted.Broadcast(true);
         }
     }
 }
