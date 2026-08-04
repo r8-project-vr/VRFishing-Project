@@ -98,9 +98,9 @@ private:
     void OnHandUpDownCompleted(bool bIsSuccess);
     // 2026.07.27 Lee end
 
-    // リール目標回転数達成時の通知を受け取るハンドラー
+    // リールステート完了時の通知を受け取るハンドラー
     UFUNCTION()
-    void OnReelTargetReached();
+    void OnReelStateCompleted(bool bIsSuccess);
 
     // 釣り上げステート完了時の通知を受け取るハンドラー
     UFUNCTION()
