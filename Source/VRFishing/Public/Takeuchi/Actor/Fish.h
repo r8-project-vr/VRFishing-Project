@@ -22,6 +22,7 @@ enum class EFishState : uint8
 	MovingToCenter	UMETA(DisplayName = "Moving To Center"),	//中心移動
 	Poking			UMETA(DisplayName = "Poking"),				//突く
 	Struggling		UMETA(DisplayName = "Struggling"),			//暴れる
+	Escape			UMETA(DisplayName = "Escape"),				//逃げる
 	CatchDelay		UMETA(DisplayName = "Catch Delay"),		//釣り上げ前待機
 	Caught			UMETA(DisplayName = "Caught")				//釣られた
 };
@@ -116,22 +117,31 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Caught", meta = (ClampMin = "0.0"))
 	float PreCatchingWaitTime = 1.0f;
 
+	//逃げる距離
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Escape", meta = (ClampMin = "0.0"))
+	float EscapeDistance = 500.0f;
+
+	//逃げる速度
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Escape", meta = (ClampMin = "0.0"))
+	float EscapeSpeed = 3.0f;
+
 	//リール操作開始時に、魚が暴れる状態へ切り替える
 	UFUNCTION(BlueprintCallable, Category = "Fish")
 	void StartStruggling();
 
-	//外部から釣られた状態（吊り上げ）を開始させる関数
+	//吊り上げ状態に切り替える
 	UFUNCTION(BlueprintCallable, Category = "Fish")
 	void CatchFish();
+
+	//魚が逃げる状態へ切り替える
+	UFUNCTION(BlueprintCallable, Category = "Fish")
+	void EscapeFish();
 
 	//通知イベント
 	//暴れ始めたときのエフェクト再生
 	UFUNCTION(BlueprintImplementableEvent, Category = "Fish|Events")
 	void OnStartStruggling();
 
-	//釣られたとき
-	UFUNCTION(BlueprintImplementableEvent, Category = "Fish|Events")
-	void OnCaught();
 
 private:
 	FTimerHandle PokeTimerHandle;
@@ -146,6 +156,10 @@ private:
 	FVector PokeTargetLocation;
 	FVector CaughtTargetLocation;
 	FTransform InitialSpawnTransform;
+
+	FVector EscapeTargetLocation;
+	FVector EscapeStartLocation;
+	FVector EscapeStartScale;
 
 	void TransitionToMoveToCenter();
 	void DoPoke();
