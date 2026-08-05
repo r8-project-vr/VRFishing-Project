@@ -198,6 +198,20 @@ void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 	// 釣り上げモード (Catching): 完了イベントで処理するため開始時は処理なし
 	else if (NewState->IsA<UFishingCatchingStateComponent>()) {
 		//StartCatchDelay();
+		// 2026.08.05 竹内 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		if (BoundCatchingState && BoundCatchingState != NewState)
+		{
+			BoundCatchingState->OnFishingStateCompleted.RemoveDynamic(
+				this,
+				&AFish::OnCatchingStateCompleted
+			);
+		}
+		BoundCatchingState = NewState;
+		BoundCatchingState->OnFishingStateCompleted.AddUniqueDynamic(
+			this,
+			&AFish::OnCatchingStateCompleted
+		);
+		// 2026.08.05 竹内　endーーーーーーーーーー
 	}
 }
 // 2026.07.27 谷村　endーーーーーーーーーー
