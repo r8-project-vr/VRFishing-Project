@@ -4,13 +4,14 @@
 #include "Tanimura/Actor/VRPawn.h"
 #include "Tanimura/Component/FishingStateManagerComponent.h"
 #include "Tanimura/Component/FishingStateComponentBase.h"
-#include "Tanimura/Component/FishingStateWait.h"
+#include "Tanimura/Component/FishingReadyStateComponent.h"
 #include "Lee/component//HandHeightDetectorComponent.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
 // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 #include "Lee/component/FishingStateHandUpDown.h"
 // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 #include "Tanimura/Component/FishingCatchingStateComponent.h"
+#include "Tanimura/Component/FishingCaughtStateComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Components/WidgetComponent.h"
@@ -22,7 +23,7 @@ AVRPawn::AVRPawn()
 
     // 各ステートコンポーネントおよびマネージャーの生成
     StateManagerComponent = CreateDefaultSubobject<UFishingStateManagerComponent>(TEXT("StateManagerComponent"));
-    WaitStateComponent = CreateDefaultSubobject<UFishingStateWait>(TEXT("WaitStateComponent"));
+    ReadyStateComponent = CreateDefaultSubobject<UFishingReadyStateComponent>(TEXT("ReadyStateComponent"));
     // 2026.07.27 Lee start
     HandUpDownComponent = CreateDefaultSubobject<UHandHeightDetectorComponent>(TEXT("HandUpDownComponent"));
     // 2026.07.27 Lee end
@@ -31,6 +32,7 @@ AVRPawn::AVRPawn()
     // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     ReelStateComponent = CreateDefaultSubobject<UFishingReelStateComponent>(TEXT("ReelStateComponent"));
     CatchingStateComponent = CreateDefaultSubobject<UFishingCatchingStateComponent>(TEXT("CatchingStateComponent"));
+    CaughtStateComponent = CreateDefaultSubobject<UFishingCaughtStateComponent>(TEXT("CaughtStateComponent"));
 }
 
 void AVRPawn::BeginPlay()
@@ -42,9 +44,9 @@ void AVRPawn::BeginPlay()
         StateManagerComponent->OnFishingStateChanged.AddUniqueDynamic(this, &AVRPawn::OnFishingStateChanged);
     }
 
-    // 待機ステートの完了イベントをバインド
-    if (WaitStateComponent) {
-        WaitStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnWaitStateCompleted);
+    // 準備ステートの完了イベントをバインド
+    if (ReadyStateComponent) {
+        ReadyStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnReadyStateCompleted);
     }
 
     // リールステートの完了イベントをバインド
@@ -71,9 +73,14 @@ void AVRPawn::BeginPlay()
         CatchingStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnCatchingStateCompleted);
     }
 
-    // 初期状態として待機ステートを設定
-    if (StateManagerComponent && WaitStateComponent) {
-        StateManagerComponent->ChangeState(WaitStateComponent);
+    // 釣り上げ完了ステートの完了イベントをバインド
+    if (CaughtStateComponent) {
+        CaughtStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnCaughtStateCompleted);
+    }
+
+    // 初期状態として準備ステートを設定
+    if (StateManagerComponent && ReadyStateComponent) {
+        StateManagerComponent->ChangeState(ReadyStateComponent);
     }
 }
 
@@ -93,7 +100,7 @@ void AVRPawn::InjectReelWheelInput()
     }
 }
 
-void AVRPawn::OnWaitStateCompleted(bool bIsSuccess)
+void AVRPawn::OnReadyStateCompleted(bool bIsSuccess)
 {
     // 2026.07.27 Lee start
     // 旧: StateManagerComponent->ChangeState(ReelStateComponent);
@@ -102,7 +109,7 @@ void AVRPawn::OnWaitStateCompleted(bool bIsSuccess)
     //}
     // 2026.07.27 Lee end
     // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-    // 待機完了後は上下運動プレイステートへ遷移（センサではなくステート側へ）
+    // 準備完了後は上下運動プレイステートへ遷移（センサではなくステート側へ）
     if (bIsSuccess && StateManagerComponent && HandUpDownStateComponent) {
         StateManagerComponent->ChangeState(HandUpDownStateComponent);
     }
@@ -118,6 +125,14 @@ void AVRPawn::OnReelStateCompleted(bool bIsSuccess)
 }
 
 void AVRPawn::OnCatchingStateCompleted(bool bIsSuccess)
+{
+    // 釣り上げ中ステート完了時に、釣り上げ完了ステートへ遷移
+    if (bIsSuccess && StateManagerComponent && CaughtStateComponent) {
+        StateManagerComponent->ChangeState(CaughtStateComponent);
+    }
+}
+
+void AVRPawn::OnCaughtStateCompleted(bool bIsSuccess)
 {
     // [変更] 2D Viewportへの追加から、ワールド空間(WidgetComponent)での配置に変更
     if (!CatchingResultWidgetClass) {

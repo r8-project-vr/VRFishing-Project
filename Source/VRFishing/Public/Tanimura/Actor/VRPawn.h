@@ -10,7 +10,7 @@
 // 各モードコンポーネントの前方宣言
 class UFishingStateManagerComponent;
 class UFishingStateComponentBase;
-class UFishingStateWait;            // モード１
+class UFishingReadyStateComponent;  // モード１
 // 2026.07.27 Lee start
 class UHandHeightDetectorComponent; // モード２
 // 2026.07.27 Lee end
@@ -19,6 +19,7 @@ class UFishingStateHandUpDown; // モード２（上下運動プレイステー�
 // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 class UFishingReelStateComponent;            // モード３
 class UFishingCatchingStateComponent;        // モード４
+class UFishingCaughtStateComponent;          // モード５
 class UUserWidget;
 class UWidgetComponent;
 
@@ -46,9 +47,9 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UFishingStateManagerComponent> StateManagerComponent;
 
-    // 待機状態コンポーネント
+    // 準備状態コンポーネント
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UFishingStateWait> WaitStateComponent;
+    TObjectPtr<UFishingReadyStateComponent> ReadyStateComponent;
 
     // 2026.07.27 Lee start
     // 手の上下運動検出ステートコンポーネント（モード２）
@@ -71,6 +72,10 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UFishingCatchingStateComponent> CatchingStateComponent;
 
+    // 釣り上げ完了状態コンポーネント
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    TObjectPtr<UFishingCaughtStateComponent> CaughtStateComponent;
+
     // 釣り上げ完了時に前面表示するリザルトWidgetクラス
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
     TSubclassOf<UUserWidget> CatchingResultWidgetClass;
@@ -90,7 +95,7 @@ protected:
 private:
     // 待機ステート完了時の通知を受け取るハンドラー
     UFUNCTION()
-    void OnWaitStateCompleted(bool bIsSuccess);
+    void OnReadyStateCompleted(bool bIsSuccess);
 
     // 2026.07.27 Lee start
     // 手の上下運動完了時の通知を受け取るハンドラー
@@ -105,6 +110,10 @@ private:
     // 釣り上げステート完了時の通知を受け取るハンドラー
     UFUNCTION()
     void OnCatchingStateCompleted(bool bIsSuccess);
+
+    // 釣り上げ完了ステート完了時の通知を受け取るハンドラー
+    UFUNCTION()
+    void OnCaughtStateCompleted(bool bIsSuccess);
 
     // ステート変更時の通知を受け取るハンドラー
     UFUNCTION()

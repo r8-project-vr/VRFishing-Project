@@ -1,14 +1,14 @@
 // Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 
-#include "Tanimura/Component/FishingStateWait.h"
+#include "Tanimura/Component/FishingReadyStateComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 #include "Lee/component/HandHeightDetectorComponent.h"
 // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
-UFishingStateWait::UFishingStateWait()
+UFishingReadyStateComponent::UFishingReadyStateComponent()
 {
     // ステート単体でのTickは無効化
     PrimaryComponentTick.bCanEverTick = false;
@@ -17,7 +17,7 @@ UFishingStateWait::UFishingStateWait()
     bIsCompleted = false;
 }
 
-void UFishingStateWait::EnterState()
+void UFishingReadyStateComponent::EnterState()
 {
     Super::EnterState();
 
@@ -26,7 +26,7 @@ void UFishingStateWait::EnterState()
     bIsCompleted = false;
 }
 
-void UFishingStateWait::UpdateState(float DeltaTime)
+void UFishingReadyStateComponent::UpdateState(float DeltaTime)
 {
     Super::UpdateState(DeltaTime);
 
@@ -65,7 +65,7 @@ void UFishingStateWait::UpdateState(float DeltaTime)
     }
 }
 
-void UFishingStateWait::ExitState()
+void UFishingReadyStateComponent::ExitState()
 {
     Super::ExitState();
 
@@ -75,13 +75,13 @@ void UFishingStateWait::ExitState()
 }
 
 // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-FString UFishingStateWait::GetStateDisplayName() const
+FString UFishingReadyStateComponent::GetStateDisplayName() const
 {
     return TEXT("待機");
 }
 // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
-FVector UFishingStateWait::GetRightHandLocation() const
+FVector UFishingReadyStateComponent::GetRightHandLocation() const
 {
     // 所有アクターから右手の座標を取得
     if (AActor* Owner = GetOwner()) {
@@ -90,7 +90,7 @@ FVector UFishingStateWait::GetRightHandLocation() const
     return FVector::ZeroVector;
 }
 
-FVector UFishingStateWait::GetHUDLocation() const
+FVector UFishingReadyStateComponent::GetHUDLocation() const
 {
     APlayerCameraManager* CameraManager = UGameplayStatics::GetPlayerCameraManager(this, 0);
 
