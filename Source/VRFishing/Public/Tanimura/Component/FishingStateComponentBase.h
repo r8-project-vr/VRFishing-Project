@@ -29,6 +29,12 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Fishing|State")
     virtual void ExitState();
 
+    // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // ステートの表示名（ログ・UI表示用）を返す
+    UFUNCTION(BlueprintPure, Category = "Fishing|State")
+    virtual FString GetStateDisplayName() const;
+    // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 public:
     // ステート完了を外部へ通知するデリゲートインスタンス
     UPROPERTY(BlueprintAssignable, Category = "Fishing|Events")

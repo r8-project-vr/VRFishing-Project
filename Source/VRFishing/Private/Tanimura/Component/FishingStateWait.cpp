@@ -74,6 +74,13 @@ void UFishingStateWait::ExitState()
     bIsCompleted = false;
 }
 
+// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+FString UFishingStateWait::GetStateDisplayName() const
+{
+    return TEXT("待機");
+}
+// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 FVector UFishingStateWait::GetRightHandLocation() const
 {
     // 所有アクターから右手の座標を取得

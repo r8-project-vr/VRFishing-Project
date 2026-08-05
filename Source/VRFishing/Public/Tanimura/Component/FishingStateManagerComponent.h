@@ -30,8 +30,21 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Fishing|Events")
 	FOnFishingStateChanged OnFishingStateChanged;
 
-public:	
+	// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 現在アクティブなステートを取得
+	UFUNCTION(BlueprintPure, Category = "Fishing|Manager")
+	UFishingStateComponentBase* GetCurrentState() const;
+
+	// 現在アクティブなステートの表示名を取得（UI表示用）
+	UFUNCTION(BlueprintPure, Category = "Fishing|Manager")
+	FString GetCurrentStateName() const;
+	// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
+public:
 	// 現在アクティブなステートの参照（一時的に保持）
-	UPROPERTY(Transient)
+	// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	//UPROPERTY(Transient)←もともとのコードも消さない！
+	UPROPERTY(BlueprintReadOnly, Transient) // BPから現在ステートを参照可能に変更
+	// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	UFishingStateComponentBase* CurrentState;
 };

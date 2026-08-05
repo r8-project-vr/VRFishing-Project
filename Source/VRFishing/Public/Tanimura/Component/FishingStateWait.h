@@ -26,6 +26,9 @@ public:
     virtual void EnterState() override;                 // ステート開始時の処理
     virtual void UpdateState(float DeltaTime) override; // ステート更新時の処理
     virtual void ExitState() override;                  // ステート終了時の処理
+    // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    virtual FString GetStateDisplayName() const override; // ステートの表示名（ログ・UI表示用）
+    // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 protected:
     // 右手の現在位置を取得

@@ -39,6 +39,9 @@ public:
 	virtual void UpdateState(float DeltaTime) override;
 	virtual void ExitState() override;
 
+	/// @brief ステートの表示名（ログ・UI表示用）
+	virtual FString GetStateDisplayName() const override;
+
 	// ==================== 設定パラメータ ====================
 
 	// ---- 上下カウント ----

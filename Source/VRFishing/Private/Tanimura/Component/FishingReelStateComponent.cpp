@@ -41,6 +41,13 @@ void UFishingReelStateComponent::ExitState()
     //ResetRevolutionCount();
 }
 
+// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+FString UFishingReelStateComponent::GetStateDisplayName() const
+{
+    return TEXT("リール");
+}
+// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 void UFishingReelStateComponent::ResetRevolutionCount()
 {
     CurrentRevolutionCount = 0;

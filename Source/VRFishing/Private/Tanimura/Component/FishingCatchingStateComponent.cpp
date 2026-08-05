@@ -48,3 +48,10 @@ void UFishingCatchingStateComponent::ExitState()
 	ElapsedTime = 0.0f;
 	bIsCompleted = false;
 }
+
+// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+FString UFishingCatchingStateComponent::GetStateDisplayName() const
+{
+	return TEXT("釣り上げ");
+}
+// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー

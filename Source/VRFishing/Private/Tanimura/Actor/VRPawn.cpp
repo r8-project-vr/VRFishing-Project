@@ -160,22 +160,25 @@ void AVRPawn::OnHandUpDownCompleted(bool bIsSuccess)
 }
 // 2026.07.27 Lee end
 
-// 釣りモード変更時の処理
+// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// ステート遷移ログは StateManagerComponent::ChangeState() へ一元化したため、
+// 本ハンドラーでは画面表示のみ行う（表示名は GetStateDisplayName() を使用）
 void AVRPawn::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 {
     if (!NewState) {
         return;
     }
 
-    // 新しいステートのクラス名を取得して整形
-    const FString StateName = NewState->GetClass()->GetName();
-    const FString DisplayMessage = FString::Printf(TEXT("[Fishing Mode] Current State: %s"), *StateName);
-
-    // ログへ出力
-    UE_LOG(LogTemp, Log, TEXT("%s"), *DisplayMessage);
-
-    // 画面上（ビューポート）に5秒間表示
+    // 画面上に常時表示。
+    // 0.0f は毎フレーム更新する用途のため、単発呼び出しだと次フレームで消える）
     if (GEngine) {
-        GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Cyan, DisplayMessage);
+        const FString DisplayMessage = FString::Printf(TEXT("[Fishing Mode] Current State: %s"), *NewState->GetStateDisplayName());
+        GEngine->AddOnScreenDebugMessage(10, 3600.0f, FColor::Cyan, DisplayMessage);
     }
 }
+// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// 旧: クラス名を使用して5秒間表示
+//const FString StateName = NewState->GetClass()->GetName();
+//const FString DisplayMessage = FString::Printf(TEXT("[Fishing Mode] Current State: %s"), *StateName);
+//UE_LOG(LogTemp, Log, TEXT("%s"), *DisplayMessage);
+//GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Cyan, DisplayMessage);←もともとのコードも消さない！

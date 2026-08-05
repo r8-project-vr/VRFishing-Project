@@ -22,6 +22,9 @@ public:
 	virtual void EnterState() override;
 	virtual void UpdateState(float DeltaTime) override;
 	virtual void ExitState() override;
+	// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	virtual FString GetStateDisplayName() const override; // ステートの表示名（ログ・UI表示用）
+	// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 protected:
 	// 完了とみなすまでの経過時間（秒）
