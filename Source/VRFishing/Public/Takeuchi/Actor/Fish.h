@@ -11,6 +11,7 @@
 // 前方宣言を追加
 class UFishingStateComponentBase;
 // 2026.07.27 谷村　endーーーーーーーーーー
+class UFishingStateManagerComponent;
 
 /**
  * 魚の状態を定義する列挙型
@@ -38,6 +39,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 public:	
 	virtual void Tick(float DeltaTime) override;
 
@@ -52,10 +54,6 @@ public:
 	//魚の中心点
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Fish|Movement")
 	FVector CenterLocation;
-
-	//釣り上げ完了から魚を初期位置へ再生成するまでの時間
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Respawn", meta = (ClampMin = "0.0"))
-	float RespawnDelay = 3.0f;
 
 	//暴れるときの円運動の半径
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fish|Movement", meta = (ClampMin = "0.0"))
@@ -145,26 +143,31 @@ public:
 
 private:
 	FTimerHandle PokeTimerHandle;
-	FTimerHandle RespawnTimerHandle;
 	FTimerHandle PreCatchingTimerHandle;
 
 	bool bApproaching = false;
-	bool bRespawnScheduled = false;
+
 	float StruggleElapsedTime = 0.0f;
 	float StruggleStartAngle = 0.0f;
 	float StruggleCurrentRadius = 0.0f;
 	FVector PokeTargetLocation;
 	FVector CaughtTargetLocation;
-	FTransform InitialSpawnTransform;
 
 	FVector EscapeTargetLocation;
 	FVector EscapeStartLocation;
 	FVector EscapeStartScale;
 
+	//ステート変更デリゲートの登録先を保持する
+	UPROPERTY(Transient)
+	TObjectPtr<UFishingStateManagerComponent> BoundStateManager;
+
+	//釣り上げ完了デリゲートの登録先を保持する
+	UPROPERTY(Transient)
+	TObjectPtr<UFishingStateComponentBase> BoundCatchingState;
+
 	void TransitionToMoveToCenter();
 	void DoPoke();
 	void StartCatchDelay();
-	void RespawnFish();
 	void RotateTowardCenter(float DeltaTime, float InterpSpeed);
 	void ClearStateTimers();
 

@@ -3,12 +3,13 @@
 #include "Takeuchi/Actor/Fish.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
+#include "GameFramework/Pawn.h"
+#include "Tanimura/Component/FishingStateComponentBase.h"
 #include "Kismet/GameplayStatics.h"
-#include "Tanimura/Actor/VRPawn.h"
 
 // 2026.07.27 谷村　startーーーーーーーーーー
 #include "Tanimura/Component/FishingStateManagerComponent.h"
-#include "Tanimura/Component/FishingStateWait.h"
+#include "Tanimura/Component/FishingReadyStateComponent.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
 #include "Tanimura/Component/FishingCatchingStateComponent.h"
 // 2026.07.27 谷村　endーーーーーーーーーー
@@ -33,8 +34,6 @@ void AFish::BeginPlay()
 {
 	Super::BeginPlay();
 
-	//再生成時に戻す、レベル上での初期位置・回転・スケールを保存する
-	InitialSpawnTransform = GetActorTransform();
 	const FVector SpawnLocation = GetActorLocation();
 
 	//魚のスポーン位置は動かさず、PivotTranslationが示す周回中心を固定保存する
@@ -92,29 +91,74 @@ void AFish::BeginPlay()
 
 	// 2026.07.27 谷村　startーーーーーーーーーー
 	//VRPawnの既存イベントを、F1/F2と同じ魚の状態遷移へ接続する
-	AVRPawn* VRPawn = Cast<AVRPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
-	if (VRPawn)
+	//AVRPawn* VRPawn = Cast<AVRPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+	//if (VRPawn)
+	//{
+	//	// FishingStateManagerComponentの通知デリゲートへハンドラーを登録
+	//	if (UFishingStateManagerComponent* StateManager = VRPawn->FindComponentByClass<UFishingStateManagerComponent>()) {
+	//		StateManager->OnFishingStateChanged.AddUniqueDynamic(this, &AFish::OnFishingStateChanged);
+	//	}
+
+	//	/*if (UHandHeightDetectorComponent* HandHeightDetector = VRPawn->FindComponentByClass<UHandHeightDetectorComponent>())
+	//	{
+	//		HandHeightDetector->OnFishHit.AddUniqueDynamic(this, &AFish::StartStruggling);
+	//	}
+
+	//	if (UFishingReelStateComponent* ReelSimulator = VRPawn->FindComponentByClass<UFishingReelStateComponent>())
+	//	{
+	//		ReelSimulator->OnTargetRevolutionsReached.AddUniqueDynamic(this, &AFish::CatchFish);
+	//	}*/
+	//	//釣り上げステートの完了通知イベントをバインド
+	//	if (UFishingCatchingStateComponent* CatchingState = VRPawn->FindComponentByClass<UFishingCatchingStateComponent>()) {
+	//		CatchingState->OnFishingStateCompleted.AddUniqueDynamic(this, &AFish::OnCatchingStateCompleted);
+	//	}
+	//}
+	// 2026.07.27 谷村　endーーーーーーーーーー
+	APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this, 0);
+	if (PlayerPawn)
 	{
-		// FishingStateManagerComponentの通知デリゲートへハンドラーを登録
-		if (UFishingStateManagerComponent* StateManager = VRPawn->FindComponentByClass<UFishingStateManagerComponent>()) {
-			StateManager->OnFishingStateChanged.AddUniqueDynamic(this, &AFish::OnFishingStateChanged);
-		}
+		BoundStateManager = PlayerPawn->FindComponentByClass<UFishingStateManagerComponent>();
 
-		/*if (UHandHeightDetectorComponent* HandHeightDetector = VRPawn->FindComponentByClass<UHandHeightDetectorComponent>())
+		if (BoundStateManager)
 		{
-			HandHeightDetector->OnFishHit.AddUniqueDynamic(this, &AFish::StartStruggling);
-		}
+			//FishingStateManagerComponentの通知デリゲートへハンドラーを登録
+			BoundStateManager->OnFishingStateChanged.AddUniqueDynamic(
+				this,
+				&AFish::OnFishingStateChanged
+			);
 
-		if (UFishingReelStateComponent* ReelSimulator = VRPawn->FindComponentByClass<UFishingReelStateComponent>())
-		{
-			ReelSimulator->OnTargetRevolutionsReached.AddUniqueDynamic(this, &AFish::CatchFish);
-		}*/
-		//釣り上げステートの完了通知イベントをバインド
-		if (UFishingCatchingStateComponent* CatchingState = VRPawn->FindComponentByClass<UFishingCatchingStateComponent>()) {
-			CatchingState->OnFishingStateCompleted.AddUniqueDynamic(this, &AFish::OnCatchingStateCompleted);
+			//登録前に発生した現在ステートも一度適用する
+			OnFishingStateChanged(BoundStateManager->CurrentState);
 		}
 	}
-	// 2026.07.27 谷村　endーーーーーーーーーー
+}
+
+void AFish::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	//ステート変更通知のデリゲートを解除する
+	if (BoundStateManager)
+	{
+		BoundStateManager->OnFishingStateChanged.RemoveDynamic(
+			this,
+			&AFish::OnFishingStateChanged
+		);
+	}
+
+	//釣り上げ完了通知のデリゲートを解除する
+	if (BoundCatchingState)
+	{
+		BoundCatchingState->OnFishingStateCompleted.RemoveDynamic(
+			this,
+			&AFish::OnCatchingStateCompleted
+		);
+	}
+
+	BoundCatchingState = nullptr;
+	BoundStateManager = nullptr;
+
+	ClearStateTimers();
+
+	Super::EndPlay(EndPlayReason);
 }
 
 // 2026.07.27 谷村　startーーーーーーーーーー
@@ -125,8 +169,8 @@ void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 		return;
 	}
 
-	// 待機モード (Wait): 周回運動 (Circling)
-	if (NewState->IsA<UFishingStateWait>()) {
+	// 準備モード (Ready): 周回運動 (Circling)
+	if (NewState->IsA<UFishingReadyStateComponent>()) {
 		if (CurrentState != EFishState::Circling) {
 			CurrentState = EFishState::Circling;
 			ClearStateTimers();
@@ -317,37 +361,6 @@ void AFish::CatchFish()
 	SetActorRotation(FRotator(0.0f, GetActorRotation().Yaw, -90.0f));
 }
 
-void AFish::RespawnFish()
-{
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
-
-	FActorSpawnParameters SpawnParameters;
-	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-	//BP_Fishなど、現在の個体と同じ実クラスを初期Transformへ生成する
-	AFish* NewFish = World->SpawnActor<AFish>(GetClass(), InitialSpawnTransform, SpawnParameters);
-	if (NewFish)
-	{
-		AVRPawn* VRPawn = Cast<AVRPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
-		if (VRPawn)
-		{
-			UFishingStateManagerComponent* StateManager = VRPawn->FindComponentByClass<UFishingStateManagerComponent>();
-			UFishingStateWait* WaitState = VRPawn->FindComponentByClass<UFishingStateWait>();
-
-			if (StateManager && WaitState)
-			{
-				StateManager->ChangeState(WaitState);
-			}
-		}
-
-		Destroy();
-	}
-}
-
 void AFish::RotateTowardCenter(float DeltaTime, float InterpSpeed)
 {
 	const FVector DirectionToCenter = CenterLocation - GetActorLocation();
@@ -372,8 +385,6 @@ void AFish::ClearStateTimers()
 {
 	GetWorldTimerManager().ClearTimer(PokeTimerHandle);
 	GetWorldTimerManager().ClearTimer(PreCatchingTimerHandle);
-	GetWorldTimerManager().ClearTimer(RespawnTimerHandle);
-	bRespawnScheduled = false;
 }
 
 void AFish::EscapeFish()
@@ -484,19 +495,6 @@ void AFish::Tick(float DeltaTime)
 		if (FVector::DistSquared(GetActorLocation(), CaughtTargetLocation) <= FMath::Square(1.0f))
 		{
 			SetActorLocation(CaughtTargetLocation);
-
-			//吊り上げ先へ到達した時点から一度だけ再生成タイマーを開始する
-			if (!bRespawnScheduled)
-			{
-				bRespawnScheduled = true;
-				GetWorldTimerManager().SetTimer(
-					RespawnTimerHandle,
-					this,
-					&AFish::RespawnFish,
-					RespawnDelay,
-					false
-				);
-			}
 			break;
 		}
 
