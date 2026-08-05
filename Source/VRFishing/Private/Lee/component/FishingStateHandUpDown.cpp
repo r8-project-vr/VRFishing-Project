@@ -127,6 +127,11 @@ void UFishingStateHandUpDown::ExitState()
 	TotalFrameCount = 0;
 }
 
+FString UFishingStateHandUpDown::GetStateDisplayName() const
+{
+	return TEXT("上下運動");
+}
+
 void UFishingStateHandUpDown::TickArrow(float InDeltaTime, float HandPercent)
 {
 	switch (ArrowState)
