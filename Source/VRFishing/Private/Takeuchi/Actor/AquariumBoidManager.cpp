@@ -1,7 +1,10 @@
 ﻿// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 #include "Takeuchi/Actor/AquariumBoidManager.h"
+#include "Takeuchi/Actor/AquariumBoidFish.h"
+#include "Takeuchi/Data/FishDataAsset.h"
 #include "DrawDebugHelpers.h"
+#include "Engine/World.h"
 
 // Sets default values
 AAquariumBoidManager::AAquariumBoidManager()
@@ -15,19 +18,32 @@ AAquariumBoidManager::AAquariumBoidManager()
 void AAquariumBoidManager::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	SpawnFish();
 }
 
-// Called every frame
 void AAquariumBoidManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (!bDrawDebugBounds)
-	{
-		return;
-	}
+	//全ての魚を移動させる
+	UpdateFishMovement(DeltaTime);
 
+	//必要な場合だけ水槽範囲を表示する
+	if (bDrawDebugBounds)
+	{
+		const FVector CenterLocation = GetSwimCenterLocation();
+
+		const FVector CylinderBottom =CenterLocation - FVector::UpVector * SwimHalfHeight;
+
+		const FVector CylinderTop =CenterLocation + FVector::UpVector * SwimHalfHeight;
+
+		DrawDebugCylinder(GetWorld(),CylinderBottom,CylinderTop,SwimRadius,48,FColor::Cyan,false,0.0f,0,3.0f);
+	}
+}
+
+FVector AAquariumBoidManager::GetSwimCenterLocation() const
+{
 	//Manager自身の位置を初期値にする
 	FVector CenterLocation = GetActorLocation();
 
@@ -37,14 +53,131 @@ void AAquariumBoidManager::Tick(float DeltaTime)
 		CenterLocation = SwimCenterActor->GetActorLocation();
 	}
 
-	//円柱の上端と下端を計算する
-	const FVector CylinderBottom =
-		CenterLocation - FVector::UpVector * SwimHalfHeight;
+	return CenterLocation;
+}
 
-	const FVector CylinderTop =
-		CenterLocation + FVector::UpVector * SwimHalfHeight;
+FVector AAquariumBoidManager::GetRandomSpawnLocation() const
+{
+	const FVector CenterLocation = GetSwimCenterLocation();
 
-	//魚が泳げる円柱範囲を表示する
-	DrawDebugCylinder(GetWorld(), CylinderBottom, CylinderTop, SwimRadius, 48, FColor::Cyan, false, 0.0f, 0, 3.0f);
+	//壁際を避けた生成可能範囲を計算する
+	const float AvailableRadius = FMath::Max(0.0f, SwimRadius - WallMargin);
+
+	const float AvailableHalfHeight = FMath::Max(0.0f, SwimHalfHeight - WallMargin);
+
+	//円の面積に対して均等になるよう平方根を使用する
+	const float RandomAngle = FMath::FRandRange(0.0f, 2.0f * PI);
+
+	const float RandomRadius = FMath::Sqrt(FMath::FRand()) * AvailableRadius;
+
+	const float RandomHeight = FMath::FRandRange(-AvailableHalfHeight, AvailableHalfHeight);
+
+	const float OffsetX = FMath::Cos(RandomAngle) * RandomRadius;
+
+	const float OffsetY = FMath::Sin(RandomAngle) * RandomRadius;
+
+	const FVector RandomOffset(OffsetX, OffsetY, RandomHeight);
+
+	return CenterLocation + RandomOffset;
+}
+
+void AAquariumBoidManager::SpawnFish()
+{
+	if (!FishClass)
+	{
+		UE_LOG(LogTemp, Warning,TEXT("AquariumBoidManager: FishClassが設定されていません。"));
+
+		return;
+	}
+
+	UWorld* World = GetWorld();
+
+	if (!World)
+	{
+		return;
+	}
+
+	for (const FAquariumFishSpawnSettings& SpawnSettings : FishSpawnSettings)
+	{
+		if (!SpawnSettings.FishData)
+		{
+			continue;
+		}
+
+		for (int32 FishIndex = 0; FishIndex < SpawnSettings.SpawnCount; FishIndex++)
+		{
+			const FVector SpawnLocation = GetRandomSpawnLocation();
+
+			//水平方向を中心にランダムな初期方向を作る
+			const float RandomYaw =FMath::FRandRange(0.0f, 360.0f);
+
+			const float RandomPitch =FMath::FRandRange(-10.0f, 10.0f);
+
+			const FRotator SpawnRotation(RandomPitch,RandomYaw,0.0f);
+
+			FActorSpawnParameters SpawnParameters;
+			SpawnParameters.Owner = this;
+			SpawnParameters.SpawnCollisionHandlingOverride =
+				ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+			AAquariumBoidFish* SpawnedFishActor =World->SpawnActor<AAquariumBoidFish>(FishClass,SpawnLocation,SpawnRotation,SpawnParameters);
+
+			if (!SpawnedFishActor)
+			{
+				continue;
+			}
+
+			//魚データを設定して見た目へ反映する
+			SpawnedFishActor->FishData = SpawnSettings.FishData;
+			SpawnedFishActor->ApplyFishData();
+
+			//向いている方向へ泳ぎ始める
+			const FVector InitialDirection =SpawnRotation.Vector();
+
+			SpawnedFishActor->Velocity =InitialDirection * SpawnSettings.FishData->CruiseSpeed;
+
+			SpawnedFish.Add(SpawnedFishActor);
+		}
+	}
+}
+
+void AAquariumBoidManager::UpdateFishMovement(float DeltaTime)
+{
+	for (AAquariumBoidFish* FishActor : SpawnedFish)
+	{
+		if (!IsValid(FishActor))
+		{
+			continue;
+		}
+
+		if (!FishActor->FishData)
+		{
+			continue;
+		}
+
+		//現在の速度を使って次の位置を計算する
+		const FVector CurrentLocation =FishActor->GetActorLocation();
+
+		const FVector Movement =FishActor->Velocity * DeltaTime;
+
+		const FVector NewLocation =CurrentLocation + Movement;
+
+		FishActor->SetActorLocation(NewLocation);
+
+		//速度がほぼ0の場合は回転を更新しない
+		if (FishActor->Velocity.IsNearlyZero())
+		{
+			continue;
+		}
+
+		//魚の前方向を進行方向へ滑らかに合わせる
+		const FRotator CurrentRotation =FishActor->GetActorRotation();
+
+		const FRotator TargetRotation =FishActor->Velocity.Rotation();
+
+		const FRotator NewRotation =FMath::RInterpTo(CurrentRotation,TargetRotation,DeltaTime,FishActor->FishData->RotationInterpSpeed);
+
+		FishActor->SetActorRotation(NewRotation);
+	}
 }
 
