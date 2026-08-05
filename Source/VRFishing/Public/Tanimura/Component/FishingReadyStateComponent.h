@@ -4,23 +4,23 @@
 
 #include "CoreMinimal.h"
 #include "Tanimura/Component/FishingStateComponentBase.h"
-#include "FishingStateWait.generated.h"
+#include "FishingReadyStateComponent.generated.h"
 
 // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 class UHandHeightDetectorComponent;
 // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 /**
- * ゲーム開始直後の「待機モード」
+ * ゲーム開始直後の「準備モード」
  * HUDを基準に、指定の高さ(初期値50cm)より低い位置で数秒(初期値2秒)待つと、次のモードへ
  */
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
-class VRFISHING_API UFishingStateWait : public UFishingStateComponentBase
+class VRFISHING_API UFishingReadyStateComponent : public UFishingStateComponentBase
 {
     GENERATED_BODY()
 
 public:
-    UFishingStateWait();
+    UFishingReadyStateComponent();
 
 	// 基底クラスのメンバ関数をオーバーライド
     virtual void EnterState() override;                 // ステート開始時の処理
@@ -32,24 +32,24 @@ public:
 
 protected:
     // 右手の現在位置を取得
-    UFUNCTION(BlueprintCallable, Category = "Fishing|Wait")
+    UFUNCTION(BlueprintCallable, Category = "Fishing|Ready")
     FVector GetRightHandLocation() const;
 
     // HUD/カメラの現在位置を取得
-    UFUNCTION(BlueprintCallable, Category = "Fishing|Wait")
+    UFUNCTION(BlueprintCallable, Category = "Fishing|Ready")
     FVector GetHUDLocation() const;
 
 	// 準備完了（手を下ろしている）と判定する、HUDとの下向き距離 (cm)
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Fishing|Wait")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Fishing|Ready")
     float RequiredDownDistance = 50.0f;
 
 	// 次のステートに進むために、準備完了状態でキープしなければいけない時間 (秒)
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Fishing|Wait")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Fishing|Ready")
     float RequiredWaitTime = 2.0f;
 
     // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     // 手部運動センサへの参照（未取得時は所有者から FindComponentByClass で取得）
-    UPROPERTY(Transient, BlueprintReadOnly, Category = "Fishing|Wait")
+    UPROPERTY(Transient, BlueprintReadOnly, Category = "Fishing|Ready")
     TWeakObjectPtr<UHandHeightDetectorComponent> HandHeightDetector;
     // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
