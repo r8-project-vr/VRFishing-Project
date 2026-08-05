@@ -1,4 +1,4 @@
-// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
+﻿// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 #pragma once
 
@@ -20,7 +20,13 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+
+	//魚のモデルを表示するコンポーネント
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AquariumFish|Mesh")
+	USkeletalMeshComponent* FishMesh;
+
+	//現在の移動速度と方向
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AquariumFish|Movement")
+	FVector Velocity = FVector::ZeroVector;
 
 };

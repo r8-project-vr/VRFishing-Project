@@ -1,7 +1,7 @@
 ﻿// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
-#include "DrawDebugHelpers.h"
 #include "Takeuchi/Actor/AquariumBoidManager.h"
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AAquariumBoidManager::AAquariumBoidManager()
