@@ -1,9 +1,9 @@
 // Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 
-#include "Tanimura/Component/FishingResultStateComponent.h"
+#include "Tanimura/Component/FishingCaughtStateComponent.h"
 
-UFishingResultStateComponent::UFishingResultStateComponent()
+UFishingCaughtStateComponent::UFishingCaughtStateComponent()
 {
     // ステート単体でのTickは無効化（Manager経由でUpdateStateが呼ばれる）
     PrimaryComponentTick.bCanEverTick = false;
@@ -12,7 +12,7 @@ UFishingResultStateComponent::UFishingResultStateComponent()
     bIsCompleted = false;
 }
 
-void UFishingResultStateComponent::EnterState()
+void UFishingCaughtStateComponent::EnterState()
 {
     Super::EnterState();
 
@@ -21,7 +21,7 @@ void UFishingResultStateComponent::EnterState()
     bIsCompleted = false;
 }
 
-void UFishingResultStateComponent::UpdateState(float DeltaTime)
+void UFishingCaughtStateComponent::UpdateState(float DeltaTime)
 {
     Super::UpdateState(DeltaTime);
 
@@ -36,33 +36,15 @@ void UFishingResultStateComponent::UpdateState(float DeltaTime)
     // 規定時間に達したら完了イベントを発火
     if (ElapsedTime >= RequiredHoldTime) {
         bIsCompleted = true;
-        OnFishingStateCompleted.Broadcast(bIsSuccess);
+        OnFishingStateCompleted.Broadcast(true);
     }
 }
 
-void UFishingResultStateComponent::ExitState()
+void UFishingCaughtStateComponent::ExitState()
 {
     Super::ExitState();
 
     // 変数リセット
     ElapsedTime = 0.0f;
     bIsCompleted = false;
-}
-
-void UFishingResultStateComponent::SetResult(bool bSuccess)
-{
-    // 釣りの成否を設定
-    bIsSuccess = bSuccess;
-}
-
-bool UFishingResultStateComponent::IsSuccess() const
-{
-    // 釣りの成否を返す
-    return bIsSuccess;
-}
-
-bool UFishingResultStateComponent::IsSuccessState() const
-{
-    // 釣り成功（bIsSuccess=true）なら true
-    return bIsSuccess;
 }

@@ -11,7 +11,7 @@
 #include "Lee/component/FishingStateHandUpDown.h"
 // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 #include "Tanimura/Component/FishingCatchingStateComponent.h"
-#include "Tanimura/Component/FishingResultStateComponent.h"
+#include "Tanimura/Component/FishingCaughtStateComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Components/WidgetComponent.h"
@@ -32,7 +32,7 @@ AVRPawn::AVRPawn()
     // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     ReelStateComponent = CreateDefaultSubobject<UFishingReelStateComponent>(TEXT("ReelStateComponent"));
     CatchingStateComponent = CreateDefaultSubobject<UFishingCatchingStateComponent>(TEXT("CatchingStateComponent"));
-    ResultStateComponent = CreateDefaultSubobject<UFishingResultStateComponent>(TEXT("ResultStateComponent"));
+    CaughtStateComponent = CreateDefaultSubobject<UFishingCaughtStateComponent>(TEXT("CaughtStateComponent"));
 }
 
 void AVRPawn::BeginPlay()
@@ -73,9 +73,9 @@ void AVRPawn::BeginPlay()
         CatchingStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnCatchingStateCompleted);
     }
 
-    // 釣り上げ結果ステートの完了イベントをバインド
-    if (ResultStateComponent) {
-        ResultStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnResultStateCompleted);
+    // 釣り上げ完了ステートの完了イベントをバインド
+    if (CaughtStateComponent) {
+        CaughtStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnCaughtStateCompleted);
     }
 
     // 初期状態として準備ステートを設定
@@ -118,38 +118,29 @@ void AVRPawn::OnReadyStateCompleted(bool bIsSuccess)
 
 void AVRPawn::OnReelStateCompleted(bool bIsSuccess)
 {
-    // リール成功時は釣り上げステートへ、失敗時（速すぎ検知）は結果ステートへ遷移
+    // リール回転完了時に釣り上げステートへ遷移
     if (bIsSuccess && StateManagerComponent && CatchingStateComponent) {
         StateManagerComponent->ChangeState(CatchingStateComponent);
-    }
-    else if (!bIsSuccess && StateManagerComponent && ResultStateComponent) {
-        ResultStateComponent->SetResult(false);
-        StateManagerComponent->ChangeState(ResultStateComponent);
     }
 }
 
 void AVRPawn::OnCatchingStateCompleted(bool bIsSuccess)
 {
-    // 釣り上げ中ステート完了時に、結果（成功/失敗）を引き継いで結果ステートへ遷移
-    if (StateManagerComponent && ResultStateComponent) {
-        ResultStateComponent->SetResult(bIsSuccess);
-        StateManagerComponent->ChangeState(ResultStateComponent);
+    // 釣り上げ中ステート完了時に、釣り上げ完了ステートへ遷移
+    if (bIsSuccess && StateManagerComponent && CaughtStateComponent) {
+        StateManagerComponent->ChangeState(CaughtStateComponent);
     }
 }
 
-void AVRPawn::OnResultStateCompleted(bool bIsSuccess)
+void AVRPawn::OnCaughtStateCompleted(bool bIsSuccess)
 {
-    // 成功/失敗で表示するWidgetクラスを選択
-    const TSubclassOf<UUserWidget> ResultWidgetClass = bIsSuccess ? SuccessResultWidgetClass : FailResultWidgetClass;
-
     // [変更] 2D Viewportへの追加から、ワールド空間(WidgetComponent)での配置に変更
-    if (!ResultWidgetClass) {
+    if (!CatchingResultWidgetClass) {
         return;
     }
 
-    // すでに生成されている場合はWidgetクラスを更新して表示（成功/失敗の出し分け対応）
+    // すでに生成されている場合は重複生成を避ける
     if (ResultWidgetComponent) {
-        ResultWidgetComponent->SetWidgetClass(ResultWidgetClass);
         ResultWidgetComponent->SetVisibility(true);
         return;
     }
@@ -161,7 +152,7 @@ void AVRPawn::OnResultStateCompleted(bool bIsSuccess)
 
         // 空間上の描画設定
         ResultWidgetComponent->SetWidgetSpace(EWidgetSpace::World);
-        ResultWidgetComponent->SetWidgetClass(ResultWidgetClass);
+        ResultWidgetComponent->SetWidgetClass(CatchingResultWidgetClass);
         ResultWidgetComponent->SetDrawSize(ResultDrawSize);
 
         // プレイヤーの位置・回転に基づき、目の前のワールド座標へ配置

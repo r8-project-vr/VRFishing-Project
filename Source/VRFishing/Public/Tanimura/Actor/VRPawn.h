@@ -19,7 +19,7 @@ class UFishingStateHandUpDown; // モード２（上下運動プレイステー�
 // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 class UFishingReelStateComponent;            // モード３
 class UFishingCatchingStateComponent;        // モード４
-class UFishingResultStateComponent;          // モード５
+class UFishingCaughtStateComponent;          // モード５
 class UUserWidget;
 class UWidgetComponent;
 
@@ -72,17 +72,13 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UFishingCatchingStateComponent> CatchingStateComponent;
 
-    // 釣り上げ結果状態コンポーネント
+    // 釣り上げ完了状態コンポーネント
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UFishingResultStateComponent> ResultStateComponent;
+    TObjectPtr<UFishingCaughtStateComponent> CaughtStateComponent;
 
-    // 釣り成功時に前面表示するリザルトWidgetクラス
+    // 釣り上げ完了時に前面表示するリザルトWidgetクラス
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
-    TSubclassOf<UUserWidget> SuccessResultWidgetClass;
-
-    // 釣り失敗時に前面表示するリザルトWidgetクラス
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
-    TSubclassOf<UUserWidget> FailResultWidgetClass;
+    TSubclassOf<UUserWidget> CatchingResultWidgetClass;
 
     // [追加] 生成した3D UIを保持・管理するためのウィジェットコンポーネント
     UPROPERTY(Transient)
@@ -117,7 +113,7 @@ private:
 
     // 釣り上げ完了ステート完了時の通知を受け取るハンドラー
     UFUNCTION()
-    void OnResultStateCompleted(bool bIsSuccess);
+    void OnCaughtStateCompleted(bool bIsSuccess);
 
     // ステート変更時の通知を受け取るハンドラー
     UFUNCTION()
