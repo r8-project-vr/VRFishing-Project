@@ -75,15 +75,19 @@ public:
 	TArray<AAquariumBoidFish*> SpawnedFish;
 
 	//設定された魚を水槽内に生成する
-UFUNCTION(BlueprintCallable, Category = "Aquarium|Spawn")
-void SpawnFish();
+	UFUNCTION(BlueprintCallable, Category = "Aquarium|Spawn")
+	void SpawnFish();
 
-//水槽中心の座標を取得する
-FVector GetSwimCenterLocation() const;
+	//水槽中心の座標を取得する
+	FVector GetSwimCenterLocation() const;
 
-//円柱範囲内のランダムな座標を取得する
-FVector GetRandomSpawnLocation() const;
+	//円柱範囲内のランダムな座標を取得する
+	FVector GetRandomSpawnLocation() const;
 
-//Managerが管理している魚を移動させる
-void UpdateFishMovement(float DeltaTime);
+	//Managerが管理している魚を移動させる
+	void UpdateFishMovement(float DeltaTime);
+
+	//円柱状の水槽境界から離れる力を計算する
+	FVector CalculateBoundarySteering(const AAquariumBoidFish* FishActor) const;
+
 };

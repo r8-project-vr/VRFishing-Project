@@ -155,6 +155,14 @@ void AAquariumBoidManager::UpdateFishMovement(float DeltaTime)
 			continue;
 		}
 
+		//水槽境界を避ける力を速度へ加える
+		const FVector BoundarySteering =CalculateBoundarySteering(FishActor);
+
+		FishActor->Velocity += BoundarySteering * DeltaTime;
+
+		//魚ごとの最大速度を超えないよう制限する
+		FishActor->Velocity = FishActor->Velocity.GetClampedToMaxSize(FishActor->FishData->MaxSpeed);
+
 		//現在の速度を使って次の位置を計算する
 		const FVector CurrentLocation =FishActor->GetActorLocation();
 
@@ -179,5 +187,75 @@ void AAquariumBoidManager::UpdateFishMovement(float DeltaTime)
 
 		FishActor->SetActorRotation(NewRotation);
 	}
+}
+
+FVector AAquariumBoidManager::CalculateBoundarySteering(const AAquariumBoidFish* FishActor) const
+{
+	if (!FishActor)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (!FishActor->FishData)
+	{
+		return FVector::ZeroVector;
+	}
+
+	const FVector CenterLocation = GetSwimCenterLocation();
+	const FVector FishLocation = FishActor->GetActorLocation();
+
+	FVector SteeringForce = FVector::ZeroVector;
+
+	//水平方向の中心からの差を計算する
+	FVector HorizontalOffset = FishLocation - CenterLocation;
+	HorizontalOffset.Z = 0.0f;
+
+	const float HorizontalDistance = HorizontalOffset.Size();
+
+	//壁を避け始める半径
+	const float SafeRadius =FMath::Max(0.0f, SwimRadius - WallMargin);
+
+	if (HorizontalDistance > SafeRadius)
+	{
+		//壁へ近づくほど中心へ戻る力を強くする
+		const float DistanceIntoMargin =
+			HorizontalDistance - SafeRadius;
+
+		const float HorizontalUrgency =FMath::Clamp(DistanceIntoMargin / FMath::Max(WallMargin, 1.0f),0.0f,1.0f);
+
+		const FVector DirectionToCenter =-HorizontalOffset.GetSafeNormal();
+
+		SteeringForce +=DirectionToCenter *FishActor->FishData->MaxSteeringForce *HorizontalUrgency;
+	}
+
+	//水面と底を避け始める高さ
+	const float SafeHalfHeight =FMath::Max(0.0f, SwimHalfHeight - WallMargin);
+
+	const float HeightOffset =FishLocation.Z - CenterLocation.Z;
+
+	if (HeightOffset > SafeHalfHeight)
+	{
+		const float DistanceIntoMargin =HeightOffset - SafeHalfHeight;
+
+		const float VerticalUrgency =FMath::Clamp(DistanceIntoMargin / FMath::Max(WallMargin, 1.0f),0.0f,1.0f);
+
+		//水面に近い場合は下方向へ戻す
+		SteeringForce.Z -=FishActor->FishData->MaxSteeringForce *VerticalUrgency;
+	}
+
+	else if (HeightOffset < -SafeHalfHeight)
+	{
+		const float DistanceIntoMargin =-SafeHalfHeight - HeightOffset;
+
+		const float VerticalUrgency =FMath::Clamp(DistanceIntoMargin / FMath::Max(WallMargin, 1.0f),0.0f,1.0f);
+
+		//底に近い場合は上方向へ戻す
+		SteeringForce.Z +=FishActor->FishData->MaxSteeringForce *VerticalUrgency;
+	}
+
+	//斜め方向で力が強くなりすぎないよう制限する
+	SteeringForce = SteeringForce.GetClampedToMaxSize(FishActor->FishData->MaxSteeringForce);
+
+	return SteeringForce;
 }
 
