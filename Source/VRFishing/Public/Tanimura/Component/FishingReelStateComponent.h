@@ -57,6 +57,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator", meta = (ClampMin = "1"))
 	int32 TargetRevolutionCount;
 
+	// 速すぎと判定する上限RPM（これを超えると釣り失敗）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "0.0"))
+	float MaxAllowedRPM = 60.0f;
+
 	// 現在の累積回転数
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Reel Simulator")
 	int32 CurrentRevolutionCount;
@@ -70,4 +74,5 @@ private:
 	double	RotationStartTime;		// 回転の計測を開始した時間（秒）
 	bool	bIsMeasuringRotation;	// 計測が開始されているかのフラグ
 	bool	bIsStickTracking;		// 入力を追跡中かどうか（スティック操作時用）
+	bool	bIsCompleted;			// ステート完了（成功/失敗）フラグ
 };

@@ -6,13 +6,12 @@
 #include "GameFramework/Pawn.h"
 #include "Tanimura/Component/FishingStateComponentBase.h"
 #include "Kismet/GameplayStatics.h"
-
-// 2026.07.27 谷村　startーーーーーーーーーー
 #include "Tanimura/Component/FishingStateManagerComponent.h"
 #include "Tanimura/Component/FishingReadyStateComponent.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
 #include "Tanimura/Component/FishingCatchingStateComponent.h"
-// 2026.07.27 谷村　endーーーーーーーーーー
+#include "Tanimura/Component/FishingResultStateComponent.h"
+
 // 2026.07.27 Lee start
 #include "Lee/component/HandHeightDetectorComponent.h"
 // 2026.07.27 Lee end
@@ -213,6 +212,15 @@ void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 		);
 		// 2026.08.05 竹内　endーーーーーーーーーー
 	}
+
+	// 2026.08.05 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 釣り上げ結果モード (Result): 失敗時のみ魚が逃げる（成功時は既に Caught 状態）
+	else if (NewState->IsA<UFishingResultStateComponent>()) {
+		if (!NewState->IsSuccessState()) {
+			EscapeFish();
+		}
+	}
+	// 2026.08.05 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
 // 2026.07.27 谷村　endーーーーーーーーーー
 

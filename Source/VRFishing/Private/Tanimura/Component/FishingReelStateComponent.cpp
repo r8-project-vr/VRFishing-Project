@@ -11,6 +11,8 @@ UFishingReelStateComponent::UFishingReelStateComponent()
     StickThreshold = 0.6f;
     WheelNotchAngleRad = UE_PI / 12.0f; // π/12 ≒ 0.2618rad（15度）
 
+    bIsCompleted = false;
+
     LastAngle = 0.0f;
     AccumulatedAngleRad = 0.0f;
     RotationStartTime = 0.0;
@@ -25,6 +27,7 @@ void UFishingReelStateComponent::EnterState()
     Super::EnterState();
 
     // ステート開始時にリール状態を初期化
+    bIsCompleted = false;
     ResetRevolutionCount();
 }
 
@@ -109,6 +112,11 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle)
         return;
     }
 
+    // 完了済み（成功/失敗）なら以降の入力を無視
+    if (bIsCompleted) {
+        return;
+    }
+
     const double CurrentTime = World->GetTimeSeconds();
 
     // 最初の回転入力時に計測開始時間を記録
@@ -133,6 +141,13 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle)
             const float CalculatedRPM = static_cast<float>(60.0 / DeltaTime);
             // 算出したRPMをバインド先へ通知
             OnRPMCalculated.Broadcast(CalculatedRPM);
+
+            // 速すぎる場合は釣り失敗（RPM上限超過）
+            if (CalculatedRPM > MaxAllowedRPM) {
+                bIsCompleted = true;
+                OnFishingStateCompleted.Broadcast(false);
+                return;
+            }
         }
 
         // 累積角度と時間をリセット
@@ -142,6 +157,7 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle)
         // 回転数を加算し、目標に達したら通知
         CurrentRevolutionCount++;
         if (CurrentRevolutionCount >= TargetRevolutionCount) {
+            bIsCompleted = true;
             OnFishingStateCompleted.Broadcast(true);
         }
     }
