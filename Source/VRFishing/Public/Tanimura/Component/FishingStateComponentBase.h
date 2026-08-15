@@ -35,6 +35,10 @@ public:
     virtual FString GetStateDisplayName() const;
     // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
+    // ステートが「釣り成功」を表すか（成功時の挙動分岐用）
+    UFUNCTION(BlueprintPure, Category = "Fishing|State")
+    virtual bool IsSuccessState() const;
+
 public:
     // ステート完了を外部へ通知するデリゲートインスタンス
     UPROPERTY(BlueprintAssignable, Category = "Fishing|Events")

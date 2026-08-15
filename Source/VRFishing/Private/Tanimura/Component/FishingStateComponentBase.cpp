@@ -27,3 +27,9 @@ FString UFishingStateComponentBase::GetStateDisplayName() const
     return GetClass()->GetName();
 }
 // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
+bool UFishingStateComponentBase::IsSuccessState() const
+{
+    // 通常ステートは成功を表さない
+    return false;
+}
