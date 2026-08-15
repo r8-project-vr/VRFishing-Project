@@ -3,6 +3,7 @@
 #include "Takeuchi/Actor/AquariumBoidManager.h"
 #include "Takeuchi/Actor/AquariumBoidFish.h"
 #include "Takeuchi/Data/FishDataAsset.h"
+#include "Takeuchi/Data/FishSwimProfileDataAsset.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/World.h"
 
@@ -101,6 +102,7 @@ void AAquariumBoidManager::SpawnFish()
 	{
 		if (!SpawnSettings.FishData)
 		{
+			UE_LOG(LogTemp,Warning,TEXT("AquariumBoidManager: SwimProfileが設定されていない魚データがあります。"));
 			continue;
 		}
 
@@ -131,10 +133,17 @@ void AAquariumBoidManager::SpawnFish()
 			SpawnedFishActor->FishData = SpawnSettings.FishData;
 			SpawnedFishActor->ApplyFishData();
 
+			//生成順に群れを振り分ける
+			const int32 ValidSchoolCount = FMath::Max(1, SpawnSettings.SchoolCount);
+			SpawnedFishActor->SchoolId = FishIndex % ValidSchoolCount;
+
+			//群れ状態と切り替え時間を初期化する
+			InitializeSchoolingState(SpawnedFishActor);
+
 			//向いている方向へ泳ぎ始める
 			const FVector InitialDirection =SpawnRotation.Vector();
 
-			SpawnedFishActor->Velocity =InitialDirection * SpawnSettings.FishData->CruiseSpeed;
+			SpawnedFishActor->Velocity = InitialDirection * SpawnSettings.FishData->SwimProfile->CruiseSpeed;
 
 			SpawnedFish.Add(SpawnedFishActor);
 		}
@@ -155,13 +164,48 @@ void AAquariumBoidManager::UpdateFishMovement(float DeltaTime)
 			continue;
 		}
 
-		//水槽境界を避ける力を速度へ加える
-		const FVector BoundarySteering =CalculateBoundarySteering(FishActor);
+		if (!FishActor->FishData->SwimProfile)
+		{
+			continue;
+		}
 
-		FishActor->Velocity += BoundarySteering * DeltaTime;
+		UFishSwimProfileDataAsset* SwimProfile = FishActor->FishData->SwimProfile;
+
+		//時間経過によって群れ状態を更新する
+		UpdateSchoolingState(FishActor, DeltaTime);
+
+		//水槽境界から離れる力を計算する
+		const FVector BoundarySteering = CalculateBoundarySteering(FishActor);
+
+		//近づきすぎた同種の魚から離れる力を計算する
+		FVector SeparationSteering = CalculateSeparationSteering(FishActor);
+
+		//周囲にいる同種の魚と進行方向を揃える力を計算する
+		FVector AlignmentSteering = CalculateAlignmentSteering(FishActor);
+
+		//周囲にいる同種の魚の中心へ向かう力を計算する
+		FVector CohesionSteering = CalculateCohesionSteering(FishActor);
+
+		//魚の速度を巡航速度へ近づける力を計算する
+		FVector CruiseSteering = CalculateCruiseSteering(FishActor);
+
+		//魚ごとの上下移動の強さを反映する
+		SeparationSteering.Z *= SwimProfile->VerticalMovementScale;
+		AlignmentSteering.Z *= SwimProfile->VerticalMovementScale;
+		CohesionSteering.Z *= SwimProfile->VerticalMovementScale;
+		CruiseSteering.Z *= SwimProfile->VerticalMovementScale;
+
+		//今回のフレームで加える力を合成する
+		FVector TotalSteering = BoundarySteering + SeparationSteering + AlignmentSteering + CohesionSteering + CruiseSteering;
+
+		//合計した力が強くなりすぎないよう制限する
+		TotalSteering = TotalSteering.GetClampedToMaxSize( SwimProfile->MaxSteeringForce );
+
+		//合成した力を速度へ反映する
+		FishActor->Velocity += TotalSteering * DeltaTime;
 
 		//魚ごとの最大速度を超えないよう制限する
-		FishActor->Velocity = FishActor->Velocity.GetClampedToMaxSize(FishActor->FishData->MaxSpeed);
+		FishActor->Velocity = FishActor->Velocity.GetClampedToMaxSize( SwimProfile->MaxSpeed );
 
 		//現在の速度を使って次の位置を計算する
 		const FVector CurrentLocation =FishActor->GetActorLocation();
@@ -183,7 +227,7 @@ void AAquariumBoidManager::UpdateFishMovement(float DeltaTime)
 
 		const FRotator TargetRotation =FishActor->Velocity.Rotation();
 
-		const FRotator NewRotation =FMath::RInterpTo(CurrentRotation,TargetRotation,DeltaTime,FishActor->FishData->RotationInterpSpeed);
+		const FRotator NewRotation =FMath::RInterpTo(CurrentRotation,TargetRotation,DeltaTime,SwimProfile->RotationInterpSpeed);
 
 		FishActor->SetActorRotation(NewRotation);
 	}
@@ -201,6 +245,12 @@ FVector AAquariumBoidManager::CalculateBoundarySteering(const AAquariumBoidFish*
 		return FVector::ZeroVector;
 	}
 
+	if (!FishActor->FishData->SwimProfile)
+	{
+		return FVector::ZeroVector;
+	}
+
+	const UFishSwimProfileDataAsset* SwimProfile = FishActor->FishData->SwimProfile;
 	const FVector CenterLocation = GetSwimCenterLocation();
 	const FVector FishLocation = FishActor->GetActorLocation();
 
@@ -225,7 +275,7 @@ FVector AAquariumBoidManager::CalculateBoundarySteering(const AAquariumBoidFish*
 
 		const FVector DirectionToCenter =-HorizontalOffset.GetSafeNormal();
 
-		SteeringForce +=DirectionToCenter *FishActor->FishData->MaxSteeringForce *HorizontalUrgency;
+		SteeringForce +=DirectionToCenter *SwimProfile->MaxSteeringForce *HorizontalUrgency;
 	}
 
 	//水面と底を避け始める高さ
@@ -240,7 +290,7 @@ FVector AAquariumBoidManager::CalculateBoundarySteering(const AAquariumBoidFish*
 		const float VerticalUrgency =FMath::Clamp(DistanceIntoMargin / FMath::Max(WallMargin, 1.0f),0.0f,1.0f);
 
 		//水面に近い場合は下方向へ戻す
-		SteeringForce.Z -=FishActor->FishData->MaxSteeringForce *VerticalUrgency;
+		SteeringForce.Z -=SwimProfile->MaxSteeringForce *VerticalUrgency;
 	}
 
 	else if (HeightOffset < -SafeHalfHeight)
@@ -250,12 +300,467 @@ FVector AAquariumBoidManager::CalculateBoundarySteering(const AAquariumBoidFish*
 		const float VerticalUrgency =FMath::Clamp(DistanceIntoMargin / FMath::Max(WallMargin, 1.0f),0.0f,1.0f);
 
 		//底に近い場合は上方向へ戻す
-		SteeringForce.Z +=FishActor->FishData->MaxSteeringForce *VerticalUrgency;
+		SteeringForce.Z +=SwimProfile->MaxSteeringForce *VerticalUrgency;
 	}
 
 	//斜め方向で力が強くなりすぎないよう制限する
-	SteeringForce = SteeringForce.GetClampedToMaxSize(FishActor->FishData->MaxSteeringForce);
+	SteeringForce = SteeringForce.GetClampedToMaxSize(SwimProfile->MaxSteeringForce);
 
 	return SteeringForce;
 }
 
+FVector AAquariumBoidManager::CalculateSeparationSteering( const AAquariumBoidFish* FishActor) const
+{
+	if (!FishActor)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (!FishActor->FishData)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (!FishActor->FishData->SwimProfile)
+	{
+		return FVector::ZeroVector;
+	}
+
+	const UFishSwimProfileDataAsset* SwimProfile = FishActor->FishData->SwimProfile;
+
+	if (SwimProfile->SeparationRadius <= 0.0f)
+	{
+		return FVector::ZeroVector;
+	}
+
+	const FVector FishLocation = FishActor->GetActorLocation();
+
+	FVector SeparationDirection = FVector::ZeroVector;
+
+	int32 NeighborCount = 0;
+
+	for (AAquariumBoidFish* OtherFish : SpawnedFish)
+	{
+		if (!IsValid(OtherFish))
+		{
+			continue;
+		}
+
+		//自分自身は対象にしない
+		if (OtherFish == FishActor)
+		{
+			continue;
+		}
+
+		if (!OtherFish->FishData)
+		{
+			continue;
+		}
+
+		//同じFishDataを持つ魚だけを同種として扱う
+		if (OtherFish->FishData != FishActor->FishData)
+		{
+			continue;
+		}
+
+		const FVector Difference = FishLocation - OtherFish->GetActorLocation();
+
+		const float Distance = Difference.Size();
+
+		//完全に同じ位置の場合は通常の方向を計算できない
+		if (Distance <= KINDA_SMALL_NUMBER)
+		{
+			continue;
+		}
+
+		//十分離れている魚は対象にしない
+		if (Distance >= SwimProfile->SeparationRadius)
+		{
+			continue;
+		}
+
+		//近い魚ほど強く離れる
+		const float DistanceWeight =1.0f -Distance / SwimProfile->SeparationRadius;
+
+		SeparationDirection +=Difference.GetSafeNormal() *DistanceWeight;
+
+		NeighborCount++;
+
+		if (NeighborCount >= SwimProfile->MaxNeighbors)
+		{
+			break;
+		}
+	}
+
+	if (NeighborCount == 0)
+	{
+		return FVector::ZeroVector;
+	}
+
+	//周囲の魚から受けた方向を平均化する
+	SeparationDirection /=static_cast<float>(NeighborCount);
+
+	FVector SeparationForce =SeparationDirection.GetSafeNormal() *SwimProfile->MaxSteeringForce *SwimProfile->SeparationWeight;
+
+	SeparationForce =SeparationForce.GetClampedToMaxSize(SwimProfile->MaxSteeringForce);
+
+	return SeparationForce;
+}
+
+FVector AAquariumBoidManager::CalculateAlignmentSteering(const AAquariumBoidFish* FishActor) const
+{
+	if (!FishActor)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (!FishActor->FishData)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (!FishActor->FishData->SwimProfile)
+	{
+		return FVector::ZeroVector;
+	}
+
+	const UFishSwimProfileDataAsset* SwimProfile = FishActor->FishData->SwimProfile;
+
+	if (SwimProfile->PerceptionRadius <= 0.0f)
+	{
+		return FVector::ZeroVector;
+	}
+
+	const FVector FishLocation = FishActor->GetActorLocation();
+	FVector AverageVelocity = FVector::ZeroVector;
+	int32 NeighborCount = 0;
+
+	for (AAquariumBoidFish* OtherFish : SpawnedFish)
+	{
+		if (!IsValid(OtherFish))
+		{
+			continue;
+		}
+
+		//自分自身は対象にしない
+		if (OtherFish == FishActor)
+		{
+			continue;
+		}
+
+		if (!OtherFish->FishData)
+		{
+			continue;
+		}
+
+		//同じFishDataを使用する魚だけを同種として扱う
+		if (OtherFish->FishData != FishActor->FishData)
+		{
+			continue;
+		}
+
+		//同じ群れに所属している魚だけを対象にする
+		if (OtherFish->SchoolId != FishActor->SchoolId)
+		{
+			continue;
+		}
+
+		const float Distance = FVector::Distance(FishLocation, OtherFish->GetActorLocation());
+
+		if (Distance > SwimProfile->PerceptionRadius)
+		{
+			continue;
+		}
+
+		AverageVelocity += OtherFish->Velocity;
+		NeighborCount++;
+
+		if (NeighborCount >= SwimProfile->MaxNeighbors)
+		{
+			break;
+		}
+	}
+
+	if (NeighborCount == 0)
+	{
+		return FVector::ZeroVector;
+	}
+
+	//周囲の魚の平均速度を求める
+	AverageVelocity /= static_cast<float>(NeighborCount);
+
+	if (AverageVelocity.IsNearlyZero())
+	{
+		return FVector::ZeroVector;
+	}
+
+	//周囲の魚と同じ方向へ進む目標速度を作る
+	const FVector DesiredVelocity = AverageVelocity.GetSafeNormal() * SwimProfile->CruiseSpeed;
+
+	//現在速度と目標速度の差を操舵力にする
+	FVector AlignmentForce = DesiredVelocity - FishActor->Velocity;
+
+	float SchoolingMultiplier = 1.0f;
+
+	//個別行動中はAlignmentを弱める
+	if (SwimProfile->bEnableSchoolingCycle)
+	{
+		if (!FishActor->bIsSchooling)
+		{
+			SchoolingMultiplier = SwimProfile->LooseAlignmentMultiplier;
+		}
+	}
+
+	AlignmentForce *= SwimProfile->AlignmentWeight * SchoolingMultiplier;
+	AlignmentForce = AlignmentForce.GetClampedToMaxSize(SwimProfile->MaxSteeringForce);
+
+	return AlignmentForce;
+}
+
+FVector AAquariumBoidManager::CalculateCohesionSteering(const AAquariumBoidFish* FishActor) const
+{
+	if (!FishActor)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (!FishActor->FishData)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (!FishActor->FishData->SwimProfile)
+	{
+		return FVector::ZeroVector;
+	}
+
+	const UFishSwimProfileDataAsset* SwimProfile = FishActor->FishData->SwimProfile;
+
+	if (SwimProfile->PerceptionRadius <= 0.0f)
+	{
+		return FVector::ZeroVector;
+	}
+
+	const FVector FishLocation = FishActor->GetActorLocation();
+	FVector NeighborCenter = FVector::ZeroVector;
+	int32 NeighborCount = 0;
+
+	for (AAquariumBoidFish* OtherFish : SpawnedFish)
+	{
+		if (!IsValid(OtherFish))
+		{
+			continue;
+		}
+
+		//自分自身は対象にしない
+		if (OtherFish == FishActor)
+		{
+			continue;
+		}
+
+		if (!OtherFish->FishData)
+		{
+			continue;
+		}
+
+		//同じFishDataを使用する魚だけを同種として扱う
+		if (OtherFish->FishData != FishActor->FishData)
+		{
+			continue;
+		}
+
+		//同じ群れに所属している魚だけを対象にする
+		if (OtherFish->SchoolId != FishActor->SchoolId)
+		{
+			continue;
+		}
+
+		const FVector OtherFishLocation = OtherFish->GetActorLocation();
+		const float Distance = FVector::Distance(FishLocation, OtherFishLocation);
+
+		if (Distance > SwimProfile->PerceptionRadius)
+		{
+			continue;
+		}
+
+		NeighborCenter += OtherFishLocation;
+		NeighborCount++;
+
+		if (NeighborCount >= SwimProfile->MaxNeighbors)
+		{
+			break;
+		}
+	}
+
+	if (NeighborCount == 0)
+	{
+		return FVector::ZeroVector;
+	}
+
+	//周囲にいる同種の魚の中心位置を求める
+	NeighborCenter /= static_cast<float>(NeighborCount);
+
+	const FVector DirectionToCenter = NeighborCenter - FishLocation;
+
+	if (DirectionToCenter.IsNearlyZero())
+	{
+		return FVector::ZeroVector;
+	}
+
+	//群れの中心へ向かう目標速度を作る
+	const FVector DesiredVelocity = DirectionToCenter.GetSafeNormal() * SwimProfile->CruiseSpeed;
+
+	//現在速度と目標速度の差を操舵力にする
+	FVector CohesionForce = DesiredVelocity - FishActor->Velocity;
+
+	float SchoolingMultiplier = 1.0f;
+
+	//個別行動中はCohesionを弱める
+	if (SwimProfile->bEnableSchoolingCycle)
+	{
+		if (!FishActor->bIsSchooling)
+		{
+			SchoolingMultiplier = SwimProfile->LooseCohesionMultiplier;
+		}
+	}
+
+	CohesionForce *= SwimProfile->CohesionWeight * SchoolingMultiplier;
+	CohesionForce = CohesionForce.GetClampedToMaxSize(SwimProfile->MaxSteeringForce);
+
+	return CohesionForce;
+}
+
+FVector AAquariumBoidManager::CalculateCruiseSteering(const AAquariumBoidFish* FishActor) const
+{
+	if (!FishActor)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (!FishActor->FishData)
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (!FishActor->FishData->SwimProfile)
+	{
+		return FVector::ZeroVector;
+	}
+
+	const UFishSwimProfileDataAsset* SwimProfile = FishActor->FishData->SwimProfile;
+
+	if (SwimProfile->CruiseSpeed <= 0.0f)
+	{
+		return FVector::ZeroVector;
+	}
+
+	FVector CurrentDirection = FishActor->Velocity.GetSafeNormal();
+
+	//停止している場合はActorの前方向を使用する
+	if (CurrentDirection.IsNearlyZero())
+	{
+		CurrentDirection = FishActor->GetActorForwardVector();
+	}
+
+	//現在の進行方向を維持した巡航速度を作る
+	const FVector DesiredVelocity = CurrentDirection * SwimProfile->CruiseSpeed;
+
+	//現在速度と巡航速度との差を操舵力にする
+	FVector CruiseForce = DesiredVelocity - FishActor->Velocity;
+	CruiseForce = CruiseForce.GetClampedToMaxSize(SwimProfile->MaxSteeringForce);
+
+	return CruiseForce;
+}
+
+void AAquariumBoidManager::InitializeSchoolingState(AAquariumBoidFish* FishActor) const
+{
+	if (!FishActor)
+	{
+		return;
+	}
+
+	if (!FishActor->FishData)
+	{
+		return;
+	}
+
+	if (!FishActor->FishData->SwimProfile)
+	{
+		return;
+	}
+
+	const UFishSwimProfileDataAsset* SwimProfile = FishActor->FishData->SwimProfile;
+
+	//周期切り替えを使用しない魚は常に群れ状態にする
+	if (!SwimProfile->bEnableSchoolingCycle)
+	{
+		FishActor->bIsSchooling = true;
+		FishActor->SchoolingStateRemainingTime = 0.0f;
+		return;
+	}
+
+	//開始時は群れ状態と個別状態をランダムに決める
+	FishActor->bIsSchooling = FMath::RandBool();
+
+	if (FishActor->bIsSchooling)
+	{
+		const float MinimumDuration = FMath::Min(SwimProfile->SchoolingDurationMin, SwimProfile->SchoolingDurationMax);
+		const float MaximumDuration = FMath::Max(SwimProfile->SchoolingDurationMin, SwimProfile->SchoolingDurationMax);
+		FishActor->SchoolingStateRemainingTime = FMath::FRandRange(MinimumDuration, MaximumDuration);
+	}
+	else
+	{
+		const float MinimumDuration = FMath::Min(SwimProfile->LooseDurationMin, SwimProfile->LooseDurationMax);
+		const float MaximumDuration = FMath::Max(SwimProfile->LooseDurationMin, SwimProfile->LooseDurationMax);
+		FishActor->SchoolingStateRemainingTime = FMath::FRandRange(MinimumDuration, MaximumDuration);
+	}
+}
+
+void AAquariumBoidManager::UpdateSchoolingState(AAquariumBoidFish* FishActor, float DeltaTime) const
+{
+	if (!FishActor)
+	{
+		return;
+	}
+
+	if (!FishActor->FishData)
+	{
+		return;
+	}
+
+	if (!FishActor->FishData->SwimProfile)
+	{
+		return;
+	}
+
+	const UFishSwimProfileDataAsset* SwimProfile = FishActor->FishData->SwimProfile;
+
+	if (!SwimProfile->bEnableSchoolingCycle)
+	{
+		FishActor->bIsSchooling = true;
+		return;
+	}
+
+	FishActor->SchoolingStateRemainingTime -= DeltaTime;
+
+	if (FishActor->SchoolingStateRemainingTime > 0.0f)
+	{
+		return;
+	}
+
+	//時間が来たら群れ状態と個別状態を切り替える
+	FishActor->bIsSchooling = !FishActor->bIsSchooling;
+
+	if (FishActor->bIsSchooling)
+	{
+		const float MinimumDuration = FMath::Min(SwimProfile->SchoolingDurationMin, SwimProfile->SchoolingDurationMax);
+		const float MaximumDuration = FMath::Max(SwimProfile->SchoolingDurationMin, SwimProfile->SchoolingDurationMax);
+		FishActor->SchoolingStateRemainingTime = FMath::FRandRange(MinimumDuration, MaximumDuration);
+	}
+	else
+	{
+		const float MinimumDuration = FMath::Min(SwimProfile->LooseDurationMin, SwimProfile->LooseDurationMax);
+		const float MaximumDuration = FMath::Max(SwimProfile->LooseDurationMin, SwimProfile->LooseDurationMax);
+		FishActor->SchoolingStateRemainingTime = FMath::FRandRange(MinimumDuration, MaximumDuration);
+	}
+}

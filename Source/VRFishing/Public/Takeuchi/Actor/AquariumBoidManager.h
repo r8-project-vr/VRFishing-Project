@@ -23,6 +23,10 @@ public:
 	//この魚を生成する数
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aquarium|Spawn", meta = (ClampMin = "1"))
 	int32 SpawnCount = 10;
+
+	//この魚をいくつの群れに分けるか
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aquarium|Spawn", meta = (ClampMin = "1"))
+	int32 SchoolCount = 1;
 };
 
 UCLASS()
@@ -90,4 +94,21 @@ public:
 	//円柱状の水槽境界から離れる力を計算する
 	FVector CalculateBoundarySteering(const AAquariumBoidFish* FishActor) const;
 
+	//近づきすぎた同種の魚から離れる力を計算する
+	FVector CalculateSeparationSteering(const AAquariumBoidFish* FishActor) const;
+
+	//周囲にいる同種の魚と進行方向を揃える力を計算する
+	FVector CalculateAlignmentSteering(const AAquariumBoidFish* FishActor) const;
+
+	//周囲にいる同種の魚の中心へ向かう力を計算する
+	FVector CalculateCohesionSteering(const AAquariumBoidFish* FishActor) const;
+
+	//魚の速度を巡航速度へ近づける力を計算する
+	FVector CalculateCruiseSteering(const AAquariumBoidFish* FishActor) const;
+
+	//魚の群れ状態を初期化する
+	void InitializeSchoolingState(AAquariumBoidFish* FishActor) const;
+
+	//魚の群れ状態と残り時間を更新する
+	void UpdateSchoolingState(AAquariumBoidFish* FishActor, float DeltaTime) const;
 };
