@@ -23,7 +23,13 @@ AVRPawn::AVRPawn()
 
     // 各ステートコンポーネントおよびマネージャーの生成
     StateManagerComponent = CreateDefaultSubobject<UFishingStateManagerComponent>(TEXT("StateManagerComponent"));
-    ReadyStateComponent = CreateDefaultSubobject<UFishingReadyStateComponent>(TEXT("ReadyStateComponent"));
+    // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // BP_XRPawn 資産に残る旧コンポーネント記録（WaitStateComponent）と再マッチさせるため、
+    // コンポーネントFNameを旧名へ戻す（C++変数名は ReadyStateComponent のまま）。
+    // これにより資産側の記録と C++ 生成コンポーネントが 1:1 になり、重複インスタンスが発生しなくなる。
+    //ReadyStateComponent = CreateDefaultSubobject<UFishingReadyStateComponent>(TEXT("ReadyStateComponent"));
+    ReadyStateComponent = CreateDefaultSubobject<UFishingReadyStateComponent>(TEXT("WaitStateComponent"));
+    // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     // 2026.07.27 Lee start
     HandUpDownComponent = CreateDefaultSubobject<UHandHeightDetectorComponent>(TEXT("HandUpDownComponent"));
     // 2026.07.27 Lee end
