@@ -57,9 +57,21 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator", meta = (ClampMin = "1"))
 	int32 TargetRevolutionCount;
 
-	// 速すぎと判定する上限RPM（これを超えると釣り失敗）
+	// ホイール操作時の上限RPM（これを超えると速すぎミス）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "0.0"))
-	float MaxAllowedRPM = 60.0f;
+	float WheelMaxAllowedRPM = 40.0f;
+
+	// スティック操作時の上限RPM（これを超えると速すぎミス）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "0.0"))
+	float StickMaxAllowedRPM = 60.0f;
+
+	// 下限RPM（これを下回ると遅すぎミス）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "0.0"))
+	float MinAllowedRPM = 10.0f;
+
+	// ミスの上限回数（この回数ミスすると釣り失敗）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "1"))
+	int32 MaxMistakeCount = 3;
 
 	// 現在の累積回転数
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Reel Simulator")
@@ -67,7 +79,7 @@ protected:
 
 private:
 	// 角度変化量が1回転に達したらRPMを算出し、デリゲートを呼び出す
-	void CalculateRPM(float DeltaAngle);
+	void CalculateRPM(float DeltaAngle, float MaxAllowedRPM);
 
 	float	LastAngle;				// 前フレームの入力角度（ラジアン）
 	float	AccumulatedAngleRad;	// 累積角度（ラジアン）
@@ -75,4 +87,16 @@ private:
 	bool	bIsMeasuringRotation;	// 計測が開始されているかのフラグ
 	bool	bIsStickTracking;		// 入力を追跡中かどうか（スティック操作時用）
 	bool	bIsCompleted;			// ステート完了（成功/失敗）フラグ
+
+	// 速すぎミスの累積回数
+	int32 OverRPMCount;
+
+	// 遅すぎミスの累積回数
+	int32 UnderRPMCount;
+
+	// RPMの許容範囲判定（速すぎ・遅すぎ）と失敗判定を行う
+	void JudgeRPM(float CalculatedRPM, float MaxAllowedRPM);
+
+	// ミスログを画面と出力ログに表示する
+	void ShowErrorLog(bool bIsTooFast, float CurrentRPM);
 };
