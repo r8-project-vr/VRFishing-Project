@@ -153,6 +153,10 @@ void UFishFightMeterWidget::OnHandUpDownCompleted(bool bIsSuccess)
 {
 	if (!bIsSuccess)
 	{
+		// 失敗（過速・過遅）時はリールを明示的にロックし、表示をリセットする
+		bReelUnlocked = false;
+		CycleCount = 0;
+		FinalScore = 0;
 		return;
 	}
 

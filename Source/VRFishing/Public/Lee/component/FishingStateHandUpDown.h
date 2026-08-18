@@ -7,6 +7,8 @@
 #include "FishingStateHandUpDown.generated.h"
 
 class UHandHeightDetectorComponent;
+class UFishingStateManagerComponent;
+class UFishingReadyStateComponent;
 
 /**
  * @brief 矢印ガイドの状態を定義する列挙型。
@@ -60,7 +62,7 @@ public:
 
 	// ---- 矢印ガイド ----
 
-	/// @brief 矢印の移動速度（0.0～1.0 の範囲を何秒で移動するか）
+	/// @brief 推奨手の速度（正規化空間 0.0〜1.0 を 1 秒あたりに移動する割合）。矢印ガイドの移動速度と速度スコアリングの推奨値で共用。
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Arrow")
 	float RecommendedSpeed = 0.2f;
 
@@ -81,6 +83,16 @@ public:
 	/// @brief スコアの平滑化係数（大きいほど変動が速い）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Scoring", meta = (ClampMin = "0.1"))
 	float ScoreSmoothingFactor = 5.0f;
+
+	// ---- 失敗検知（過速・過遅） ----
+
+	/// @brief 品質がこの値未満のフレームを失敗タイマーに加算する閾値 (0.0～1.0)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Fail", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float FailQualityThreshold = 0.2f;
+
+	/// @brief 低品質がこの秒数連続したら失敗（回復でタイマーはリセット）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|HandUpDown|Fail", meta = (ClampMin = "0.1"))
+	float FailTimeSeconds = 2.0f;
 
 	// ==================== 出力 ====================
 
@@ -108,6 +120,14 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Count")
 	bool bIsCompleted = false;
 
+	/// @brief 現在の低品質連続時間（UI警告用に公開）
+	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Fail")
+	float FailTimeAccumulated = 0.0f;
+
+	/// @brief 失敗フラグ（bIsCompleted とは別に公開。過速・過遅による失敗で true）
+	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Fail")
+	bool bIsFailed = false;
+
 private:
 	/// @brief 手部運動センサへの参照（EnterState で所有者から取得）
 	TWeakObjectPtr<UHandHeightDetectorComponent> Detector;
@@ -123,4 +143,23 @@ private:
 
 	/** @brief 矢印状態を更新する */
 	void TickArrow(float DeltaTime, float HandPercent);
+
+	/** @brief ステートマネージャへの参照（EnterState で所有者から取得、失敗時の Wait 復帰用） */
+	TWeakObjectPtr<UFishingStateManagerComponent> StateManager;
+
+	/** @brief Wait ステートへの参照（EnterState で所有者から取得、失敗時の復帰先） */
+	TWeakObjectPtr<UFishingReadyStateComponent> WaitState;
+
+	/**
+	 * @brief 誤差（位置・速度）から品質スコアを算出する。
+	 * @param Error 誤差（0.0〜1.0 尺度）
+	 * @return 0.0〜1.0 の品質（perfect 以下で 1.0、fail 以上で 0.0、間は線形）
+	 */
+	float CalcMatchQuality(float Error) const;
+
+	/**
+	 * @brief 失敗処理：フラグ設定 → 最終スコア → ログ → Broadcast(false) → Wait へ遷移。
+	 * @note 本コンポーネントは失敗時に自身で Wait へ復帰するため、リスナー側で ChangeState を呼び直さないこと。
+	 */
+	void HandleFailure();
 };

@@ -49,6 +49,13 @@ void UFishingResultStateComponent::ExitState()
     bIsCompleted = false;
 }
 
+// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+FString UFishingResultStateComponent::GetStateDisplayName() const
+{
+    return TEXT("釣り上げ結果");
+}
+// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 void UFishingResultStateComponent::SetResult(bool bSuccess)
 {
     // 釣りの成否を設定
