@@ -73,6 +73,13 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Speed Detection")
 	float CurrentHandSpeed = 0.0f;
 
+	/**
+	 * @brief 手の垂直移動速度（符号付き・正規化空間 1.0/s、正=上昇）。
+	 * @note HandHeightPercent の毎フレーム差分から算出。速度スコアリングのデータ源。
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "Speed Detection")
+	float HandPercentSpeed = 0.0f;
+
 	/** 手の移動速度の判定状態 */
 	UPROPERTY(BlueprintReadOnly, Category = "Speed Detection")
 	EHandSpeedState HandSpeedState = EHandSpeedState::Good;
@@ -118,6 +125,12 @@ private:
 
 	/** PreviousHandLocation が有効か（最初のフレームは無効） */
 	bool bHasPreviousLocation = false;
+
+	/** 前フレームの HandHeightPercent（正規化垂直速度計算用） */
+	float PreviousHandPercent = 0.0f;
+
+	/** PreviousHandPercent が有効か（最初のフレームは無効） */
+	bool bHasPreviousPercent = false;
 
 	/// @brief 直近フレームの頭(カメラ)Z座標（GetHandHeightBelowHeadCm 用にキャッシュ）
 	float CachedHeadZ = 0.0f;

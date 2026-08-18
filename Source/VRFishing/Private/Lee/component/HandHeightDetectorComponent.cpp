@@ -41,6 +41,19 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 		// @brief HandRef の代わりに注入された値を使用
 		HandHeightPercent = ExternalHeightPercent;
 
+		// @brief 正規化垂直速度（符号付き、正=上昇）を外部データから算出
+		if (bHasPreviousPercent)
+		{
+			HandPercentSpeed = (HandHeightPercent - PreviousHandPercent) / FMath::Max(DeltaTime, SMALL_NUMBER);
+		}
+		else
+		{
+			// 最初のフレームは速度不明のため 0
+			HandPercentSpeed = 0.0f;
+		}
+		PreviousHandPercent = HandHeightPercent;
+		bHasPreviousPercent = true;
+
 		// @brief GetHandHeightBelowHeadCm() 用に仮想 Z 座標を計算
 		if (CameraRef.IsValid())
 		{
@@ -117,6 +130,23 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 		FVector2D(0.0f, 1.0f),
 		HandZ
 	);
+
+	// ==================== 正規化垂直速度の計算 ====================
+
+	if (bHasPreviousPercent)
+	{
+		// @brief 前フレームからの正規化高さの差分を DeltaTime で割って垂直速度 (1/s) を算出
+		HandPercentSpeed = (HandHeightPercent - PreviousHandPercent) / FMath::Max(DeltaTime, SMALL_NUMBER);
+	}
+	else
+	{
+		// 最初のフレームは速度不明のため 0
+		HandPercentSpeed = 0.0f;
+	}
+
+	// @brief 次のフレームのために現在の正規化高さを保存
+	PreviousHandPercent = HandHeightPercent;
+	bHasPreviousPercent = true;
 
 	// ==================== 移動速度の計算 ====================
 
