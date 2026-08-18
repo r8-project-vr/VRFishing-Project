@@ -12,7 +12,7 @@ class UFishingStateManagerComponent;
 class UFishingStateComponentBase;
 class UFishingReadyStateComponent;  // モード１
 // 2026.07.27 Lee start
-class UHandHeightDetectorComponent; // モード２
+class UHandHeightDetectorComponent;
 // 2026.07.27 Lee end
 // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 class UFishingStateHandUpDown; // モード２（上下運動プレイステート）
@@ -20,8 +20,6 @@ class UFishingStateHandUpDown; // モード２（上下運動プレイステー�
 class UFishingReelStateComponent;            // モード３
 class UFishingCatchingStateComponent;        // モード４
 class UFishingResultStateComponent;          // モード５
-class UUserWidget;
-class UWidgetComponent;
 
 UCLASS()
 class VRFISHING_API AVRPawn : public APawn
@@ -38,6 +36,10 @@ public:
     // マウスホイール入力発生時に呼び出すハンドラー
     UFUNCTION(BlueprintCallable, Category = "Fishing|Input")
     void InjectReelWheelInput();
+
+    // 次のセットを準備状態（モード1）から開始する（GameModeから呼ばれる）
+    UFUNCTION(BlueprintCallable, Category = "Fishing|Game")
+    void StartNewSet();
 
 protected:
     virtual void BeginPlay() override;
@@ -75,26 +77,6 @@ protected:
     // 釣り上げ結果状態コンポーネント
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UFishingResultStateComponent> ResultStateComponent;
-
-    // 釣り成功時に前面表示するリザルトWidgetクラス
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
-    TSubclassOf<UUserWidget> SuccessResultWidgetClass;
-
-    // 釣り失敗時に前面表示するリザルトWidgetクラス
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
-    TSubclassOf<UUserWidget> FailResultWidgetClass;
-
-    // [追加] 生成した3D UIを保持・管理するためのウィジェットコンポーネント
-    UPROPERTY(Transient)
-    TObjectPtr<UWidgetComponent> ResultWidgetComponent;
-
-    // [追加] UIをスポーンさせるプレイヤーからの相対オフセット（前方150cm、高さ10cmなど）
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
-    FVector ResultUIOffset = FVector(150.0f, 0.0f, 10.0f);
-
-    // [追加] 生成された3D UIの描画サイズ
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
-    FVector2D ResultDrawSize = FVector2D(500.0f, 500.0f);
 
 private:
     // 待機ステート完了時の通知を受け取るハンドラー

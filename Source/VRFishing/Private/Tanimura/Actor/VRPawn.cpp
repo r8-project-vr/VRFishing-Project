@@ -12,9 +12,7 @@
 // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 #include "Tanimura/Component/FishingCatchingStateComponent.h"
 #include "Tanimura/Component/FishingResultStateComponent.h"
-#include "Blueprint/UserWidget.h"
-#include "Blueprint/WidgetBlueprintLibrary.h"
-#include "Components/WidgetComponent.h"
+#include "Tanimura/FishingGameModeBase.h"
 #include "Engine/Engine.h"
 
 AVRPawn::AVRPawn()
@@ -106,6 +104,14 @@ void AVRPawn::InjectReelWheelInput()
     }
 }
 
+void AVRPawn::StartNewSet()
+{
+    // 次のセットを準備状態（モード1）から開始する
+    if (StateManagerComponent && ReadyStateComponent) {
+        StateManagerComponent->ChangeState(ReadyStateComponent);
+    }
+}
+
 void AVRPawn::OnReadyStateCompleted(bool bIsSuccess)
 {
     // 2026.07.27 Lee start
@@ -145,38 +151,9 @@ void AVRPawn::OnCatchingStateCompleted(bool bIsSuccess)
 
 void AVRPawn::OnResultStateCompleted(bool bIsSuccess)
 {
-    // 成功/失敗で表示するWidgetクラスを選択
-    const TSubclassOf<UUserWidget> ResultWidgetClass = bIsSuccess ? SuccessResultWidgetClass : FailResultWidgetClass;
-
-    // [変更] 2D Viewportへの追加から、ワールド空間(WidgetComponent)での配置に変更
-    if (!ResultWidgetClass) {
-        return;
-    }
-
-    // すでに生成されている場合はWidgetクラスを更新して表示（成功/失敗の出し分け対応）
-    if (ResultWidgetComponent) {
-        ResultWidgetComponent->SetWidgetClass(ResultWidgetClass);
-        ResultWidgetComponent->SetVisibility(true);
-        return;
-    }
-
-    // 動的に WidgetComponent を生成
-    ResultWidgetComponent = NewObject<UWidgetComponent>(this, UWidgetComponent::StaticClass());
-    if (ResultWidgetComponent) {
-        ResultWidgetComponent->RegisterComponent();
-
-        // 空間上の描画設定
-        ResultWidgetComponent->SetWidgetSpace(EWidgetSpace::World);
-        ResultWidgetComponent->SetWidgetClass(ResultWidgetClass);
-        ResultWidgetComponent->SetDrawSize(ResultDrawSize);
-
-        // プレイヤーの位置・回転に基づき、目の前のワールド座標へ配置
-        const FVector SpawnLocation = GetActorLocation() + GetActorRotation().RotateVector(ResultUIOffset);
-
-        // プレイヤーの方向（Yaw）を向くように回転を設定
-        const FRotator SpawnRotation = FRotator(0.0f, GetActorRotation().Yaw + 180.0f, 0.0f);
-
-        ResultWidgetComponent->SetWorldLocationAndRotation(SpawnLocation, SpawnRotation);
+    // リザルト表示はGameMode BP側で行うため、セット完了をGameModeへ通知する
+    if (AFishingGameModeBase* GameMode = GetWorld()->GetAuthGameMode<AFishingGameModeBase>()) {
+        GameMode->OnSetCompleted(bIsSuccess);
     }
 }
 
