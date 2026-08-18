@@ -1,0 +1,98 @@
+// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
+
+
+#include "Tanimura/FishingGameModeBase.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
+#include "Takeuchi/Actor/Fish.h"
+#include "Tanimura/Actor/VRPawn.h"
+
+AFishingGameModeBase::AFishingGameModeBase()
+{
+    // 制限時間のカウントに使用するためTickを有効化
+    PrimaryActorTick.bCanEverTick = true;
+}
+
+void AFishingGameModeBase::BeginPlay()
+{
+    Super::BeginPlay();
+
+    // ゲーム開始時に最初の魚をスポーンする（セット開始はVRPawnのReady遷移が担当）
+    SpawnFish();
+}
+
+void AFishingGameModeBase::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+
+    // ゲーム終了後は時間を進めない
+    if (bIsGameOver) {
+        return;
+    }
+
+    // 経過時間を加算する
+    CurrentGameTime += DeltaSeconds;
+
+    // 制限時間を超えたらゲームを終了する
+    if (CurrentGameTime >= TotalGameTime) {
+        bIsGameOver = true;
+        OnTimeUpBP();
+    }
+}
+
+void AFishingGameModeBase::OnSetCompleted(bool bIsSuccess)
+{
+    // セット完了をBPへ通知する（BPでリザルトWidgetを生成・表示する）
+    OnSetCompletedBP(bIsSuccess);
+}
+
+void AFishingGameModeBase::StartNextSet()
+{
+    // ゲーム終了後は新しいセットを開始しない
+    if (bIsGameOver) {
+        return;
+    }
+
+    // 前セットの魚を破棄して、新しい魚をスポーンする
+    DestroyAllFish();
+    SpawnFish();
+
+    // プレイヤーのステートを準備状態（モード1）へ戻す
+    if (APlayerController* PC = GetWorld()->GetFirstPlayerController()) {
+        if (AVRPawn* Pawn = Cast<AVRPawn>(PC->GetPawn())) {
+            Pawn->StartNewSet();
+        }
+    }
+}
+
+void AFishingGameModeBase::EndGame()
+{
+    // 以後のセット開始を止める
+    bIsGameOver = true;
+
+    // ゲーム終了処理をBPへ委譲する
+    OnEndGameBP();
+}
+
+AFish* AFishingGameModeBase::SpawnFish()
+{
+    // 魚クラス未設定なら生成しない
+    if (!FishClass) {
+        return nullptr;
+    }
+
+    // 指定位置に魚を生成する
+    FActorSpawnParameters SpawnParams;
+    return GetWorld()->SpawnActor<AFish>(FishClass, FishSpawnLocation, FRotator::ZeroRotator, SpawnParams);
+}
+
+void AFishingGameModeBase::DestroyAllFish()
+{
+    // レベル上の既存の魚をすべて収集して破棄する
+    TArray<AActor*> FishActors;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AFish::StaticClass(), FishActors);
+    for (AActor* FishActor : FishActors) {
+        FishActor->Destroy();
+    }
+}
