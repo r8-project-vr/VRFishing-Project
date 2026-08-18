@@ -9,6 +9,25 @@
 #include "FishFightMeterWidget.generated.h"
 
 class UFishingReelStateComponent;
+class UFishingStateManagerComponent;
+class UFishingStateComponentBase;
+class UFishingReadyStateComponent;
+class UFishingCatchingStateComponent;
+class UFishingResultStateComponent;
+
+/**
+ * @brief 釣りの進行フェーズ（ステップバー表示用）を定義する列挙型。
+ * @note 値の順序＝ステップバーの表示順（左→右）。各ステートコンポーネントと 1:1 対応。
+ */
+UENUM(BlueprintType)
+enum class EFishingPhase : uint8
+{
+	Ready      UMETA(DisplayName = "待機"),
+	HandUpDown UMETA(DisplayName = "上下運動"),
+	Reel       UMETA(DisplayName = "リール"),
+	Catching   UMETA(DisplayName = "釣り上げ"),
+	Result     UMETA(DisplayName = "釣り上げ結果")
+};
 
 /**
  * @brief 釣りアトラクト／リールフェーズの表示専用 Widget。
@@ -76,12 +95,49 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|Scoring")
 	void OnScoreChanged(float Score);
 
+	// ==================== 出力（フェーズ／ステップバー） ====================
+
+	/// @brief 現在の釣りフェーズ（ステップバーの強調位置）
+	UPROPERTY(BlueprintReadOnly, Category = "Meter|Phase")
+	EFishingPhase CurrentPhase = EFishingPhase::Ready;
+
+	/// @brief 現在フェーズのインデックス（0～4）。ステップバー描画の便宜用
+	UPROPERTY(BlueprintReadOnly, Category = "Meter|Phase")
+	int32 CurrentPhaseIndex = 0;
+
+	/// @brief 現在フェーズの表示名（GetStateDisplayName() の戻り値をそのまま表示）
+	UPROPERTY(BlueprintReadOnly, Category = "Meter|Phase")
+	FString CurrentPhaseName;
+
+	/// @brief 直前の遷移で中間フェーズを飛ばしたか（例：リール失敗→釣り上げ結果）
+	UPROPERTY(BlueprintReadOnly, Category = "Meter|Phase")
+	bool bPhaseSkipped = false;
+
+	/**
+	 * @brief フェーズ変化時に発火する BP イベント。
+	 * @param NewPhase  新しいフェーズ
+	 * @param PhaseName 新フェーズの表示名
+	 * @param bSkipped  遷移で中間フェーズを飛ばした場合 true
+	 */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|Phase")
+	void OnPhaseChanged(EFishingPhase NewPhase, const FString& PhaseName, bool bSkipped);
+
 private:
 	UFUNCTION()
 	void OnRPMUpdated(float NewRPM);
 
 	UFUNCTION()
 	void OnHandUpDownCompleted(bool bIsSuccess);
+
+	/// @brief StateManager の状態変更通知ハンドラ（OnFishingStateChanged 受信）
+	UFUNCTION()
+	void HandleFishingStateChanged(UFishingStateComponentBase* NewState);
+
+	/// @brief ステートコンポーネントを対応フェーズへ変換（ポインタ比較）
+	EFishingPhase ResolvePhase(const UFishingStateComponentBase* State) const;
+
+	/// @brief フェーズを適用して BP イベントを発火（イベント駆動と初回同期で共用）
+	void ApplyPhase(EFishingPhase NewPhase, const FString& PhaseName, bool bSkipped);
 
 	UPROPERTY()
 	TObjectPtr<UHandHeightDetectorComponent> HandHeightDetector;
@@ -92,5 +148,22 @@ private:
 	UPROPERTY()
 	TObjectPtr<UFishingReelStateComponent> ReelSimulator;
 
+	/// @brief ステートマネージャ（購読と現在ステート取得用）
+	UPROPERTY()
+	TObjectPtr<UFishingStateManagerComponent> StateManager;
+
+	/// @brief 各フェーズのステートコンポーネント参照（HandUpDown／Reel は既存メンバを流用）
+	UPROPERTY()
+	TObjectPtr<UFishingReadyStateComponent> ReadyState;
+
+	UPROPERTY()
+	TObjectPtr<UFishingCatchingStateComponent> CatchingState;
+
+	UPROPERTY()
+	TObjectPtr<UFishingResultStateComponent> ResultState;
+
 	bool bComponentsInitialized = false;
+
+	/// @brief 一つ前のフェーズ（スキップ判定用）
+	EFishingPhase PreviousPhase = EFishingPhase::Ready;
 };

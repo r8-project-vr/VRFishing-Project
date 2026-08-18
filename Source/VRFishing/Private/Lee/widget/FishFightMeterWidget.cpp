@@ -2,6 +2,11 @@
 
 #include "Lee/widget/FishFightMeterWidget.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
+#include "Tanimura/Component/FishingStateManagerComponent.h"
+#include "Tanimura/Component/FishingStateComponentBase.h"
+#include "Tanimura/Component/FishingReadyStateComponent.h"
+#include "Tanimura/Component/FishingCatchingStateComponent.h"
+#include "Tanimura/Component/FishingResultStateComponent.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/Engine.h"
 
@@ -39,11 +44,32 @@ void UFishFightMeterWidget::NativeConstruct()
 			ReelSimulator->OnRPMCalculated.AddDynamic(this, &UFishFightMeterWidget::OnRPMUpdated);
 		}
 
+		StateManager  = OwnerPawn->FindComponentByClass<UFishingStateManagerComponent>();
+		ReadyState    = OwnerPawn->FindComponentByClass<UFishingReadyStateComponent>();
+		CatchingState = OwnerPawn->FindComponentByClass<UFishingCatchingStateComponent>();
+		ResultState   = OwnerPawn->FindComponentByClass<UFishingResultStateComponent>();
+
+		if (StateManager)
+		{
+			// 二重購読対策で AddUniqueDynamic を使用（VRPawn と同じ購読方法）
+			StateManager->OnFishingStateChanged.AddUniqueDynamic(this, &UFishFightMeterWidget::HandleFishingStateChanged);
+		}
+
 		bComponentsInitialized = true;
 	}
 
 	// RPM 表示を初期化
 	OnRPMChanged(0.0f, EHandSpeedState::TooSlow);
+
+	// フェーズ表示の初回同期：Widget がゲーム途中で生成されても現在フェーズを即時反映する
+	if (StateManager && StateManager->GetCurrentState())
+	{
+		ApplyPhase(ResolvePhase(StateManager->GetCurrentState()), StateManager->GetCurrentStateName(), false);
+	}
+	else
+	{
+		ApplyPhase(EFishingPhase::Ready, TEXT("待機"), false);
+	}
 }
 
 void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
@@ -170,4 +196,62 @@ void UFishFightMeterWidget::OnHandUpDownCompleted(bool bIsSuccess)
 	}
 
 	OnScoreChanged(FinalScore);
+}
+
+void UFishFightMeterWidget::HandleFishingStateChanged(UFishingStateComponentBase* NewState)
+{
+	if (!NewState)
+	{
+		return;
+	}
+
+	const EFishingPhase NewPhase = ResolvePhase(NewState);
+	// 中間フェーズを飛ぶ遷移（例：リール失敗→結果）を汎用に検出
+	const bool bSkipped = static_cast<int32>(NewPhase) > static_cast<int32>(PreviousPhase) + 1;
+	ApplyPhase(NewPhase, NewState->GetStateDisplayName(), bSkipped);
+}
+
+EFishingPhase UFishFightMeterWidget::ResolvePhase(const UFishingStateComponentBase* State) const
+{
+	// ポインタ比較で各ステートコンポーネントを識別（HandUpDown／Reel は既存メンバを流用）
+	if (State == HandUpDownState)
+	{
+		return EFishingPhase::HandUpDown;
+	}
+	if (State == ReelSimulator)
+	{
+		return EFishingPhase::Reel;
+	}
+	if (State == CatchingState)
+	{
+		return EFishingPhase::Catching;
+	}
+	if (State == ResultState)
+	{
+		return EFishingPhase::Result;
+	}
+	// 待機ステートまたは未知のステート
+	return EFishingPhase::Ready;
+}
+
+void UFishFightMeterWidget::ApplyPhase(EFishingPhase NewPhase, const FString& PhaseName, bool bSkipped)
+{
+	PreviousPhase     = NewPhase;
+	CurrentPhase      = NewPhase;
+	CurrentPhaseIndex = static_cast<int32>(NewPhase);
+	CurrentPhaseName  = PhaseName;
+	bPhaseSkipped     = bSkipped;
+
+	// BP イベント発火（OnArrowUpdated と同じプッシュ方式）
+	OnPhaseChanged(CurrentPhase, CurrentPhaseName, bPhaseSkipped);
+
+	// VR テスト用の画面デバッグ表示（VRPawn の [Fishing Mode] と同じ形式）
+	if (GEngine)
+	{
+		const FString PhaseMsg = FString::Printf(
+			TEXT("[Phase] %d/5 %s%s"),
+			CurrentPhaseIndex + 1, *CurrentPhaseName,
+			bPhaseSkipped ? TEXT(" (skipped)") : TEXT(""));
+		GEngine->AddOnScreenDebugMessage(5, 3600.0f, FColor::Cyan, PhaseMsg);
+	}
 }
