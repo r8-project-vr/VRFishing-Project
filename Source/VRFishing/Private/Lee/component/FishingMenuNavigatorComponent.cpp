@@ -8,6 +8,7 @@
 #include "Components/Widget.h"
 #include "Components/WidgetComponent.h"
 #include "Components/Slider.h"
+#include "Components/Button.h"
 #include "EnhancedInputComponent.h"
 #include "InputAction.h"
 #include "InputActionValue.h"
@@ -67,14 +68,14 @@ UFishingMenuNavigatorComponent::UFishingMenuNavigatorComponent()
 	}
 
 	static ConstructorHelpers::FObjectFinder<UInputAction> ConfirmActionFinder(
-		TEXT("/Game/XRFramework/Input/Actions/IA_Menu_Interact_Left_Pressed.IA_Menu_Interact_Left_Pressed"));
+		TEXT("/Game/Input/Actions/IA_DebugTitleConfirm.IA_DebugTitleConfirm"));
 	if (ConfirmActionFinder.Succeeded())
 	{
 		ConfirmAction = ConfirmActionFinder.Object;
 	}
 	else
 	{
-		UE_LOG(LogFishing, Warning, TEXT("[MenuNav] 既定の確定入力アクションが読み込めません: /Game/XRFramework/Input/Actions/IA_Menu_Interact_Left_Pressed"));
+		UE_LOG(LogFishing, Warning, TEXT("[MenuNav] 既定の確定入力アクションが読み込めません: /Game/Input/Actions/IA_DebugTitleConfirm"));
 	}
 }
 
@@ -88,6 +89,14 @@ void UFishingMenuNavigatorComponent::TickComponent(float DeltaTime, ELevelTick T
 		TryInitialize();
 		if (!bInitialized)
 		{
+			// 一定時間メニューが見つからなければ初期化を諦めて Tick を停止する
+			// （ゲーム本編などメニューがないレベルで毎フレームの全 Actor 探索を防ぐ）
+			InitRetryTimeAccumulated += DeltaTime;
+			if (InitRetryTimeAccumulated >= InitRetryTimeoutSeconds)
+			{
+				SetComponentTickEnabled(false);
+				UE_LOG(LogFishing, Warning, TEXT("[MenuNav] %.1f秒間メニューが見つからないため初期化を諦めました"), InitRetryTimeoutSeconds);
+			}
 			return;
 		}
 	}
@@ -141,6 +150,10 @@ void UFishingMenuNavigatorComponent::TryInitialize()
 		}
 	}
 
+	// ==================== 2.5 マウス/レーザーでの直接クリック用に StartFishing / Back へ OnClicked をバインド ====================
+	// （WBP 側に OnClicked バインドがあるボタンは二重実行になるため、ここではバインドしない）
+	BindMouseOnlyActions();
+
 	// ==================== 3. 拡張入力へバインド（ポーンの入力コンポーネントは遅れて生成される） ====================
 	if (!bInputBound)
 	{
@@ -152,6 +165,9 @@ void UFishingMenuNavigatorComponent::TryInitialize()
 		}
 
 		EnhancedInput->BindAction(StickAction, ETriggerEvent::Triggered, this, &UFishingMenuNavigatorComponent::HandleStickInput);
+		// 入力を離したフレームでは Triggered が呼ばれないため、Completed で保持値をクリアしないと
+		// 最後の入力値が残り続けて反復移動が止まらなくなる（選択が走り続ける不具合）
+		EnhancedInput->BindAction(StickAction, ETriggerEvent::Completed, this, &UFishingMenuNavigatorComponent::HandleStickInputEnd);
 		EnhancedInput->BindAction(ConfirmAction, ETriggerEvent::Started, this, &UFishingMenuNavigatorComponent::HandleConfirmInput);
 		bInputBound = true;
 	}
@@ -160,8 +176,12 @@ void UFishingMenuNavigatorComponent::TryInitialize()
 	bInitialized = true;
 	CurrentRowIndex = 0;
 	CurrentColumnIndex = 0;
-	SnapToNavigableItem();
-	UpdateFocusVisual();
+	// 初期フォーカスは「負荷設定」ボタンに置く（開始直後の誤確定で MainGame へ遷移しないようにする）
+	if (!FocusAction(EFishingTitleMenuAction::LoadSettings))
+	{
+		SnapToNavigableItem();
+		UpdateFocusVisual();
+	}
 
 	UE_LOG(LogFishing, Log, TEXT("[MenuNav] 初期化完了: メニュー=%s 行数=%d 解決コントロール=%d"),
 		*MenuUserWidget->GetName(), NavRows.Num(), ResolvedWidgets.Num());
@@ -318,7 +338,11 @@ void UFishingMenuNavigatorComponent::ExecuteCurrentAction()
 		return;
 	}
 
-	const EFishingTitleMenuAction Action = NavRows[CurrentRowIndex].Items[CurrentColumnIndex].Action;
+	ExecuteAction(NavRows[CurrentRowIndex].Items[CurrentColumnIndex].Action);
+}
+
+void UFishingMenuNavigatorComponent::ExecuteAction(EFishingTitleMenuAction Action)
+{
 
 	// 負荷プリセットはここで直接サブシステムへ反映する
 	UFishingLoadSettingsSubsystem* Subsystem = nullptr;
@@ -433,6 +457,24 @@ void UFishingMenuNavigatorComponent::SnapToNavigableItem()
 	}
 }
 
+bool UFishingMenuNavigatorComponent::FocusAction(EFishingTitleMenuAction Action)
+{
+	for (int32 RowIndex = 0; RowIndex < NavRows.Num(); ++RowIndex)
+	{
+		for (int32 ColumnIndex = 0; ColumnIndex < NavRows[RowIndex].Items.Num(); ++ColumnIndex)
+		{
+			if (NavRows[RowIndex].Items[ColumnIndex].Action == Action && IsItemNavigable(RowIndex, ColumnIndex))
+			{
+				CurrentRowIndex = RowIndex;
+				CurrentColumnIndex = ColumnIndex;
+				UpdateFocusVisual();
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 int32 UFishingMenuNavigatorComponent::FindNavigableColumnInRow(int32 RowIndex, int32 PreferredColumn) const
 {
 	if (!NavRows.IsValidIndex(RowIndex))
@@ -469,11 +511,73 @@ void UFishingMenuNavigatorComponent::HandleStickInput(const FInputActionValue& V
 	LastStickValue = Value.Get<FVector2D>();
 }
 
+void UFishingMenuNavigatorComponent::HandleStickInputEnd(const FInputActionValue& Value)
+{
+	// スティック/キーを離したときに保持値をゼロへ戻す（これを怠ると反復移動が止まらない）
+	LastStickValue = FVector2D::ZeroVector;
+}
+
 void UFishingMenuNavigatorComponent::HandleConfirmInput(const FInputActionValue& Value)
 {
 	if (bNavigatorEnabled)
 	{
 		ExecuteCurrentAction();
+	}
+}
+
+void UFishingMenuNavigatorComponent::BindMouseOnlyActions()
+{
+	if (bMouseActionsBound || !MenuUserWidget.IsValid())
+	{
+		return;
+	}
+
+	// WBP 側に OnClicked バインドがないボタン（StartFishing / Back）だけここでバインドする。
+	// プリセットやスライダーは WBP 側のバインドが既にあるため、ここで追加すると二重実行になる。
+	// ※ FScriptDelegate::BindUFunction はペイロード渡しに対応していないためボタンごとのハンドラーを用意する。
+	for (int32 RowIndex = 0; RowIndex < NavRows.Num(); ++RowIndex)
+	{
+		for (int32 ColumnIndex = 0; ColumnIndex < NavRows[RowIndex].Items.Num(); ++ColumnIndex)
+		{
+			const EFishingTitleMenuAction Action = NavRows[RowIndex].Items[ColumnIndex].Action;
+			if (Action != EFishingTitleMenuAction::StartFishing && Action != EFishingTitleMenuAction::Back)
+			{
+				continue;
+			}
+
+			if (UButton* Button = Cast<UButton>(ResolvedWidgets[RowIndex][ColumnIndex].Get()))
+			{
+				FScriptDelegate Delegate;
+				if (Action == EFishingTitleMenuAction::StartFishing)
+				{
+					Delegate.BindUFunction(this, GET_FUNCTION_NAME_CHECKED(UFishingMenuNavigatorComponent, HandleStartFishingClicked));
+				}
+				else
+				{
+					Delegate.BindUFunction(this, GET_FUNCTION_NAME_CHECKED(UFishingMenuNavigatorComponent, HandleBackClicked));
+				}
+				Button->OnClicked.Add(Delegate);
+			}
+		}
+	}
+	bMouseActionsBound = true;
+}
+
+void UFishingMenuNavigatorComponent::HandleStartFishingClicked()
+{
+	if (bNavigatorEnabled)
+	{
+		// レベル遷移のみ行うためフォーカス移動は不要
+		ExecuteAction(EFishingTitleMenuAction::StartFishing);
+	}
+}
+
+void UFishingMenuNavigatorComponent::HandleBackClicked()
+{
+	if (bNavigatorEnabled)
+	{
+		// CloseLoadSettingsPanel 内でフォーカス位置の再調整が行われるためここではフォーカスを触らない
+		ExecuteAction(EFishingTitleMenuAction::Back);
 	}
 }
 
@@ -515,8 +619,12 @@ void UFishingMenuNavigatorComponent::CloseLoadSettingsPanel()
 		Panel->SetVisibility(ESlateVisibility::Collapsed);
 	}
 
-	// 主メニュー（LoadSettings ボタン）へフォーカスを戻す
-	SnapToNavigableItem();
+	// 主メニュー表示後は「負荷設定」ボタンへフォーカスを戻す（A ボタンで再びパネルを開ける）
+	if (!FocusAction(EFishingTitleMenuAction::LoadSettings))
+	{
+		SnapToNavigableItem();
+		UpdateFocusVisual();
+	}
 }
 
 void UFishingMenuNavigatorComponent::UpdateExerciseTimeSlider()

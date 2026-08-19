@@ -122,7 +122,15 @@ void UFishingLoadSettingsSubsystem::ApplyExerciseTime(float Seconds)
 {
 	// ステップ幅に丸めてから範囲内へクランプする（60〜300 秒・30 秒刻み）
 	const float RoundedSeconds = FMath::RoundToFloat(Seconds / ExerciseTimeStepSeconds) * ExerciseTimeStepSeconds;
-	ExerciseTimeSecondsOverride = FMath::Clamp(RoundedSeconds, ExerciseTimeMinSeconds, ExerciseTimeMaxSeconds);
+	const float ClampedSeconds = FMath::Clamp(RoundedSeconds, ExerciseTimeMinSeconds, ExerciseTimeMaxSeconds);
+
+	// 同じ値への再設定はログ・ブロードキャストを省略する（スライダー表示との相互反映による二重ログ防止）
+	if (ExerciseTimeSecondsOverride > 0.0f && FMath::IsNearlyEqual(ExerciseTimeSecondsOverride, ClampedSeconds))
+	{
+		return;
+	}
+
+	ExerciseTimeSecondsOverride = ClampedSeconds;
 
 	UE_LOG(LogFishing, Log, TEXT("[LoadSettings] 運動時間: %.0f 秒"), ExerciseTimeSecondsOverride);
 	OnExerciseTimeChanged.Broadcast(ExerciseTimeSecondsOverride);

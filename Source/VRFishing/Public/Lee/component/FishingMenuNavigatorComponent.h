@@ -64,9 +64,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMenuAction, EFishingTitleMenuActi
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnFocusChanged, UWidget*, FocusedWidget, EFishingTitleMenuAction, FocusedAction);
 
 /**
- * @brief タイトルメニューをスティック＋トリガーで操作するナビゲーター（レーザーポインタ不要）。
+ * @brief タイトルメニューをスティック＋Aボタンで操作するナビゲーター（レーザーポインタ不要）。
  * @note BP_XRPawn に手動で追加して使用する。上下入力で行移動、左右入力で行内移動、
- *       右トリガーで現在フォーカス中の項目を確定する。
+ *       Aボタン（IA_DebugTitleConfirm）で現在フォーカス中の項目を確定する。
  * @note Collapse 済みの項目には移動できないため、負荷設定パネルの開閉とナビゲーション範囲が自動で同期する。
  * @note メニュー Actor・入力コンポーネントは生成順序が保証されないため、Tick で準備完了を再試行する。
  */
@@ -94,7 +94,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav")
 	TObjectPtr<UInputAction> StickAction;
 
-	/** 確定入力（左トリガー）。既定で IA_Menu_Interact_Left_Pressed を読み込む（右トリガーはタイトルメニュー呼出で使用中のため） */
+	/** 確定入力（Aボタン）。既定で IA_DebugTitleConfirm を読み込む */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav")
 	TObjectPtr<UInputAction> ConfirmAction;
 
@@ -113,6 +113,10 @@ public:
 	/** スライダー行の左右入力での運動時間のステップ幅（秒） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav", meta = (ClampMin = "1.0"))
 	float ExerciseTimeStepSeconds = 30.0f;
+
+	/** メニュー解決の再試行を諦めるまでの時間（秒）。ゲーム本編などメニューがないレベルではここで探索を打ち切る */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav", meta = (ClampMin = "1.0"))
+	float InitRetryTimeoutSeconds = 5.0f;
 
 	/** ナビゲーターの有効フラグ（ゲーム本編へ遷移後などに無効化する用途） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav")
@@ -151,6 +155,12 @@ private:
 	/** 拡張入力のバインド済みフラグ */
 	bool bInputBound = false;
 
+	/** メニュー解決の再試行の累積時間（秒） */
+	float InitRetryTimeAccumulated = 0.0f;
+
+	/** マウス/レーザー用ボタンの OnClicked バインド済みフラグ */
+	bool bMouseActionsBound = false;
+
 	/** スティックがニュートラルへ戻ったか（反復制御用） */
 	bool bStickWasNeutral = true;
 
@@ -184,6 +194,9 @@ private:
 	/** @brief 指定項目がナビゲーション可能（表示中）か */
 	bool IsItemNavigable(int32 RowIndex, int32 ColumnIndex) const;
 
+	/** @brief 指定動作の項目へフォーカスを移す（表示中の項目のみ。移動できたら true） */
+	bool FocusAction(EFishingTitleMenuAction Action);
+
 	/** @brief 現在のフォーカスが不可視になった場合、表示中の項目へフォーカスを移し直す */
 	void SnapToNavigableItem();
 
@@ -192,6 +205,9 @@ private:
 
 	/** @brief スティック入力のハンドラー（値を保持して Tick 側で処理する） */
 	void HandleStickInput(const FInputActionValue& Value);
+
+	/** @brief スティック入力の終了ハンドラー（保持値をゼロに戻して反復移動を止める） */
+	void HandleStickInputEnd(const FInputActionValue& Value);
 
 	/** @brief 負荷設定パネルを開き、主メニューを非表示にする */
 	void OpenLoadSettingsPanel();
@@ -202,6 +218,20 @@ private:
 	/** @brief スライダーへ現在の運動時間の表示位置を反映する */
 	void UpdateExerciseTimeSlider();
 
-	/** @brief 確定入力（左トリガー）のハンドラー */
+	/** @brief 指定動作を実行する（フォーカス位置に依らず呼べる抽出版） */
+	void ExecuteAction(EFishingTitleMenuAction Action);
+
+	/** @brief マウス/レーザーで直接クリックできるよう、WBP 側に OnClicked バインドがないボタン（StartFishing / Back）へのみバインドする */
+	void BindMouseOnlyActions();
+
+	/** @brief 確定入力（Aボタン）のハンドラー */
 	void HandleConfirmInput(const FInputActionValue& Value);
+
+	/** @brief StartFishing ボタンの OnClicked ハンドラー（マウス/レーザーで直接クリックされたとき） */
+	UFUNCTION()
+	void HandleStartFishingClicked();
+
+	/** @brief Back ボタンの OnClicked ハンドラー（マウス/レーザーで直接クリックされたとき） */
+	UFUNCTION()
+	void HandleBackClicked();
 };

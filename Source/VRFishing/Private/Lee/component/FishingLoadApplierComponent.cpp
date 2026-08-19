@@ -4,11 +4,32 @@
 #include "Lee/subsystem/FishingLoadSettingsSubsystem.h"
 #include "Lee/component/FishingStateHandUpDown.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
+#include "Tanimura/Subsystem/FishingSettingsSubsystem.h"
 #include "VRFishingLog.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
 #include "GameFramework/GameModeBase.h"
 #include "UObject/UnrealType.h"
+
+namespace
+{
+	/**
+	 * @brief プリセット値を Tanimura 氏の回転負荷レベル（0=Low/1=Medium/2=High）へ変換する。
+	 * @note UFishingLoadSettingsSubsystem::PresetToIndex は private で参照できないためここで定義する。
+	 */
+	int32 PresetToLoadLevel(EFishingLoadPreset Preset)
+	{
+		switch (Preset)
+		{
+		case EFishingLoadPreset::Low:
+			return 0;
+		case EFishingLoadPreset::High:
+			return 2;
+		default:
+			return 1;
+		}
+	}
+}
 
 UFishingLoadApplierComponent::UFishingLoadApplierComponent()
 {
@@ -58,14 +79,25 @@ void UFishingLoadApplierComponent::ApplyLoadSettings()
 		UE_LOG(LogFishing, Warning, TEXT("[LoadSettings] UFishingStateHandUpDown が見つからないため上下運動の負荷を適用できません"));
 	}
 
-	// ==================== 2. リールの目標回転数（protected ため反射で書き込み） ====================
+	// ==================== 2. リールの目標回転数と RPM 閾値（protected は反射で書き込み） ====================
 	int32 RotationCount = Subsystem->GetRotationTargetCount();
+	int32 RotationLoadLevel = PresetToLoadLevel(Subsystem->GetRotationPreset());
 	if (UFishingReelStateComponent* ReelState = Owner ? Owner->FindComponentByClass<UFishingReelStateComponent>() : nullptr)
 	{
 		// 2026.08.19 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		// TargetRevolutionCount は Tanimura 氏の protected UPROPERTY。チーム規約により
 		// 本人のコードへ setter を追加できないため、リフレクションで直接書き込む。
 		WriteProtectedIntProperty(ReelState, TEXT("TargetRevolutionCount"), FMath::Max(1, RotationCount));
+
+		// 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		// Tanimura 氏が追加した RPM 閾値インターフェースへも同期する。
+		// ApplyRotationLoadLevel は TargetRevolutionCount を書き換えないため、上記の反射書き込みは維持する。
+		ReelState->ApplyRotationLoadLevel(RotationLoadLevel);
+		if (UFishingSettingsSubsystem* Settings = GameInstance->GetSubsystem<UFishingSettingsSubsystem>())
+		{
+			Settings->SetRotationLoadLevel(RotationLoadLevel);
+		}
+		// 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		// 2026.08.19 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	}
 	else
@@ -95,11 +127,12 @@ void UFishingLoadApplierComponent::ApplyLoadSettings()
 	}
 
 	// ==================== 4. 適用結果のログ ====================
-	UE_LOG(LogFishing, Log, TEXT("[LoadSettings] 適用完了: 上下=%d回(%s) / 巻取=%d回(%s) / 時間=%s"),
+	UE_LOG(LogFishing, Log, TEXT("[LoadSettings] 適用完了: 上下=%d回(%s) / 巻取=%d回(%s) / RPMレベル=%d / 時間=%s"),
 		VerticalCount,
 		*UEnum::GetDisplayValueAsText(Subsystem->GetVerticalPreset()).ToString(),
 		RotationCount,
 		*UEnum::GetDisplayValueAsText(Subsystem->GetRotationPreset()).ToString(),
+		RotationLoadLevel,
 		*TimeSummary);
 }
 
