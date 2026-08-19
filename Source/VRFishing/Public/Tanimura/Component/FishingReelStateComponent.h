@@ -40,6 +40,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
 	void ResetRevolutionCount();
 
+	// 負荷レベル（0=Low, 1=Medium, 2=High）に応じてRPM閾値を設定する
+	UFUNCTION(BlueprintCallable, Category = "Reel Simulator|Config")
+	void ApplyRotationLoadLevel(int32 LoadLevel);
+
 	// RPM算出時に実行されるイベント
 	UPROPERTY(BlueprintAssignable, Category = "Reel Simulator")
 	FOnRPMCalculated OnRPMCalculated;

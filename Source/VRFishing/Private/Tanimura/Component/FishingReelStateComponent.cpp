@@ -68,6 +68,24 @@ void UFishingReelStateComponent::ResetRevolutionCount()
     UnderRPMCount = 0;
 }
 
+void UFishingReelStateComponent::ApplyRotationLoadLevel(int32 LoadLevel)
+{
+    // 負荷が高いほど速すぎ閾値と遅すぎ閾値を上げて厳しくする
+    if (LoadLevel == 0) {
+        WheelMaxAllowedRPM = 30.0f;
+        StickMaxAllowedRPM = 50.0f;
+        MinAllowedRPM = 20.0f;
+    } else if (LoadLevel == 1) {
+        WheelMaxAllowedRPM = 40.0f;
+        StickMaxAllowedRPM = 70.0f;
+        MinAllowedRPM = 30.0f;
+    } else {
+        WheelMaxAllowedRPM = 50.0f;
+        StickMaxAllowedRPM = 90.0f;
+        MinAllowedRPM = 40.0f;
+    }
+}
+
 void UFishingReelStateComponent::SimulateReelByStick(FVector2D StickInput)
 {
     //// 非アクティブ時は入力を無視
