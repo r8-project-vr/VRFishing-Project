@@ -7,8 +7,6 @@
 #include "FishingStateHandUpDown.generated.h"
 
 class UHandHeightDetectorComponent;
-class UFishingStateManagerComponent;
-class UFishingReadyStateComponent;
 
 /**
  * @brief 矢印ガイドの状態を定義する列挙型。
@@ -144,12 +142,6 @@ private:
 	/** @brief 矢印状態を更新する */
 	void TickArrow(float DeltaTime, float HandPercent);
 
-	/** @brief ステートマネージャへの参照（EnterState で所有者から取得、失敗時の Wait 復帰用） */
-	TWeakObjectPtr<UFishingStateManagerComponent> StateManager;
-
-	/** @brief Wait ステートへの参照（EnterState で所有者から取得、失敗時の復帰先） */
-	TWeakObjectPtr<UFishingReadyStateComponent> WaitState;
-
 	/**
 	 * @brief 誤差（位置・速度）から品質スコアを算出する。
 	 * @param Error 誤差（0.0〜1.0 尺度）
@@ -158,8 +150,8 @@ private:
 	float CalcMatchQuality(float Error) const;
 
 	/**
-	 * @brief 失敗処理：フラグ設定 → 最終スコア → ログ → Broadcast(false) → Wait へ遷移。
-	 * @note 本コンポーネントは失敗時に自身で Wait へ復帰するため、リスナー側で ChangeState を呼び直さないこと。
+	 * @brief 失敗処理：フラグ設定 → 最終スコア → ログ → 基底クラスの通知デリゲートで失敗(false)を通知。
+	 * @note 遷移先はリスナー（VRPawn）側が決定する（Reelステートと同じ方式）。本コンポーネント自身は遷移を行わない。
 	 */
 	void HandleFailure();
 };
