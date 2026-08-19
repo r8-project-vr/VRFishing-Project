@@ -48,9 +48,11 @@ protected:
 
 	// ==================== 表示設定（RPM） ====================
 
+	/** 表示用の目標 RPM。実行時は ReelState の判定閾値から算出された値で上書きされる（閾値が読み取れない場合のみこの設定値を使用） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|RPM")
 	float TargetRPM = 30.0f;
 
+	/** 表示用の許容誤差。実行時は ReelState の判定閾値から算出された値で上書きされる（閾値が読み取れない場合のみこの設定値を使用） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|RPM")
 	float RPMTolerance = 10.0f;
 
