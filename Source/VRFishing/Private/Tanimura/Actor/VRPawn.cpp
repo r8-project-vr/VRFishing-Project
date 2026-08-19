@@ -158,13 +158,21 @@ void AVRPawn::OnResultStateCompleted(bool bIsSuccess)
 }
 
 // 2026.07.27 Lee start
+// 2026.08.19 Lee 変更ーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// 過速・過遅の失敗時に HandUpDown 側で直接 Wait へ戻すのを廃止し、
+// Reel ステートと同じ方式（基底クラスの失敗通知デリゲートを経由して VRPawn 側で遷移）に変更
 void AVRPawn::OnHandUpDownCompleted(bool bIsSuccess)
 {
-    // 手の上下運動完了時にリールステートへ遷移
+    // 成功時はリールステートへ、失敗時（過速・過遅検知）は結果ステートへ遷移
     if (bIsSuccess && StateManagerComponent && ReelStateComponent) {
         StateManagerComponent->ChangeState(ReelStateComponent);
     }
+    else if (!bIsSuccess && StateManagerComponent && ResultStateComponent) {
+        ResultStateComponent->SetResult(false);
+        StateManagerComponent->ChangeState(ResultStateComponent);
+    }
 }
+// 2026.08.19 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 // 2026.07.27 Lee end
 
 // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー

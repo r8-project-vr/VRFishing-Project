@@ -3,8 +3,6 @@
 
 #include "Lee/component/FishingStateHandUpDown.h"
 #include "Lee/component/HandHeightDetectorComponent.h"
-#include "Tanimura/Component/FishingStateManagerComponent.h"
-#include "Tanimura/Component/FishingReadyStateComponent.h"
 #include "VRFishingLog.h"
 #include "GameFramework/Actor.h"
 
@@ -37,16 +35,6 @@ void UFishingStateHandUpDown::EnterState()
 	if (!Detector.IsValid() && GetOwner())
 	{
 		Detector = GetOwner()->FindComponentByClass<UHandHeightDetectorComponent>();
-	}
-
-	// ステートマネージャと Wait ステートを所有者から取得（未取得の場合のみ。失敗時の復帰用）
-	if (!StateManager.IsValid() && GetOwner())
-	{
-		StateManager = GetOwner()->FindComponentByClass<UFishingStateManagerComponent>();
-	}
-	if (!WaitState.IsValid() && GetOwner())
-	{
-		WaitState = GetOwner()->FindComponentByClass<UFishingReadyStateComponent>();
 	}
 
 	// 失敗検知状態を初期化
@@ -208,20 +196,11 @@ void UFishingStateHandUpDown::HandleFailure()
 	UE_LOG(LogFishing, Warning, TEXT("[FishingState] HandUpDown Failed: 過速または過遅が %.1f 秒継続 (FinalScore=%.0f)"),
 		FailTimeSeconds, FinalScore);
 
-	// 失敗を外部へ通知（魚の逃走など、将来のリスナー用）。
-	// ※Broadcast は ChangeState より前に実行する: ChangeState 内の ExitState() が全出力変数を
-	//   リセットするため、先に通知しないとリスナーがゼロ値しか読めない。
+	// 基底クラスの成功/失敗通知デリゲートで失敗を外部へ通知（Reelステートの JudgeRPM と同じ方式）。
+	// 遷移先はリスナー（VRPawn）側が決定するため、ここでは遷移しない。
+	// ※リスナーのハンドラー内で ChangeState が呼ばれると ExitState() により本状態の出力変数が
+	//   リセットされるため、Broadcast より前に出力変数（FinalScore 等）を確定させておくこと。
 	OnFishingStateCompleted.Broadcast(false);
-
-	// ゲームを止めないよう状態機を Wait へ戻す（ExitState で本状態の全変数がリセットされる）
-	if (StateManager.IsValid() && WaitState.IsValid())
-	{
-		StateManager->ChangeState(WaitState.Get());
-	}
-	else
-	{
-		UE_LOG(LogFishing, Error, TEXT("[FishingState] HandUpDown Failed: StateManager または WaitState が無効のため復帰不可"));
-	}
 }
 
 void UFishingStateHandUpDown::TickArrow(float InDeltaTime, float HandPercent)
