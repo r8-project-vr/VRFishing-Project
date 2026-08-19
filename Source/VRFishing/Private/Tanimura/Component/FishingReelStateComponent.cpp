@@ -92,6 +92,14 @@ void UFishingReelStateComponent::SimulateReelByStick(FVector2D StickInput)
     //if (!IsActive()) {
     //    return;
     //}
+    // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // ↑ コメントアウトされていた IsActive ガードを復活する。
+    // BP_XRPawn の入力イベントが本関数を直接呼ぶため、ここが唯一の入口ガードとなる。
+    // 非アクティブ（リールステート以外）時は入力を無視して RPM 誤検知を防ぐ。
+    if (!IsActive()) {
+        return;
+    }
+    // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
     // 入力値が閾値未満なら追跡しない
     if (StickInput.SizeSquared() < FMath::Square(StickThreshold)) {
@@ -127,6 +135,12 @@ void UFishingReelStateComponent::SimulateReelByWheel()
     //if (!IsActive()) {
     //    return;
     //}
+    // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // ↑ コメントアウトされていた IsActive ガードを復活する（Stick 版と同様の理由）。
+    if (!IsActive()) {
+        return;
+    }
+    // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
     // ホイール1ノッチ分の回転角（固定）を流し込む
     CalculateRPM(WheelNotchAngleRad, WheelMaxAllowedRPM);
