@@ -9,6 +9,10 @@ public class VRFishing : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UMG" });
+		// 2026.08.19 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		// FishingMenuNavigatorComponent の C++ 拡張入力バインド用に追加
+		PublicDependencyModuleNames.AddRange(new string[] { "EnhancedInput" });
+		// 2026.08.19 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 
