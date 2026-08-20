@@ -4,6 +4,9 @@
 #include "Tanimura/Component/FishingReelStateComponent.h"
 
 #include "Engine/Engine.h"
+// 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+#include "VRFishingLog.h"
+// 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 UFishingReelStateComponent::UFishingReelStateComponent()
 {
@@ -34,6 +37,14 @@ void UFishingReelStateComponent::EnterState()
     // ステート開始時にリール状態を初期化
     bIsCompleted = false;
     ResetRevolutionCount();
+
+    // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 第2セット以降にリールが無反作になる問題の切り分け用ログ。
+    // ChangeState() は Activate() → EnterState() の順で呼ぶため、ここでの IsActive() は
+    // Activate が実際に効いているかを直接検証する（false のままなら Activate 不生效）。
+    UE_LOG(LogFishing, Log, TEXT("[FishingReel] EnterState: IsActive=%d TargetRevolutionCount=%d Min=%.0f WheelMax=%.0f StickMax=%.0f"),
+        IsActive() ? 1 : 0, TargetRevolutionCount, MinAllowedRPM, WheelMaxAllowedRPM, StickMaxAllowedRPM);
+    // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
 
 void UFishingReelStateComponent::UpdateState(float DeltaTime)
@@ -88,6 +99,20 @@ void UFishingReelStateComponent::ApplyRotationLoadLevel(int32 LoadLevel)
 
 void UFishingReelStateComponent::SimulateReelByStick(FVector2D StickInput)
 {
+    // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 入力到達診断ログ（ガードの前に置く。1 秒に 1 回のみ出力）。
+    // このログが出ない＝BP の入力イベントから本関数が呼ばれていない（入力バインド断絶）。
+    // ログは出るが IsActive=0 ＝ガードで弾かれている。
+    static double LastStickLogTime = 0.0;
+    const double NowSec = FPlatformTime::Seconds();
+    if (NowSec - LastStickLogTime >= 1.0)
+    {
+        LastStickLogTime = NowSec;
+        UE_LOG(LogFishing, Log, TEXT("[FishingReel] Stick入力到達: X=%.2f Y=%.2f IsActive=%d"),
+            StickInput.X, StickInput.Y, IsActive() ? 1 : 0);
+    }
+    // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
     //// 非アクティブ時は入力を無視
     //if (!IsActive()) {
     //    return;
@@ -131,6 +156,17 @@ void UFishingReelStateComponent::SimulateReelByStick(FVector2D StickInput)
 
 void UFishingReelStateComponent::SimulateReelByWheel()
 {
+    // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 入力到達診断ログ（ガードの前に置く。Stick 版と同様に 1 秒に 1 回のみ出力）。
+    static double LastWheelLogTime = 0.0;
+    const double NowSec = FPlatformTime::Seconds();
+    if (NowSec - LastWheelLogTime >= 1.0)
+    {
+        LastWheelLogTime = NowSec;
+        UE_LOG(LogFishing, Log, TEXT("[FishingReel] Wheel入力到達: IsActive=%d"), IsActive() ? 1 : 0);
+    }
+    // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
     //// 非アクティブ時は入力を無視
     //if (!IsActive()) {
     //    return;
@@ -193,6 +229,12 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
 
         // 回転数を加算し、目標に達したら通知
         CurrentRevolutionCount++;
+
+        // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+        // 1回転ごとの進捗ログ（入力がステートまで届いているかの確認用）
+        UE_LOG(LogFishing, Log, TEXT("[FishingReel] Revolution: %d/%d"), CurrentRevolutionCount, TargetRevolutionCount);
+        // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
         if (CurrentRevolutionCount >= TargetRevolutionCount) {
             bIsCompleted = true;
             OnFishingStateCompleted.Broadcast(true);
