@@ -40,6 +40,18 @@ public:
     UPROPERTY(BlueprintReadOnly, Category = "Fishing|Game")
     float CurrentGameTime = 0.0f;
 
+    // 残り時間（秒）（BPのUIバインド用に毎Tick更新する）
+    UPROPERTY(BlueprintReadOnly, Category = "Fishing|Game")
+    float RemainingTime = 0.0f;
+
+    // 残り時間の表示用テキスト（例：残り 1:30）（BPのUIバインド用に毎Tick更新する）
+    UPROPERTY(BlueprintReadOnly, Category = "Fishing|Game")
+    FText RemainingTimeText;
+
+    // 残り時間（秒）を取得する
+    UFUNCTION(BlueprintPure, Category = "Fishing|Game")
+    float GetRemainingTime() const;
+
 protected:
     // セット完了時のBPイベント（BPでリザルトWidgetを生成・表示する）
     UFUNCTION(BlueprintImplementableEvent, Category = "Fishing|Game")
@@ -65,12 +77,32 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Fish")
     FVector FishSpawnLocation = FVector::ZeroVector;
 
+    // 本編マップ名（このマップでのみ魚のスポーンと制限時間のカウントを行う）
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Game")
+    FName FishingMapName = TEXT("LV_MainGame");
+
+    // タイトルマップ名（このマップでも残り時間を表示するが、時間はカウントしない）
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Game")
+    FName TitleMapName = TEXT("LV_Aquarium");
+
 private:
     // 魚を生成する
     AFish* SpawnFish();
 
     // レベル上の既存の魚をすべて破棄する
     void DestroyAllFish();
+
+    // 現在のマップが本編マップかを判定する
+    bool IsCurrentMapFishing() const;
+
+    // 現在のマップがタイトルマップかを判定する
+    bool IsCurrentMapTitle() const;
+
+    // 残り時間を表示するマップかを判定する（本編マップまたはタイトルマップ）
+    bool IsTimeDisplayMap() const;
+
+    // RemainingTime から表示用テキストを更新する
+    void UpdateRemainingTimeText();
 
     // ゲーム終了フラグ（trueの間は新しいセットを開始しない）
     bool bIsGameOver = false;
