@@ -10,6 +10,7 @@
 #include "GameFramework/Pawn.h"
 #include "Engine/Engine.h"
 #include "UObject/UnrealType.h"
+#include "VRFishingLog.h"
 
 namespace
 {
@@ -114,7 +115,10 @@ void UFishFightMeterWidget::NativeConstruct()
 	// フェーズ表示の初回同期：Widget がゲーム途中で生成されても現在フェーズを即時反映する
 	if (StateManager && StateManager->GetCurrentState())
 	{
-		ApplyPhase(ResolvePhase(StateManager->GetCurrentState()), StateManager->GetCurrentStateName(), false);
+		const EFishingPhase InitialPhase = ResolvePhase(StateManager->GetCurrentState());
+		// RPM ロック状態も生成時点のフェーズから初期化（Reel 中の生成に対応）
+		bReelUnlocked = (InitialPhase == EFishingPhase::Reel);
+		ApplyPhase(InitialPhase, StateManager->GetCurrentStateName(), false);
 	}
 	else
 	{
@@ -141,12 +145,6 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 		CycleCount = HandUpDownState->CurrentUpAndDownCount;
 		CurrentScore = HandUpDownState->CurrentScore;
 		FinalScore = HandUpDownState->FinalScore;
-
-		// リロック検出：次の Attract フェーズでカウントが動き始めたら再ロック
-		if (bReelUnlocked && CycleCount > 0)
-		{
-			bReelUnlocked = false;
-		}
 	}
 
 	// ---- BP イベント発火 ----
@@ -204,6 +202,15 @@ void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 	// 規定回数完了まで RPM 入力を受け付けない
 	if (!bReelUnlocked)
 	{
+		// 2026.08.20 Lee：ロック中に RPM が届いた=リール入力自体は生きているが表示だけロック中。
+		// 切り分け用に 1 秒に 1 回だけ警告を出す（毎回出すとログが流れるため）
+		static double LastLockedWarnTime = 0.0;
+		const double Now = FPlatformTime::Seconds();
+		if (Now - LastLockedWarnTime >= 1.0)
+		{
+			LastLockedWarnTime = Now;
+			UE_LOG(LogFishing, Warning, TEXT("[FightMeter] RPM 受信をロック中に破棄: RPM=%.1f (Phase=%d)"), NewRPM, static_cast<int32>(CurrentPhase));
+		}
 		return;
 	}
 
@@ -258,16 +265,18 @@ void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 
 void UFishFightMeterWidget::OnHandUpDownCompleted(bool bIsSuccess)
 {
+	// 2026.08.20 Lee：bReelUnlocked の切り替えは HandleFishingStateChanged の状態駆動に一本化した。
+	// 旧実装（ここで解除 + NativeTick で再ロック検出）はイベント順序と Widget 生成タイミングに
+	// 依存し、2セット目以降にロックが外れない現象の温床になっていた。
+	UE_LOG(LogFishing, Log, TEXT("[FightMeter] OnHandUpDownCompleted: bIsSuccess=%d"), bIsSuccess ? 1 : 0);
+
 	if (!bIsSuccess)
 	{
-		// 失敗（過速・過遅）時はリールを明示的にロックし、表示をリセットする
-		bReelUnlocked = false;
+		// 失敗（過速・過遅）時は表示をリセットする
 		CycleCount = 0;
 		FinalScore = 0;
 		return;
 	}
-
-	bReelUnlocked = true;
 
 	// 表示を 5/5 等に更新（コンポーネントの CurrentUpAndDownCount は既に目標値に達している）
 	if (HandUpDownState)
@@ -287,6 +296,19 @@ void UFishFightMeterWidget::HandleFishingStateChanged(UFishingStateComponentBase
 	}
 
 	const EFishingPhase NewPhase = ResolvePhase(NewState);
+
+	// RPM 表示のロック/解放はステート遷移から直接導出する（2026.08.20 Lee）。
+	// Reel フェーズに入った瞬間に解放、それ以外のフェーズでは必ずロック。
+	// 旧実装（HandUpDown 完了イベントで解除＋Tick で再ロック検出）はイベント順序と
+	// Widget の生成タイミングに依存し、2セット目以降のロック残留の原因になり得たため廃止。
+	const bool bNewReelUnlocked = (NewPhase == EFishingPhase::Reel);
+	if (bNewReelUnlocked != bReelUnlocked)
+	{
+		UE_LOG(LogFishing, Log, TEXT("[FightMeter] RPM 表示ロック切替: %d → %d (Phase=%d)"),
+			bReelUnlocked ? 1 : 0, bNewReelUnlocked ? 1 : 0, static_cast<int32>(NewPhase));
+	}
+	bReelUnlocked = bNewReelUnlocked;
+
 	// 中間フェーズを飛ぶ遷移（例：リール失敗→結果）を汎用に検出
 	const bool bSkipped = static_cast<int32>(NewPhase) > static_cast<int32>(PreviousPhase) + 1;
 	ApplyPhase(NewPhase, NewState->GetStateDisplayName(), bSkipped);
