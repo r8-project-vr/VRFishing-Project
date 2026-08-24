@@ -1,27 +1,35 @@
 // Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 #include "Lee/subsystem/FishingLoadSettingsSubsystem.h"
+#include "Lee/settings/FishingLoadSettingsDeveloperSettings.h"
 #include "VRFishingLog.h"
 
 namespace
 {
-	// 上下運動のプリセット別 目標回数（Low / Medium / High）
-	constexpr int32 VerticalCountTable[3] = { 3, 5, 8 };
+	/** @brief 負荷パラメータの唯一の調整場所（Project Settings）から設定値を取得する */
+	const UFishingLoadSettingsDeveloperSettings* GetLoadSettings()
+	{
+		return GetDefault<UFishingLoadSettingsDeveloperSettings>();
+	}
 
-	// リールのプリセット別 目標回転数（Low / Medium / High）
-	constexpr int32 RotationCountTable[3] = { 5, 10, 15 };
-
-	// 運動時間の下限（秒）
-	constexpr float ExerciseTimeMinSeconds = 60.0f;
-
-	// 運動時間の上限（秒）
-	constexpr float ExerciseTimeMaxSeconds = 300.0f;
-
-	// 運動時間の丸めステップ幅（秒）
-	constexpr float ExerciseTimeStepSeconds = 30.0f;
-
-	// 未設定時に UI 表示へ返す代替値（AFishingGameModeBase の C++ デフォルトに合わせる）
-	constexpr float ExerciseTimeFallbackSeconds = 90.0f;
+	/**
+	 * @brief プリセット表の要素を安全に読む。要素数が足りない場合は Medium 桁、それも無ければ旧既定値を返す
+	 * @param Table  プリセット表（低/中/高 の順）
+	 * @param Index  PresetToIndex の結果
+	 * @param FallbackMedium  Medium 桁も欠けた場合の値（旧ハードコード値）
+	 */
+	int32 ReadCountTableValue(const TArray<int32>& Table, int32 Index, int32 FallbackMedium)
+	{
+		if (Table.IsValidIndex(Index))
+		{
+			return FMath::Max(1, Table[Index]);
+		}
+		if (Table.IsValidIndex(1))
+		{
+			return FMath::Max(1, Table[1]);
+		}
+		return FallbackMedium;
+	}
 }
 
 void UFishingLoadSettingsSubsystem::SetVerticalLoad(EFishingLoadPreset Preset)
@@ -44,9 +52,21 @@ void UFishingLoadSettingsSubsystem::SetRotationLoad(EFishingLoadPreset Preset)
 
 void UFishingLoadSettingsSubsystem::StepExerciseTime(float DeltaSeconds)
 {
-	// 未設定状態からの調整は代替値（90 秒）を基準にする
-	const float BaseSeconds = HasExerciseTimeOverride() ? ExerciseTimeSecondsOverride : ExerciseTimeFallbackSeconds;
+	// 未設定状態からの調整は代替値（既定 90 秒）を基準にする
+	const float BaseSeconds = HasExerciseTimeOverride()
+		? ExerciseTimeSecondsOverride
+		: GetLoadSettings()->ExerciseTimeFallbackSeconds;
 	ApplyExerciseTime(BaseSeconds + DeltaSeconds);
+}
+
+void UFishingLoadSettingsSubsystem::SetExerciseTimeFromSliderValue(float SliderValue)
+{
+	// スライダー値を運動時間へ逆算する。換算式の情報源は Project Settings の下限/上限のみ。
+	// （BP 側に同様の換算があると上限変更時に値が打架して往復ジャンプする）
+	const UFishingLoadSettingsDeveloperSettings* Settings = GetLoadSettings();
+	const float MinSeconds = Settings->ExerciseTimeMinSeconds;
+	const float MaxSeconds = FMath::Max(MinSeconds, Settings->ExerciseTimeMaxSeconds);
+	ApplyExerciseTime(MinSeconds + FMath::Clamp(SliderValue, 0.0f, 1.0f) * (MaxSeconds - MinSeconds));
 }
 
 void UFishingLoadSettingsSubsystem::SetExerciseTimeSecondsDirect(float Seconds)
@@ -70,14 +90,20 @@ void UFishingLoadSettingsSubsystem::SetRotationTargetCountDirect(int32 Count)
 
 int32 UFishingLoadSettingsSubsystem::GetVerticalTargetCount() const
 {
-	return (VerticalTargetCountOverride > 0) ? VerticalTargetCountOverride
-		: VerticalCountTable[PresetToIndex(VerticalPreset)];
+	if (VerticalTargetCountOverride > 0)
+	{
+		return VerticalTargetCountOverride;
+	}
+	return ReadCountTableValue(GetLoadSettings()->VerticalCountTable, PresetToIndex(VerticalPreset), 5);
 }
 
 int32 UFishingLoadSettingsSubsystem::GetRotationTargetCount() const
 {
-	return (RotationTargetCountOverride > 0) ? RotationTargetCountOverride
-		: RotationCountTable[PresetToIndex(RotationPreset)];
+	if (RotationTargetCountOverride > 0)
+	{
+		return RotationTargetCountOverride;
+	}
+	return ReadCountTableValue(GetLoadSettings()->RotationCountTable, PresetToIndex(RotationPreset), 10);
 }
 
 EFishingLoadPreset UFishingLoadSettingsSubsystem::GetVerticalPreset() const
@@ -92,12 +118,14 @@ EFishingLoadPreset UFishingLoadSettingsSubsystem::GetRotationPreset() const
 
 float UFishingLoadSettingsSubsystem::GetExerciseTimeSeconds() const
 {
-	return HasExerciseTimeOverride() ? ExerciseTimeSecondsOverride : ExerciseTimeFallbackSeconds;
+	return HasExerciseTimeOverride() ? ExerciseTimeSecondsOverride : GetLoadSettings()->ExerciseTimeFallbackSeconds;
 }
 
 float UFishingLoadSettingsSubsystem::GetExerciseSliderValue() const
 {
-	return (GetExerciseTimeSeconds() - ExerciseTimeMinSeconds) / (ExerciseTimeMaxSeconds - ExerciseTimeMinSeconds);
+	const float MinSeconds = GetLoadSettings()->ExerciseTimeMinSeconds;
+	const float MaxSeconds = FMath::Max(MinSeconds, GetLoadSettings()->ExerciseTimeMaxSeconds);
+	return (GetExerciseTimeSeconds() - MinSeconds) / (MaxSeconds - MinSeconds);
 }
 
 bool UFishingLoadSettingsSubsystem::HasExerciseTimeOverride() const
@@ -120,9 +148,14 @@ int32 UFishingLoadSettingsSubsystem::PresetToIndex(EFishingLoadPreset Preset)
 
 void UFishingLoadSettingsSubsystem::ApplyExerciseTime(float Seconds)
 {
-	// ステップ幅に丸めてから範囲内へクランプする（60〜300 秒・30 秒刻み）
-	const float RoundedSeconds = FMath::RoundToFloat(Seconds / ExerciseTimeStepSeconds) * ExerciseTimeStepSeconds;
-	const float ClampedSeconds = FMath::Clamp(RoundedSeconds, ExerciseTimeMinSeconds, ExerciseTimeMaxSeconds);
+	// Project Settings のステップ幅に丸めてから範囲内へクランプする（既定 60〜300 秒・30 秒刻み）
+	const UFishingLoadSettingsDeveloperSettings* Settings = GetLoadSettings();
+	const float StepSeconds = FMath::Max(1.0f, Settings->ExerciseTimeStepSeconds);
+	const float MinSeconds = Settings->ExerciseTimeMinSeconds;
+	const float MaxSeconds = FMath::Max(MinSeconds, Settings->ExerciseTimeMaxSeconds);
+
+	const float RoundedSeconds = FMath::RoundToFloat(Seconds / StepSeconds) * StepSeconds;
+	const float ClampedSeconds = FMath::Clamp(RoundedSeconds, MinSeconds, MaxSeconds);
 
 	// 同じ値への再設定はログ・ブロードキャストを省略する（スライダー表示との相互反映による二重ログ防止）
 	if (ExerciseTimeSecondsOverride > 0.0f && FMath::IsNearlyEqual(ExerciseTimeSecondsOverride, ClampedSeconds))

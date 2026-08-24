@@ -14,6 +14,11 @@ public class VRFishing : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] { "EnhancedInput" });
 		// 2026.08.19 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
+		// 2026.08.24 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		// FishingLoadSettingsDeveloperSettings（Project Settings パネル）の基底クラスがあるモジュール
+		PublicDependencyModuleNames.AddRange(new string[] { "DeveloperSettings" });
+		// 2026.08.24 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 
 		// Uncomment if you are using Slate UI

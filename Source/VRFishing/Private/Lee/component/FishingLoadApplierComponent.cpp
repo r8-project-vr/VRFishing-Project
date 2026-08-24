@@ -2,6 +2,7 @@
 
 #include "Lee/component/FishingLoadApplierComponent.h"
 #include "Lee/subsystem/FishingLoadSettingsSubsystem.h"
+#include "Lee/settings/FishingLoadSettingsDeveloperSettings.h"
 #include "Lee/component/FishingStateHandUpDown.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
 #include "Tanimura/Subsystem/FishingSettingsSubsystem.h"
@@ -98,6 +99,20 @@ void UFishingLoadApplierComponent::ApplyLoadSettings()
 			Settings->SetRotationLoadLevel(RotationLoadLevel);
 		}
 		// 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
+		// 2026.08.24 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		// RPM 閾値の真値は Project Settings（FishingLoadSettingsDeveloperSettings）。
+		// ApplyRotationLoadLevel のハードコード値を上書き反映する（本人コードは変更しない）。
+		// ApplyRotationLoadLevel の後に実行すること（先に書くと上書きされて消える）。
+		const TArray<FRPMPresetThresholds>& RPMTable =
+			GetDefault<UFishingLoadSettingsDeveloperSettings>()->RPMThresholdTable;
+		if (RPMTable.IsValidIndex(RotationLoadLevel))
+		{
+			WriteProtectedFloatProperty(ReelState, TEXT("WheelMaxAllowedRPM"), RPMTable[RotationLoadLevel].WheelMaxAllowedRPM);
+			WriteProtectedFloatProperty(ReelState, TEXT("StickMaxAllowedRPM"), RPMTable[RotationLoadLevel].StickMaxAllowedRPM);
+			WriteProtectedFloatProperty(ReelState, TEXT("MinAllowedRPM"), RPMTable[RotationLoadLevel].MinAllowedRPM);
+		}
+		// 2026.08.24 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		// 2026.08.19 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	}
 	else

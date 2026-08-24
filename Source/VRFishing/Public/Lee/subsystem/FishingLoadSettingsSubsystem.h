@@ -46,6 +46,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Fishing|Load")
 	void StepExerciseTime(float DeltaSeconds);
 
+	/// @brief スライダー値（0.0〜1.0）から運動時間を設定する（WBP の OnValueChanged 用の統一入口）。
+	/// @note 秒への逆算式はこの関数が唯一の実装（下限/上限は Project Settings を参照）。
+	///       BP 側で独自に換算すると二重管理になりスライダーと本体が打架するため、必ず本関数を経由すること。
+	UFUNCTION(BlueprintCallable, Category = "Fishing|Load")
+	void SetExerciseTimeFromSliderValue(float SliderValue);
+
 	/// @brief 運動時間（秒）を直接設定する（治療側カスタマイズ用）
 	UFUNCTION(BlueprintCallable, Category = "Fishing|Load|Advanced")
 	void SetExerciseTimeSecondsDirect(float Seconds);
