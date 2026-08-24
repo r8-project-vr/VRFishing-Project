@@ -110,9 +110,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float DimmedOpacity = 0.5f;
 
-	/** スライダー行の左右入力での運動時間のステップ幅（秒） */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav", meta = (ClampMin = "1.0"))
-	float ExerciseTimeStepSeconds = 30.0f;
+	/** スライダー行の左右入力での運動時間のステップ幅（秒）。0 = Project Settings のステップ幅に自動追従 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav", meta = (ClampMin = "0.0"))
+	float ExerciseTimeStepSeconds = 0.0f;
 
 	/** メニュー解決の再試行を諦めるまでの時間（秒）。ゲーム本編などメニューがないレベルではここで探索を打ち切る */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav", meta = (ClampMin = "1.0"))

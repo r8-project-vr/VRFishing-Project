@@ -2,6 +2,7 @@
 
 #include "Lee/component/FishingMenuNavigatorComponent.h"
 #include "Lee/subsystem/FishingLoadSettingsSubsystem.h"
+#include "Lee/settings/FishingLoadSettingsDeveloperSettings.h"
 #include "VRFishingLog.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
@@ -37,10 +38,13 @@ UFishingMenuNavigatorComponent::UFishingMenuNavigatorComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 
 	// WBP_TitleMenu の既定コントロール名でナビゲーション表を構築する
-	FFishingMenuNavRow& MainRow = NavRows.AddDefaulted_GetRef();
-	AddItem(MainRow, TEXT("Button_StartFishing"), EFishingTitleMenuAction::StartFishing);
-	AddItem(MainRow, TEXT("Button_LoadSettings"), EFishingTitleMenuAction::LoadSettings);
-	AddItem(MainRow, TEXT("Button_Back"), EFishingTitleMenuAction::Back);
+	// ※ 2026-08-19 の WBP 改稿レイアウトに準拠：タイトル常駐は LoadSettings のみ、
+	//   StartFishing / Back は負荷設定パネル内の FooterButtons 行に配置される
+	FFishingMenuNavRow& TitleRow = NavRows.AddDefaulted_GetRef();
+	AddItem(TitleRow, TEXT("Button_LoadSettings"), EFishingTitleMenuAction::LoadSettings);
+
+	FFishingMenuNavRow& SliderRow = NavRows.AddDefaulted_GetRef();
+	AddItem(SliderRow, TEXT("Slider_ExerciseTime"), EFishingTitleMenuAction::SliderRow);
 
 	FFishingMenuNavRow& VerticalRow = NavRows.AddDefaulted_GetRef();
 	AddItem(VerticalRow, TEXT("Button_VerticalLow"), EFishingTitleMenuAction::SetVerticalLow);
@@ -52,8 +56,9 @@ UFishingMenuNavigatorComponent::UFishingMenuNavigatorComponent()
 	AddItem(RotationRow, TEXT("Button_RotationMedium"), EFishingTitleMenuAction::SetRotationMedium);
 	AddItem(RotationRow, TEXT("Button_RotationHigh"), EFishingTitleMenuAction::SetRotationHigh);
 
-	FFishingMenuNavRow& SliderRow = NavRows.AddDefaulted_GetRef();
-	AddItem(SliderRow, TEXT("Slider_ExerciseTime"), EFishingTitleMenuAction::SliderRow);
+	FFishingMenuNavRow& FooterRow = NavRows.AddDefaulted_GetRef();
+	AddItem(FooterRow, TEXT("Button_StartFishing"), EFishingTitleMenuAction::StartFishing);
+	AddItem(FooterRow, TEXT("Button_Back"), EFishingTitleMenuAction::Back);
 
 	// 既定の入力アクションをアセットから読み込む（BP 側で上書き可能）
 	static ConstructorHelpers::FObjectFinder<UInputAction> StickActionFinder(
@@ -304,7 +309,11 @@ void UFishingMenuNavigatorComponent::MoveColumn(bool bNext)
 			{
 				if (UFishingLoadSettingsSubsystem* Subsystem = GameInstance->GetSubsystem<UFishingLoadSettingsSubsystem>())
 				{
-					Subsystem->StepExerciseTime(bNext ? ExerciseTimeStepSeconds : -ExerciseTimeStepSeconds);
+					// 歩幅 0 以下なら Project Settings のステップ幅（丸めグリッドと同じ値）に従う
+					const float StepSeconds = (ExerciseTimeStepSeconds > 0.0f)
+						? ExerciseTimeStepSeconds
+						: FMath::Max(1.0f, GetDefault<UFishingLoadSettingsDeveloperSettings>()->ExerciseTimeStepSeconds);
+					Subsystem->StepExerciseTime(bNext ? StepSeconds : -StepSeconds);
 					// スライダー表示も直接更新する（BP 側のバインド不要）
 					UpdateExerciseTimeSlider();
 				}
@@ -439,8 +448,20 @@ bool UFishingMenuNavigatorComponent::IsItemNavigable(int32 RowIndex, int32 Colum
 	}
 
 	// 非表示のコントロールには移動できない（パネル閉鎖中はその行が自動的に到達不能になる）
-	const ESlateVisibility Visibility = Widget->GetVisibility();
-	return Visibility != ESlateVisibility::Collapsed && Visibility != ESlateVisibility::Hidden;
+	// UWidget::GetVisibility は自身の可視性しか返さず祖先の Collapse/Hidden は伝播しないため、
+	// 親チェーンを遡って実効可視性を判定する。これを怠ると折りたたみパネル内のボタンが
+	// 「見えないのに移動可能」となり、フォーカスが虚空へ迷い込んで戻れなくなる
+	const UWidget* VisibilityNode = Widget;
+	while (VisibilityNode)
+	{
+		const ESlateVisibility Visibility = VisibilityNode->GetVisibility();
+		if (Visibility == ESlateVisibility::Collapsed || Visibility == ESlateVisibility::Hidden)
+		{
+			return false;
+		}
+		VisibilityNode = VisibilityNode->GetParent();
+	}
+	return true;
 }
 
 void UFishingMenuNavigatorComponent::SnapToNavigableItem()
@@ -588,7 +609,7 @@ void UFishingMenuNavigatorComponent::OpenLoadSettingsPanel()
 		return;
 	}
 
-	// 負荷設定パネルを表示し、主メニューを非表示にする
+	// 負荷設定パネルを表示し、タイトル画面（ロゴ＋タイトルメニュー）を折りたたむ
 	if (UWidget* Panel = MenuUserWidget->WidgetTree->FindWidget(TEXT("Border_LoadSettings")))
 	{
 		Panel->SetVisibility(ESlateVisibility::Visible);
@@ -597,9 +618,17 @@ void UFishingMenuNavigatorComponent::OpenLoadSettingsPanel()
 	{
 		Menu->SetVisibility(ESlateVisibility::Collapsed);
 	}
+	if (UWidget* Logo = MenuUserWidget->WidgetTree->FindWidget(TEXT("SizeBox_TitleLogo")))
+	{
+		Logo->SetVisibility(ESlateVisibility::Collapsed);
+	}
 
-	// パネル内の最初の操作可能項目へフォーカスを移す
-	SnapToNavigableItem();
+	// パネル内の先頭行（運動時間スライダー行）へフォーカスを移す
+	if (!FocusAction(EFishingTitleMenuAction::SliderRow))
+	{
+		SnapToNavigableItem();
+		UpdateFocusVisual();
+	}
 }
 
 void UFishingMenuNavigatorComponent::CloseLoadSettingsPanel()
@@ -609,17 +638,22 @@ void UFishingMenuNavigatorComponent::CloseLoadSettingsPanel()
 		return;
 	}
 
-	// 主メニューを表示し、負荷設定パネルを非表示にする
+	// タイトル画面（ロゴ＋タイトルメニュー）を復帰してから負荷設定パネルを非表示にする
+	// （タイトルを先に復帰させないと LoadSettings が実効不可視のままフォーカス対象から外れる）
 	if (UWidget* Menu = MenuUserWidget->WidgetTree->FindWidget(TEXT("VerticalBox_TitleMenu")))
 	{
 		Menu->SetVisibility(ESlateVisibility::Visible);
+	}
+	if (UWidget* Logo = MenuUserWidget->WidgetTree->FindWidget(TEXT("SizeBox_TitleLogo")))
+	{
+		Logo->SetVisibility(ESlateVisibility::Visible);
 	}
 	if (UWidget* Panel = MenuUserWidget->WidgetTree->FindWidget(TEXT("Border_LoadSettings")))
 	{
 		Panel->SetVisibility(ESlateVisibility::Collapsed);
 	}
 
-	// 主メニュー表示後は「負荷設定」ボタンへフォーカスを戻す（A ボタンで再びパネルを開ける）
+	// パネル閉鎖後はタイトルの「負荷設定」ボタンへフォーカスを戻す（A ボタンで再びパネルを開ける）
 	if (!FocusAction(EFishingTitleMenuAction::LoadSettings))
 	{
 		SnapToNavigableItem();
