@@ -3,6 +3,7 @@ Binaries/
 Build/
 DerivedDataCache/
 Intermediate/
+Plugins/Tripo3DUEBridge-UE5.8-Win64/
 Saved/
 *.autosave
 *.backup
