@@ -63,7 +63,7 @@ void UFishingReelStateComponent::ExitState()
 // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 FString UFishingReelStateComponent::GetStateDisplayName() const
 {
-    return TEXT("リール");
+    return TEXT("ぐるぐるまわして！");
 }
 // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 

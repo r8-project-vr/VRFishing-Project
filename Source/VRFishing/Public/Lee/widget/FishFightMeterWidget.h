@@ -18,15 +18,16 @@ class UFishingResultStateComponent;
 /**
  * @brief 釣りの進行フェーズ（ステップバー表示用）を定義する列挙型。
  * @note 値の順序＝ステップバーの表示順（左→右）。各ステートコンポーネントと 1:1 対応。
+ *       DisplayName は子ども向けのひらがな励まし表現（2026.08.26 Lee、GetStateDisplayName() と同期）。
  */
 UENUM(BlueprintType)
 enum class EFishingPhase : uint8
 {
-	Ready      UMETA(DisplayName = "待機"),
-	HandUpDown UMETA(DisplayName = "上下運動"),
-	Reel       UMETA(DisplayName = "リール"),
-	Catching   UMETA(DisplayName = "釣り上げ"),
-	Result     UMETA(DisplayName = "釣り上げ結果")
+	Ready      UMETA(DisplayName = "よーい！"),
+	HandUpDown UMETA(DisplayName = "うでをあげさげ！"),
+	Reel       UMETA(DisplayName = "ぐるぐるまわして！"),
+	Catching   UMETA(DisplayName = "うんとひっぱって！"),
+	Result     UMETA(DisplayName = "つれたかな？")
 };
 
 /**
