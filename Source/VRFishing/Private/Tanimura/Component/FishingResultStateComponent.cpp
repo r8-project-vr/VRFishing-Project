@@ -52,7 +52,7 @@ void UFishingResultStateComponent::ExitState()
 // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 FString UFishingResultStateComponent::GetStateDisplayName() const
 {
-    return TEXT("釣り上げ結果");
+    return TEXT("つれたかな？");
 }
 // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 

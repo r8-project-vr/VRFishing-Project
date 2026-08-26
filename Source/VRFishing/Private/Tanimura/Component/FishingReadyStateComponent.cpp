@@ -77,7 +77,7 @@ void UFishingReadyStateComponent::ExitState()
 // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 FString UFishingReadyStateComponent::GetStateDisplayName() const
 {
-    return TEXT("待機");
+    return TEXT("よーい！");
 }
 // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 

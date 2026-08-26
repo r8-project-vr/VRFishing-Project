@@ -122,7 +122,7 @@ void UFishFightMeterWidget::NativeConstruct()
 	}
 	else
 	{
-		ApplyPhase(EFishingPhase::Ready, TEXT("待機"), false);
+		ApplyPhase(EFishingPhase::Ready, TEXT("よーい！"), false);
 	}
 }
 

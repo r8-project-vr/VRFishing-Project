@@ -167,7 +167,8 @@ void UFishingStateHandUpDown::ExitState()
 
 FString UFishingStateHandUpDown::GetStateDisplayName() const
 {
-	return TEXT("上下運動");
+	// 2026.08.26 Lee：ステップバー表示を子ども向けのひらがな励まし表現へ変更（旧: 上下運動）
+	return TEXT("うでをあげさげ！");
 }
 
 float UFishingStateHandUpDown::CalcMatchQuality(float Error) const
