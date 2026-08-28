@@ -17,6 +17,15 @@ public class VRFishing : ModuleRules
 		// 2026.08.24 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		// FishingLoadSettingsDeveloperSettings（Project Settings パネル）の基底クラスがあるモジュール
 		PublicDependencyModuleNames.AddRange(new string[] { "DeveloperSettings" });
+
+		// 2026.08.26 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		// 有線デバイス（ASerial/UART）連携用。ASerialCom は Win64 専用プラグイン（PlatformAllowList）のため、
+		// Win64 のときのみ依存に追加する。参照箇所は PLATFORM_WINDOWS ガードで括ること。
+		if (Target.Platform == UnrealTargetPlatform.Win64)
+		{
+			PublicDependencyModuleNames.AddRange(new string[] { "ASerialCom" });
+		}
+		// 2026.08.26 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		// 2026.08.24 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
