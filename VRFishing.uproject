@@ -54,6 +54,10 @@
 		{
 			"Name": "Terminal",
 			"Enabled": true
+		},
+		{
+			"Name": "ASerialCom",
+			"Enabled": true
 		}
 	],
 	"TargetPlatforms": [
