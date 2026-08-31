@@ -40,10 +40,6 @@
 			"Enabled": true
 		},
 		{
-			"Name": "ModelContextProtocol",
-			"Enabled": true
-		},
-		{
 			"Name": "AllToolsets",
 			"Enabled": true
 		},
@@ -57,6 +53,10 @@
 		},
 		{
 			"Name": "ASerialCom",
+			"Enabled": true
+		},
+		{
+			"Name": "ModelContextProtocol",
 			"Enabled": true
 		}
 	],
