@@ -30,8 +30,10 @@ public class VRFishing : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 
-		// Uncomment if you are using Slate UI
-		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+		// 2026.08.31 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		// RpmGaugeWidget の OnPaint 自前描画（FSlateDrawElement）に使用
+		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+		// 2026.08.31 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
