@@ -31,6 +31,7 @@ FFishingSerialWorker::FFishingSerialWorker(UASerialLibControllerWin* InControlle
 {
 }
 
+/** @brief デストラクタ。スレッドの停止と SerialIF の解放は Exit() で済んでいる前提 */
 FFishingSerialWorker::~FFishingSerialWorker()
 {
 }

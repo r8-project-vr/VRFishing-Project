@@ -32,6 +32,7 @@ class VRFISHING_API AVRMenuPawn : public APawn
     GENERATED_BODY()
 
 public:
+    /** @brief コンストラクタ。VR カメラ・コントローラ・レーザー・MenuNavigator・LoadApplier を構築する */
     AVRMenuPawn();
 
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;

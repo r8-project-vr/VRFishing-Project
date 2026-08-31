@@ -34,67 +34,69 @@ class VRFISHING_API UFishingLoadSettingsSubsystem : public UGameInstanceSubsyste
 public:
 	// ==================== 選択 API（タイトル UI から呼ぶ） ====================
 
-	/// @brief 上下運動の負荷プリセットを設定する
+	/** @brief 上下運動の負荷プリセットを設定する */
 	UFUNCTION(BlueprintCallable, Category = "Fishing|Load")
 	void SetVerticalLoad(EFishingLoadPreset Preset);
 
-	/// @brief リール（巻き取り）の負荷プリセットを設定する
+	/** @brief リール（巻き取り）の負荷プリセットを設定する */
 	UFUNCTION(BlueprintCallable, Category = "Fishing|Load")
 	void SetRotationLoad(EFishingLoadPreset Preset);
 
-	/// @brief 運動時間をステップ幅分だけ加減算する（メニューのスライダー行の左右操作用）。初回呼び出しで「設定済み」となる
+	/** @brief 運動時間をステップ幅分だけ加減算する（メニューのスライダー行の左右操作用）。初回呼び出しで「設定済み」となる */
 	UFUNCTION(BlueprintCallable, Category = "Fishing|Load")
 	void StepExerciseTime(float DeltaSeconds);
 
-	/// @brief スライダー値（0.0〜1.0）から運動時間を設定する（WBP の OnValueChanged 用の統一入口）。
-	/// @note 秒への逆算式はこの関数が唯一の実装（下限/上限は Project Settings を参照）。
-	///       BP 側で独自に換算すると二重管理になりスライダーと本体が打架するため、必ず本関数を経由すること。
+	/**
+	 * @brief スライダー値（0.0〜1.0）から運動時間を設定する（WBP の OnValueChanged 用の統一入口）。
+	 * @note 秒への逆算式はこの関数が唯一の実装（下限/上限は Project Settings を参照）。
+	 *       BP 側で独自に換算すると二重管理になりスライダーと本体の値が乖離するため、必ず本関数を経由すること。
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Fishing|Load")
 	void SetExerciseTimeFromSliderValue(float SliderValue);
 
-	/// @brief 運動時間（秒）を直接設定する（治療側カスタマイズ用）
+	/** @brief 運動時間（秒）を直接設定する（治療側カスタマイズ用） */
 	UFUNCTION(BlueprintCallable, Category = "Fishing|Load|Advanced")
 	void SetExerciseTimeSecondsDirect(float Seconds);
 
-	/// @brief 上下運動の目標回数を直接設定する（治療側カスタマイズ用）
+	/** @brief 上下運動の目標回数を直接設定する（治療側カスタマイズ用） */
 	UFUNCTION(BlueprintCallable, Category = "Fishing|Load|Advanced")
 	void SetVerticalTargetCountDirect(int32 Count);
 
-	/// @brief リールの目標回転数を直接設定する（治療側カスタマイズ用）
+	/** @brief リールの目標回転数を直接設定する（治療側カスタマイズ用） */
 	UFUNCTION(BlueprintCallable, Category = "Fishing|Load|Advanced")
 	void SetRotationTargetCountDirect(int32 Count);
 
 	// ==================== 参照 API（UI 表示・適用側用） ====================
 
-	/// @brief 上下運動の目標回数（プリセット解決後の実効値）
+	/** @brief 上下運動の目標回数（プリセット解決後の実効値） */
 	UFUNCTION(BlueprintPure, Category = "Fishing|Load")
 	int32 GetVerticalTargetCount() const;
 
-	/// @brief リールの目標回転数（プリセット解決後の実効値）
+	/** @brief リールの目標回転数（プリセット解決後の実効値） */
 	UFUNCTION(BlueprintPure, Category = "Fishing|Load")
 	int32 GetRotationTargetCount() const;
 
-	/// @brief 選択中の上下運動プリセット（UI ハイライト用）
+	/** @brief 選択中の上下運動プリセット（UI ハイライト用） */
 	UFUNCTION(BlueprintPure, Category = "Fishing|Load")
 	EFishingLoadPreset GetVerticalPreset() const;
 
-	/// @brief 選択中のリールプリセット（UI ハイライト用）
+	/** @brief 選択中のリールプリセット（UI ハイライト用） */
 	UFUNCTION(BlueprintPure, Category = "Fishing|Load")
 	EFishingLoadPreset GetRotationPreset() const;
 
-	/// @brief 運動時間（秒）。未設定の場合は GameMode の C++ デフォルトと同じ 90 秒を返す
+	/** @brief 運動時間（秒）。未設定の場合は GameMode の C++ デフォルトと同じ 90 秒を返す */
 	UFUNCTION(BlueprintPure, Category = "Fishing|Load")
 	float GetExerciseTimeSeconds() const;
 
-	/// @brief 運動時間のスライダー値（0.0〜1.0）。スライダー初期位置の設定用
+	/** @brief 運動時間のスライダー値（0.0〜1.0）。スライダー初期位置の設定用 */
 	UFUNCTION(BlueprintPure, Category = "Fishing|Load")
 	float GetExerciseSliderValue() const;
 
-	/// @brief 運動時間が設定済みか（未設定なら GameMode アセット値を上書きしない）
+	/** @brief 運動時間が設定済みか（未設定なら GameMode アセット値を上書きしない） */
 	UFUNCTION(BlueprintPure, Category = "Fishing|Load")
 	bool HasExerciseTimeOverride() const;
 
-	/// @brief 運動時間変更の通知（スライダー・テキストの表示更新用）
+	/** @brief 運動時間変更の通知（スライダー・テキストの表示更新用） */
 	UPROPERTY(BlueprintAssignable, Category = "Fishing|Load")
 	FOnExerciseTimeChanged OnExerciseTimeChanged;
 

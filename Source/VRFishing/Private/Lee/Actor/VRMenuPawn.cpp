@@ -39,7 +39,7 @@ AVRMenuPawn::AVRMenuPawn()
     MotionControllerRightAim->SetupAttachment(VROrigin);
     MotionControllerRightAim->MotionSource = FName(TEXT("RightAim"));
 
-    // Widget 直押しレーザー（InteractionSource は既定の World ＝ コンポーネント位置から前方へ射线）
+    // Widget 直押しレーザー（InteractionSource は既定の World ＝ コンポーネント位置から前方へレイを飛ばす）
     WidgetInteractionLeft = CreateDefaultSubobject<UWidgetInteractionComponent>(TEXT("WidgetInteractionLeft"));
     WidgetInteractionLeft->SetupAttachment(MotionControllerLeftAim);
 
@@ -88,6 +88,7 @@ AVRMenuPawn::AVRMenuPawn()
     }
 }
 
+/** @brief 開始処理。追跡起点を座位基準（Local）へ揃え、既定 IMC を LocalPlayer へ追加する */
 void AVRMenuPawn::BeginPlay()
 {
     Super::BeginPlay();
@@ -117,6 +118,7 @@ void AVRMenuPawn::BeginPlay()
     }
 }
 
+/** @brief 終了処理。BeginPlay で追加した既定 IMC を明示的に解除する（次レベルへの残留を防ぐ） */
 void AVRMenuPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     // 追加した IMC を明示的に外す（将来の再利用場面での残留を防ぐ。Level 破棄時は取得失敗しても問題ない）
@@ -138,6 +140,11 @@ void AVRMenuPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
     Super::EndPlay(EndPlayReason);
 }
 
+/**
+ * @brief 入力バインド。Grab（側面ボタン）の押下/解放を左右両手のレーザーへバインドする。
+ * @note BindAction のペイロードで対象の WidgetInteractionComponent を渡すため、
+ *       左右でハンドラーを共用できる（A ボタン確定は MenuNavigator 側が担当し分離済み）。
+ */
 void AVRMenuPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
     Super::SetupPlayerInputComponent(PlayerInputComponent);

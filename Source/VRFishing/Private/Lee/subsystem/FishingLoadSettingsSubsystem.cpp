@@ -62,7 +62,7 @@ void UFishingLoadSettingsSubsystem::StepExerciseTime(float DeltaSeconds)
 void UFishingLoadSettingsSubsystem::SetExerciseTimeFromSliderValue(float SliderValue)
 {
 	// スライダー値を運動時間へ逆算する。換算式の情報源は Project Settings の下限/上限のみ。
-	// （BP 側に同様の換算があると上限変更時に値が打架して往復ジャンプする）
+	// （BP 側に同様の換算があると上限変更時に値が矛盾して往復ジャンプする）
 	const UFishingLoadSettingsDeveloperSettings* Settings = GetLoadSettings();
 	const float MinSeconds = Settings->ExerciseTimeMinSeconds;
 	const float MaxSeconds = FMath::Max(MinSeconds, Settings->ExerciseTimeMaxSeconds);

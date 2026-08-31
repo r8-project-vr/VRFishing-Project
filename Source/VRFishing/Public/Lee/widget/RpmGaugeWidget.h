@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 #pragma once
 
@@ -64,157 +64,159 @@ protected:
 
 	// ==================== 表示設定（ゲージ形状） ====================
 
-	/// @brief 0 RPM 側の針角度（度）。0=真上・正=時計回り（例：-120=左下 8時方向）
+	/** @brief 0 RPM 側の針角度（度）。0=真上・正=時計回り（例：-120=左下 8時方向） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Shape", meta = (ClampMin = "-180.0", ClampMax = "180.0"))
 	float GaugeStartAngleDeg = -120.0f;
 
-	/// @brief 満タン側の針角度（度）。GaugeStartAngleDeg より大きい値（例：120=右下 4時方向）
+	/** @brief 満タン側の針角度（度）。GaugeStartAngleDeg より大きい値（例：120=右下 4時方向） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Shape", meta = (ClampMin = "-180.0", ClampMax = "360.0"))
 	float GaugeEndAngleDeg = 120.0f;
 
-	/// @brief ゲージ中心のローカルサイズ比（0-1）。Y をやや下げると扇形が上に寄る
+	/** @brief ゲージ中心のローカルサイズ比（0-1）。Y をやや下げると扇形が上に寄る */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Shape", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	FVector2D GaugeCenterRatio = FVector2D(0.5f, 0.62f);
 
-	/// @brief ゲージ半径のローカル短辺比（min(X,Y) × この値）
+	/** @brief ゲージ半径のローカル短辺比（min(X,Y) × この値） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Shape", meta = (ClampMin = "0.05", ClampMax = "1.0"))
 	float GaugeRadiusRatio = 0.40f;
 
-	/// @brief 表示レンジ上限 ＝ 解決済み速すぎ閾値 × この倍率（レンジ下限は常に 0）
+	/** @brief 表示レンジ上限 ＝ 解決済み速すぎ閾値 × この倍率（レンジ下限は常に 0） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Shape", meta = (ClampMin = "1.0", ClampMax = "3.0"))
 	float RangeHeadroom = 1.25f;
 
-	/// @brief 閾値の反射読み取りに失敗した場合のフォールバック用速すぎ閾値
+	/** @brief 閾値の反射読み取りに失敗した場合のフォールバック用速すぎ閾値 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Shape", meta = (ClampMin = "1.0"))
 	float FallbackSafeMaxRPM = 60.0f;
 
 	// ==================== 表示設定（目盛り・弧） ====================
 
-	/// @brief 自前描画を行うか。文字盤テクスチャを使う場合は false（Image_DialFace があればこの値に関係なく省略される）
+	/** @brief 自前描画を行うか。文字盤テクスチャを使う場合は false（Image_DialFace があればこの値に関係なく省略される） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Dial")
 	bool bSelfDrawDial = true;
 
-	/// @brief 主目盛りの本数（両端を含む）
+	/** @brief 主目盛りの本数（両端を含む） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Dial", meta = (ClampMin = "2", ClampMax = "21"))
 	int32 MajorTickCount = 9;
 
-	/// @brief 主目盛り間の小目盛りの本数
+	/** @brief 主目盛り間の小目盛りの本数 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Dial", meta = (ClampMin = "0", ClampMax = "9"))
 	int32 MinorTicksPerMajor = 1;
 
-	/// @brief 主目盛りの長さ（半径比）
+	/** @brief 主目盛りの長さ（半径比） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Dial", meta = (ClampMin = "0.0", ClampMax = "0.5"))
 	float MajorTickLengthRatio = 0.16f;
 
-	/// @brief 小目盛りの長さ（半径比）
+	/** @brief 小目盛りの長さ（半径比） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Dial", meta = (ClampMin = "0.0", ClampMax = "0.5"))
 	float MinorTickLengthRatio = 0.08f;
 
-	/// @brief 主目盛りの線幅（px）
+	/** @brief 主目盛りの線幅（px） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Dial", meta = (ClampMin = "1.0"))
 	float MajorTickThickness = 3.0f;
 
-	/// @brief 小目盛りの線幅（px）
+	/** @brief 小目盛りの線幅（px） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Dial", meta = (ClampMin = "1.0"))
 	float MinorTickThickness = 1.5f;
 
-	/// @brief 数字ラベルを描くか（数字のみで言語ルールを回避）
+	/** @brief 数字ラベルを描くか（数字のみで言語ルールを回避） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Dial")
 	bool bDrawScaleLabels = true;
 
-	/// @brief 数字ラベルのフォントサイズ
+	/** @brief 数字ラベルのフォントサイズ */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Dial", meta = (ClampMin = "6", ClampMax = "64"))
 	int32 ScaleLabelFontSize = 12;
 
-	/// @brief 安全/危険弧の帯幅（半径比）。帯は目盛りリングの内側に描く
+	/** @brief 安全/危険弧の帯幅（半径比）。帯は目盛りリングの内側に描く */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Dial", meta = (ClampMin = "0.01", ClampMax = "0.5"))
 	float ZoneBandRatio = 0.09f;
 
-	/// @brief 弧の分割数（帯は折れ線近似。多いほど滑らか）
+	/** @brief 弧の分割数（帯は折れ線近似。多いほど滑らか） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Dial", meta = (ClampMin = "2", ClampMax = "64"))
 	int32 ArcSegmentCount = 24;
 
 	// ==================== 表示設定（針の挙動） ====================
 
-	/// @brief 針の追従速度（FInterpTo の InterpSpeed）。大きいほど速く追う
+	/** @brief 針の追従速度（FInterpTo の InterpSpeed）。大きいほど速く追う */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Needle", meta = (ClampMin = "0.1"))
 	float NeedleSmoothingSpeed = 8.0f;
 
-	/// @brief リールフェーズ外へ抜けたときに 0 へ戻る速度（FInterpTo の InterpSpeed）
+	/** @brief リールフェーズ外へ抜けたときに 0 へ戻る速度（FInterpTo の InterpSpeed） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Needle", meta = (ClampMin = "0.1"))
 	float NeedleDecaySpeed = 3.0f;
 
-	/// @brief リールフェーズ以外では表示を更新しない（フェーズ外の RPM 入力を無視し、針は 0 へ落ちる）
+	/** @brief リールフェーズ以外では表示を更新しない（フェーズ外の RPM 入力を無視し、針は 0 へ落ちる） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Needle")
 	bool bDisplayOnlyInReelPhase = true;
 
-	/// @brief 自前針の長さ（半径比）
+	/** @brief 自前針の長さ（半径比） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Needle", meta = (ClampMin = "0.1", ClampMax = "1.0"))
 	float NeedleLengthRatio = 0.92f;
 
-	/// @brief 自前針の尻尾の長さ（半径比）
+	/** @brief 自前針の尻尾の長さ（半径比） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Needle", meta = (ClampMin = "0.0", ClampMax = "0.5"))
 	float NeedleTailRatio = 0.18f;
 
-	/// @brief 自前針の線幅（px）
+	/** @brief 自前針の線幅（px） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Needle", meta = (ClampMin = "1.0"))
 	float NeedleThickness = 4.0f;
 
 	// ==================== 表示設定（色） ====================
 
+	/** @brief 目盛りの色 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Color")
 	FLinearColor TickColor = FLinearColor(0.85f, 0.85f, 0.85f, 0.85f);
 
-	/// @brief 適正区間 [SafeMin, SafeMax] の弧の色
+	/** @brief 適正区間 [SafeMin, SafeMax] の弧の色 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Color")
 	FLinearColor SafeZoneColor = FLinearColor(0.15f, 0.85f, 0.25f, 0.45f);
 
-	/// @brief 速すぎ区間 [SafeMax, RangeMax] の弧の色
+	/** @brief 速すぎ区間 [SafeMax, RangeMax] の弧の色 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Color")
 	FLinearColor DangerZoneColor = FLinearColor(0.95f, 0.20f, 0.20f, 0.45f);
 
-	/// @brief 判定未確定（RPM 未受信）時の針の色
+	/** @brief 判定未確定（RPM 未受信）時の針の色 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Color")
 	FLinearColor NeedleColor = FLinearColor::White;
 
+	/** @brief 数字ラベルの色 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Color")
 	FLinearColor ScaleLabelColor = FLinearColor(1.0f, 1.0f, 1.0f, 0.8f);
 
-	/// @brief 適正判定時の針の色（見た目のみ。ReelState の判定とは独立）
+	/** @brief 適正判定時の針の色（見た目のみ。ReelState の判定とは独立） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Color")
 	FLinearColor StateGoodColor = FLinearColor(0.2f, 0.9f, 0.3f, 1.0f);
 
-	/// @brief 遅すぎ判定時の針の色（見た目のみ）
+	/** @brief 遅すぎ判定時の針の色（見た目のみ） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Color")
 	FLinearColor StateTooSlowColor = FLinearColor(1.0f, 0.85f, 0.2f, 1.0f);
 
-	/// @brief 速すぎ判定時の針の色（見た目のみ）
+	/** @brief 速すぎ判定時の針の色（見た目のみ） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gauge|Color")
 	FLinearColor StateTooFastColor = FLinearColor(1.0f, 0.25f, 0.25f, 1.0f);
 
 	// ==================== 出力（読み取り専用） ====================
 
-	/// @brief 針が今指している表示値（平滑化済み）
+	/** @brief 針が今指している表示値（平滑化済み） */
 	UPROPERTY(BlueprintReadOnly, Category = "Gauge|RPM")
 	float DisplayedRPM = 0.0f;
 
-	/// @brief 最新の遅すぎ閾値（反射読み取り失敗時はフォールバック値）
+	/** @brief 最新の遅すぎ閾値（反射読み取り失敗時はフォールバック値） */
 	UPROPERTY(BlueprintReadOnly, Category = "Gauge|RPM")
 	float SafeMinRPM = 0.0f;
 
-	/// @brief 最新の速すぎ閾値（デバイス解決済み。VR=スティック／非 VR=ホイール）
+	/** @brief 最新の速すぎ閾値（デバイス解決済み。VR=スティック／非 VR=ホイール） */
 	UPROPERTY(BlueprintReadOnly, Category = "Gauge|RPM")
 	float SafeMaxRPM = 0.0f;
 
-	/// @brief 表示レンジ上限（SafeMaxRPM × RangeHeadroom）
+	/** @brief 表示レンジ上限（SafeMaxRPM × RangeHeadroom） */
 	UPROPERTY(BlueprintReadOnly, Category = "Gauge|RPM")
 	float DisplayRangeMaxRPM = 0.0f;
 
-	/// @brief 最新 RPM の判定状態（表示のみ）
+	/** @brief 最新 RPM の判定状態（表示のみ） */
 	UPROPERTY(BlueprintReadOnly, Category = "Gauge|RPM")
 	EHandSpeedState GaugeState = EHandSpeedState::TooSlow;
 
-	/// @brief リールフェーズ中か（フェーズゲートの現在値）
+	/** @brief リールフェーズ中か（フェーズゲートの現在値） */
 	UPROPERTY(BlueprintReadOnly, Category = "Gauge|Phase")
 	bool bGaugeActive = false;
 
@@ -231,61 +233,64 @@ protected:
 private:
 	// ==================== デリゲート ハンドラ ====================
 
-	/// @brief ReelState::OnRPMCalculated の受信（1 回転ごと）
+	/** @brief ReelState::OnRPMCalculated の受信（1 回転ごと） */
 	UFUNCTION()
 	void HandleRPMCalculated(float NewRPM);
 
-	/// @brief StateManager::OnFishingStateChanged の受信（フェーズゲート更新）
+	/** @brief StateManager::OnFishingStateChanged の受信（フェーズゲート更新） */
 	UFUNCTION()
 	void HandleFishingStateChanged(UFishingStateComponentBase* NewState);
 
 	// ==================== 内部処理 ====================
 
-	/// @brief オーナー Pawn から ReelState／StateManager を検索して購読する（Pawn が未就位なら Tick で再試行）
+	/** @brief オーナー Pawn から ReelState／StateManager を検索して購読する（Pawn が未就位なら Tick で再試行） */
 	void TryInitializeComponents();
 
-	/// @brief キャッシュ済みプロパティポインタで閾値を読み取り、SafeMin/SafeMax/レンジを更新する
+	/** @brief キャッシュ済みプロパティポインタで閾値を読み取り、SafeMin/SafeMax/レンジを更新する */
 	void RefreshThresholds();
 
-	/// @brief 描画キャッシュ（中心・半径・目盛り頂点・弧頂点・ラベル）を再構築する
+	/** @brief 描画キャッシュ（中心・半径・目盛り頂点・弧頂点・ラベル）を再構築する */
 	void RebuildDrawCache();
 
-	/// @brief 描画パラメータの変化検出用ハッシュ（閾値・レンジ・形状パラメータ）
+	/** @brief 描画パラメータの変化検出用ハッシュ（閾値・レンジ・形状パラメータ） */
 	uint32 ComputeDrawParamsHash() const;
 
-	/// @brief RPM 値をゲージ角度（度）へ変換する
+	/** @brief RPM 値をゲージ角度（度）へ変換する */
 	float RPMToAngleDeg(float RPM) const;
 
-	/// @brief 現在の判定状態に応じた針の色を返す（未受信時は NeedleColor）
+	/** @brief 現在の判定状態に応じた針の色を返す（未受信時は NeedleColor） */
 	FLinearColor ResolveNeedleColor() const;
 
 	// ==================== 参照 ====================
 
+	/** @brief RPM データと閾値の読み取り元（所有は Pawn） */
 	UPROPERTY()
 	TObjectPtr<UFishingReelStateComponent> ReelState;
 
+	/** @brief フェーズゲートの取得元（OnFishingStateChanged を購読） */
 	UPROPERTY()
 	TObjectPtr<UFishingStateManagerComponent> StateManager;
 
-	/// @brief コンポーネント初期化済みか（世界空間 WidgetComponent では Pawn が遅れて就位することがある）
+	/** @brief コンポーネント初期化済みか（世界空間 WidgetComponent では Pawn が遅れて就位することがある） */
 	bool bComponentsInitialized = false;
 
 	// ==================== 針の状態 ====================
 
-	/// @brief 針が向かうべき RPM（最新 RPM またはフェーズ外減衰時 0）
+	/** @brief 針が向かうべき RPM（最新 RPM またはフェーズ外減衰時 0） */
 	float TargetRPMForNeedle = 0.0f;
 
-	/// @brief 減衰モード中か（フェーズ外へ抜けたときに 1 回だけ立てる）
+	/** @brief 減衰モード中か（フェーズ外へ抜けたときに 1 回だけ立てる） */
 	bool bDecaying = false;
 
-	/// @brief 一度でも RPM を受信したか
+	/** @brief 一度でも RPM を受信したか */
 	bool bHasEverReceivedRPM = false;
 
-	/// @brief OnGaugeRPMChanged の発火制御用（前回発火時の値）
+	/** @brief OnGaugeRPMChanged の発火制御用（前回発火時の値） */
 	float LastNotifiedRPM = -1.0f;
+	/** @brief OnGaugeRPMChanged の発火制御用（前回発火時の判定状態） */
 	EHandSpeedState LastNotifiedState = EHandSpeedState::TooSlow;
 
-	/// @brief Image_Needle へ最後に適用した角度（0.1° 未満の更新を抑える）
+	/** @brief Image_Needle へ最後に適用した角度（0.1° 未満の更新を抑える） */
 	float LastAppliedNeedleImageAngle = 0.0f;
 
 	// ==================== 反射プロパティ キャッシュ ====================
@@ -296,51 +301,56 @@ private:
 	const FFloatProperty* WheelMaxRPMProp = nullptr;
 	const FFloatProperty* StickMaxRPMProp = nullptr;
 
-	/// @brief プロパティ ポインタの解決を試みた済みか（失敗警告の多重度防止も兼ねる）
+	/** @brief プロパティ ポインタの解決を試みた済みか（失敗警告の多重度防止も兼ねる） */
 	bool bTriedResolveProps = false;
 
-	/// @brief 閾値を Tick で再取得する間隔（秒）。LoadApplier は Pawn BeginPlay で書き込むため
-	///       NativeConstruct のタイミングとは順序が保証されない → 一度きりの読み取りは禁止
+	/** 閾値を Tick で再取得する間隔（秒）。LoadApplier は Pawn BeginPlay で書き込むため
+	 *  NativeConstruct のタイミングとは順序が保証されない → 一度きりの読み取りは禁止 */
 	float ThresholdRefreshInterval = 0.25f;
+	/** 前回の閾値再取得時刻（FPlatformTime::Seconds() 基準。初期値は実質「未実行」） */
 	double LastThresholdRefreshTime = -1.0e9;
 
 	// ==================== 描画キャッシュ（Tick 側で構築 / NativePaint は const のため読むだけ） ====================
 
-	/// @brief 主目盛りの頂点（2 点 1 組のフラット配列）
+	/** @brief 主目盛りの頂点（2 点 1 組のフラット配列） */
 	TArray<FVector2f> MajorTickPoints;
 
-	/// @brief 小目盛りの頂点（2 点 1 組のフラット配列）
+	/** @brief 小目盛りの頂点（2 点 1 組のフラット配列） */
 	TArray<FVector2f> MinorTickPoints;
 
-	/// @brief 安全弧の折れ線頂点
+	/** @brief 安全弧の折れ線頂点 */
 	TArray<FVector2f> SafeArcPoints;
 
-	/// @brief 危険弧の折れ線頂点
+	/** @brief 危険弧の折れ線頂点 */
 	TArray<FVector2f> DangerArcPoints;
 
-	/// @brief 数字ラベルの文字列（Tick 側で構築し Paint では文字列化しない）
+	/** @brief 数字ラベルの文字列（Tick 側で構築し Paint では文字列化しない） */
 	TArray<FString> ScaleLabels;
 
-	/// @brief 数字ラベルの配置座標（ローカル空間・ScaleLabels と 1:1 対応）
+	/** @brief 数字ラベルの配置座標（ローカル空間・ScaleLabels と 1:1 対応） */
 	TArray<FVector2f> ScaleLabelPositions;
 
+	/** ゲージ中心（ローカル空間。RebuildDrawCache で算出） */
 	FVector2f CachedCenter = FVector2f::ZeroVector;
+	/** ゲージ半径（px。RebuildDrawCache で算出） */
 	float CachedRadius = 0.0f;
 
-	/// @brief 判定区間の弧の帯の太さ（RebuildDrawCache で算出し Paint で参照）
+	/** @brief 判定区間の弧の帯の太さ（RebuildDrawCache で算出し Paint で参照） */
 	float CachedBandThickness = 1.0f;
 
-	/// @brief ラベルフォント構築済みのサイズ（ScaleLabelFontSize 変更検出用）
+	/** @brief ラベルフォント構築済みのサイズ（ScaleLabelFontSize 変更検出用） */
 	int32 CachedLabelFontSize = 0;
 
-	/// @brief ジオメトリ／パラメータ変化検出用
+	/** ジオメトリ変更検出用（Widget サイズが変わったらキャッシュ再構築） */
 	FVector2f CachedGeometrySize = FVector2f::ZeroVector;
+	/** 描画パラメータ変更検出用（ComputeDrawParamsHash の前回値） */
 	uint32 CachedDrawParamsHash = 0;
+	/** キャッシュ無効フラグ（初回は必ず再構築） */
 	bool bDrawCacheDirty = true;
 
-	/// @brief ラベル用フォント（Construct で構築し Paint では参照のみ）
+	/** @brief ラベル用フォント（Construct で構築し Paint では参照のみ） */
 	FSlateFontInfo LabelFontInfo;
 
-	/// @brief 表示中の針角度（度）
+	/** @brief 表示中の針角度（度） */
 	float NeedleAngleDeg = 0.0f;
 };
