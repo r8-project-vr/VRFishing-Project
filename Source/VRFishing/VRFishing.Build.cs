@@ -34,6 +34,12 @@ public class VRFishing : ModuleRules
 		// RpmGaugeWidget の OnPaint 自前描画（FSlateDrawElement）に使用
 		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 		// 2026.08.31 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
+		// 2026.08.31 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		// AVRMenuPawn 用。UMotionControllerComponent は HeadMountedDisplay、
+		// UHeadMountedDisplayFunctionLibrary は XRBase プラグイン（UE5.8 ではモジュール分割済み）
+		PublicDependencyModuleNames.AddRange(new string[] { "HeadMountedDisplay", "XRBase" });
+		// 2026.08.31 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");

@@ -102,9 +102,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav", meta = (ClampMin = "0.1"))
 	float NavRepeatDelay = 0.35f;
 
-	/** スティック入力を傾きとみなす閾値 (0.0〜1.0) */
+	/** スティック入力を傾きとみなす閾値 (0.0〜1.0)。倒し込み開始の判定に使う */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav", meta = (ClampMin = "0.1", ClampMax = "1.0"))
 	float StickThreshold = 0.6f;
+
+	/**
+	 * @brief ニュートラルへ戻ったとみなす閾値の比率（StickThreshold × この値）。
+	 * @note 単一閾値で判定すると回中残差が閾値付近で振動した際に中性→倒し込みが
+	 *       繰り返され、フォーカスが勝手に連続移動（漂い）する。ヒステリシスで防止する。
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav", meta = (ClampMin = "0.1", ClampMax = "1.0"))
+	float StickReleaseThresholdRatio = 0.5f;
 
 	/** 非フォーカス項目の RenderOpacity（フォーカス中は 1.0） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|MenuNav", meta = (ClampMin = "0.0", ClampMax = "1.0"))
@@ -163,6 +171,13 @@ private:
 
 	/** スティックがニュートラルへ戻ったか（反復制御用） */
 	bool bStickWasNeutral = true;
+
+	/**
+	 * @brief 倒し込みシーケンス中に固定された移動（0=未確定、1=前行、2=次行、3=左、4=右）。
+	 * @note リピート毎に軸を再判定すると斜め入力で行／列が交互に切り替わり、
+	 *       フォーカスが意図しない方向へ漂うため、ニュートラルへ戻るまで固定する。
+	 */
+	int8 LockedMove = 0;
 
 	/** スティック反復の累積時間（秒） */
 	float RepeatTimeAccumulated = 0.0f;
