@@ -107,18 +107,30 @@ private:
 	WindowsSerial* SerialIF = nullptr;
 
 	// --- 設定（コンストラクタ以降不変） ---
+	/** 照合するデバイスID（0x02=アームトラッカー / 0x03=自転車） */
 	uint8 TargetDeviceId = 0;
+	/** 許容するデバイスVerの下限 */
 	uint8 DeviceVerMin = 0;
+	/** 許容するデバイスVerの上限 */
 	uint8 DeviceVerMax = 0;
+	/** ポーリング内容を決めるデバイス種別 */
 	EFishingWiredDeviceType DeviceType = EFishingWiredDeviceType::ArmTracker;
+	/** ポーリング周期 [秒] */
 	float PollIntervalSec = 0.008f;
+	/** 再接続試行間隔 [秒] */
 	float ReconnectIntervalSec = 1.0f;
+	/** COMポート指定（0=自動探査） */
 	int32 ComPortOverride = 0;
 
 	// --- ポーリング内部状態（ワーカースレッドのみ触る） ---
+	/** 次回ポーリング予定時刻（FPlatformTime::Seconds() 基準） */
 	double NextPollTimeSec = 0.0;
+	/** 次回の回転方向(0x23)ポーリング予定時刻（自転車のみ使用・1秒毎） */
 	double NextDirectionPollTimeSec = 0.0;
+	/** 接続済み COM ポート番号（未接続 0。StateMutex 保護） */
 	int32 ConnectedCom = 0;
+	/** 応答タイムアウトの連続回数（20 超で切断扱い。成功時に 0 へ戻す） */
 	int32 ConsecutiveFailures = 0;
+	/** 最後に受信した回転方向（1 秒毎の 0x23 ポーリング結果を RPS 取得時に添付する） */
 	uint8 LastDirection = 1;
 };

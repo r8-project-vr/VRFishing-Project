@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 #include "Lee/widget/RpmGaugeWidget.h"
 #include "Lee/widget/ReelRPMThresholdReader.h"
@@ -32,6 +32,7 @@ URpmGaugeWidget::URpmGaugeWidget(const FObjectInitializer& ObjectInitializer)
 {
 }
 
+/** @brief 生成時処理。針テクスチャのフォールバック設定 → コンポーネント購読 → 閾値初期取得 */
 void URpmGaugeWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -66,6 +67,7 @@ void URpmGaugeWidget::NativeDestruct()
 	Super::NativeDestruct();
 }
 
+/** @brief 毎フレーム処理。閾値定期更新 → 減衰判定 → 針の平滑追従 → 描画キャッシュ更新 */
 void URpmGaugeWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
@@ -132,6 +134,7 @@ void URpmGaugeWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	}
 }
 
+/** @brief 自前描画。危険弧 → 安全弧 → 目盛り → 数字ラベル → 針 の順でレイヤを積む */
 int32 URpmGaugeWidget::NativePaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
 	const int32 BaseLayer = Super::NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);

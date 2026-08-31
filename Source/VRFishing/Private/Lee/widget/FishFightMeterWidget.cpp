@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 #include "Lee/widget/FishFightMeterWidget.h"
 #include "Lee/widget/ReelRPMThresholdReader.h"
@@ -17,6 +17,7 @@ UFishFightMeterWidget::UFishFightMeterWidget(const FObjectInitializer& ObjectIni
 {
 }
 
+/** @brief 生成時処理。オーナー Pawn から各コンポーネントを解決してデリゲートを購読する */
 void UFishFightMeterWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -77,6 +78,7 @@ void UFishFightMeterWidget::NativeConstruct()
 	}
 }
 
+/** @brief 毎フレーム処理。ステートコンポーネントから表示データを読み取り BP イベントへプッシュする */
 void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
@@ -148,6 +150,7 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 	}
 }
 
+/** @brief OnRPMCalculated（1 回転ごと）受信ハンドラ。実判定と同じ閾値で RPM 判定表示を更新する */
 void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 {
 	// 規定回数完了まで RPM 入力を受け付けない
@@ -214,6 +217,7 @@ void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 	OnRPMChanged(CurrentRPM, RPMState);
 }
 
+/** @brief 上下運動完了受信ハンドラ。失敗時は表示をリセットし、成功時は最終表示へ反映する */
 void UFishFightMeterWidget::OnHandUpDownCompleted(bool bIsSuccess)
 {
 	// 2026.08.20 Lee：bReelUnlocked の切り替えは HandleFishingStateChanged の状態駆動に一本化した。
@@ -239,6 +243,7 @@ void UFishFightMeterWidget::OnHandUpDownCompleted(bool bIsSuccess)
 	OnScoreChanged(FinalScore);
 }
 
+/** @brief 状態遷移通知ハンドラ。フェーズ表示と RPM ロックをここで一括更新する */
 void UFishFightMeterWidget::HandleFishingStateChanged(UFishingStateComponentBase* NewState)
 {
 	if (!NewState)

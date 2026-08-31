@@ -78,7 +78,7 @@ void UFishingLoadApplierComponent::ApplyLoadSettings()
 		Owner && Owner->FindComponentByClass<UFishingStateManagerComponent>() != nullptr;
 	// 2026.08.31 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
-	// ==================== 1. 上下運動の目標回数（public ため直接書き込み） ====================
+	// ==================== 1. 上下運動の目標回数（public なため直接書き込み） ====================
 	int32 VerticalCount = Subsystem->GetVerticalTargetCount();
 	if (bHasFishingStateMachine)
 	{

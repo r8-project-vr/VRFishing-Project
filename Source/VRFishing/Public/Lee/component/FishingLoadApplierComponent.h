@@ -19,9 +19,10 @@ class VRFISHING_API UFishingLoadApplierComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	/** @brief コンストラクタ。適用は BeginPlay の一回のみのため Tick は無効 */
 	UFishingLoadApplierComponent();
 
-	/// @brief ゲーム開始時にサブシステムの負荷設定を各コンポーネントへ適用する
+	/** @brief ゲーム開始時にサブシステムの負荷設定を各コンポーネントへ適用する */
 	virtual void BeginPlay() override;
 
 	/**

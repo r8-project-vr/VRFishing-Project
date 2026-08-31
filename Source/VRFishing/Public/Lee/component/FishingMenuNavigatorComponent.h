@@ -76,6 +76,7 @@ class VRFISHING_API UFishingMenuNavigatorComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	/** @brief コンストラクタ。既定ナビゲーション表（WBP_TitleMenu のコントロール名）と既定入力アクションを構築する */
 	UFishingMenuNavigatorComponent();
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;

@@ -1,11 +1,10 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
+// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 #include "Lee/component/HandHeightDetectorComponent.h"
 #include "GameFramework/Actor.h"
 #include "Camera/CameraComponent.h"
 #include "Math/UnrealMathUtility.h"
-// @brief Debug出力に必要なヘッダーをインクルード
+// Debug出力に必要なヘッダーをインクルード
 #include "Engine/Engine.h"
 #include "DrawDebugHelpers.h"
 
@@ -15,8 +14,6 @@ UHandHeightDetectorComponent::UHandHeightDetectorComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 }
 
-
-// Called when the game starts
 void UHandHeightDetectorComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -24,13 +21,14 @@ void UHandHeightDetectorComponent::BeginPlay()
 	AActor* Owner = GetOwner();
 	if (!Owner) return;
 
-	// @brief ブループリントで手動指定されていない場合、自動でカメラコンポーネントを取得する
+	// ブループリントで手動指定されていない場合、自動でカメラコンポーネントを取得する
 	if (!CameraRef.IsValid())
 	{
 		CameraRef = Cast<UCameraComponent>(Owner->GetComponentByClass(UCameraComponent::StaticClass()));
 	}
 }
 
+/** @brief 毎フレームのセンサ計算。外部データ注入パスと OpenXR HandTracking パスの 2 経路を持つ */
 void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -38,10 +36,10 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 	// ==================== 外部データソース（BLE IMU等）パス ====================
 	if (bUseExternalData)
 	{
-		// @brief HandRef の代わりに注入された値を使用
+		// HandRef の代わりに注入された値を使用
 		HandHeightPercent = ExternalHeightPercent;
 
-		// @brief 正規化垂直速度（符号付き、正=上昇）を外部データから算出
+		// 正規化垂直速度（符号付き、正=上昇）を外部データから算出
 		if (bHasPreviousPercent)
 		{
 			HandPercentSpeed = (HandHeightPercent - PreviousHandPercent) / FMath::Max(DeltaTime, SMALL_NUMBER);
@@ -54,7 +52,7 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 		PreviousHandPercent = HandHeightPercent;
 		bHasPreviousPercent = true;
 
-		// @brief GetHandHeightBelowHeadCm() 用に仮想 Z 座標を計算
+		// GetHandHeightBelowHeadCm() 用に仮想 Z 座標を計算
 		if (CameraRef.IsValid())
 		{
 			CachedHeadZ = CameraRef->GetComponentLocation().Z;
@@ -63,7 +61,7 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 			CachedHandZ = CachedHeadZ - VirtualZOffset;
 		}
 
-		// @brief 速度の処理（注入された速度が有効な場合のみ）
+		// 速度の処理（注入された速度が有効な場合のみ。負値は「速度計算スキップ」の意味）
 		if (ExternalSpeed >= 0.0f)
 		{
 			CurrentHandSpeed = ExternalSpeed;
@@ -82,7 +80,7 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 			}
 		}
 
-		// @brief Debug 表示（外部データモード時）
+		// Debug 表示（外部データモード時）
 		if (bShowDebug && GEngine)
 		{
 			const TCHAR* StateText = TEXT("???");
@@ -105,13 +103,13 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 
 	// ==================== OpenXR HandTracking パス（変更禁止） ====================
 
-	// @brief 両方の必須コンポーネントが取得されていることを確認
+	// 両方の必須コンポーネントが取得されていることを確認
 	if (!CameraRef.IsValid() || !HandRef.IsValid())
 	{
 		return;
 	}
 
-	// @brief ワールド座標系での手の位置を取得
+	// ワールド座標系での手の位置を取得
 	const FVector CurrentHandLocation = HandRef->GetComponentLocation();
 	const float HeadZ = CameraRef->GetComponentLocation().Z;
 	const float HandZ = CurrentHandLocation.Z;
@@ -120,11 +118,11 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 	CachedHeadZ = HeadZ;
 	CachedHandZ = HandZ;
 
-	// @brief 絶対高さの範囲を計算
+	// 絶対高さの範囲を計算
 	const float MinZ = HeadZ - BottomOffset;
 	const float MaxZ = HeadZ + TopOffset;
 
-	// @brief Unreal C++の範囲マッピング関数を使用して、[0.0, 1.0]の範囲にマッピングおよびクランプ
+	// Unreal C++の範囲マッピング関数を使用して、[0.0, 1.0]の範囲にマッピングおよびクランプ
 	HandHeightPercent = FMath::GetMappedRangeValueClamped(
 		FVector2D(MinZ, MaxZ),
 		FVector2D(0.0f, 1.0f),
@@ -135,7 +133,7 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 
 	if (bHasPreviousPercent)
 	{
-		// @brief 前フレームからの正規化高さの差分を DeltaTime で割って垂直速度 (1/s) を算出
+		// 前フレームからの正規化高さの差分を DeltaTime で割って垂直速度 (1/s) を算出
 		HandPercentSpeed = (HandHeightPercent - PreviousHandPercent) / FMath::Max(DeltaTime, SMALL_NUMBER);
 	}
 	else
@@ -144,7 +142,7 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 		HandPercentSpeed = 0.0f;
 	}
 
-	// @brief 次のフレームのために現在の正規化高さを保存
+	// 次のフレームのために現在の正規化高さを保存
 	PreviousHandPercent = HandHeightPercent;
 	bHasPreviousPercent = true;
 
@@ -152,11 +150,11 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 
 	if (bHasPreviousLocation)
 	{
-		// @brief 前フレームからの移動距離を DeltaTime で割って速度 (cm/s) を算出
+		// 前フレームからの移動距離を DeltaTime で割って速度 (cm/s) を算出
 		const float Distance = FVector::Dist(CurrentHandLocation, PreviousHandLocation);
 		CurrentHandSpeed = Distance / DeltaTime;
 
-		// @brief 速度を閾値と比較して状態を判定
+		// 速度を閾値と比較して状態を判定
 		if (CurrentHandSpeed < MinGoodSpeed)
 		{
 			HandSpeedState = EHandSpeedState::TooSlow;
@@ -171,7 +169,7 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 		}
 	}
 
-	// @brief 次のフレームのために現在位置を保存
+	// 次のフレームのために現在位置を保存
 	PreviousHandLocation = CurrentHandLocation;
 	bHasPreviousLocation = true;
 
