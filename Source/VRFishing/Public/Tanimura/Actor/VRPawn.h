@@ -78,17 +78,6 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UFishingResultStateComponent> ResultStateComponent;
 
-    // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-    /**
-     * @brief 釣りステートマシンを起動する本編マップ名。
-     * @note BeginPlay で PIE プレフィックス除去後のマップ名と比較し、一致しない場合は
-     *       ステートマシンを起動しない（タイトルメニュー等でのリール誤検知を防止）。
-     *       マップ名を変更した場合は本プロパティ（または BP_XRPawn 側の上書き）を更新すること。
-     */
-    UPROPERTY(EditDefaultsOnly, Category = "Fishing|StateMachine")
-    FName FishingMapName = TEXT("LV_MainGame");
-    // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-
 private:
     // 待機ステート完了時の通知を受け取るハンドラー
     UFUNCTION()

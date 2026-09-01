@@ -66,7 +66,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "Fishing|プリセット")
 	TArray<int32> RotationCountTable = { 5, 10, 15 };
 
-	/** RPM 閾値（要素順 = 低/中/高）。要素が足りない水位は ReelState 既定が維持される */
+	/** RPM 閾値（要素順 = 低/中/高）。要素が足りない場合は ReelState 既定が維持される */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "Fishing|プリセット")
 	TArray<FRPMPresetThresholds> RPMThresholdTable = {
 		FRPMPresetThresholds{ 30.0f, 50.0f, 20.0f },

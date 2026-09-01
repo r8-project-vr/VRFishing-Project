@@ -1,6 +1,5 @@
 // Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
-
 #include "Lee/component/FishingStateHandUpDown.h"
 #include "Lee/component/HandHeightDetectorComponent.h"
 #include "VRFishingLog.h"
@@ -12,6 +11,7 @@ UFishingStateHandUpDown::UFishingStateHandUpDown()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
+/** @brief 状態突入処理。カウンタ・矢印・スコア・失敗検知の全内部状態を初期化しセンサを解決する */
 void UFishingStateHandUpDown::EnterState()
 {
 	Super::EnterState();
@@ -42,6 +42,7 @@ void UFishingStateHandUpDown::EnterState()
 	bIsFailed = false;
 }
 
+/** @brief 毎フレーム処理。矢印更新 → スコア計算 → 上下カウント判定 → 失敗検知 の固定順で進める */
 void UFishingStateHandUpDown::UpdateState(float DeltaTime)
 {
 	Super::UpdateState(DeltaTime);
@@ -141,6 +142,7 @@ void UFishingStateHandUpDown::UpdateState(float DeltaTime)
 	}
 }
 
+/** @brief 状態退出処理。全出力変数・内部状態をリセットする（次セットに持ち越さない） */
 void UFishingStateHandUpDown::ExitState()
 {
 	Super::ExitState();

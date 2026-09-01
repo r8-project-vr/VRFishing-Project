@@ -4,6 +4,7 @@
 #include "Lee/subsystem/FishingLoadSettingsSubsystem.h"
 #include "Lee/settings/FishingLoadSettingsDeveloperSettings.h"
 #include "Lee/component/FishingStateHandUpDown.h"
+#include "Tanimura/Component/FishingStateManagerComponent.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
 #include "Tanimura/Subsystem/FishingSettingsSubsystem.h"
 #include "VRFishingLog.h"
@@ -69,55 +70,69 @@ void UFishingLoadApplierComponent::ApplyLoadSettings()
 
 	AActor* Owner = GetOwner();
 
-	// ==================== 1. 上下運動の目標回数（public ため直接書き込み） ====================
+	// 2026.08.31 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 釣りステートマシンを持たないポーン（AVRMenuPawn＝タイトル／リザルト用）では
+	// 上下・リールへの適用をスキップし、運動時間の GameMode 反映（第3節）のみを実行する。
+	// タイトルの残り時間表示の数値源はこの反映であるため、丸ごと早期リターンは不可。
+	const bool bHasFishingStateMachine =
+		Owner && Owner->FindComponentByClass<UFishingStateManagerComponent>() != nullptr;
+	// 2026.08.31 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
+	// ==================== 1. 上下運動の目標回数（public なため直接書き込み） ====================
 	int32 VerticalCount = Subsystem->GetVerticalTargetCount();
-	if (UFishingStateHandUpDown* HandUpDown = Owner ? Owner->FindComponentByClass<UFishingStateHandUpDown>() : nullptr)
+	if (bHasFishingStateMachine)
 	{
-		HandUpDown->TargetUpAndDownCount = FMath::Max(1, VerticalCount);
-	}
-	else
-	{
-		UE_LOG(LogFishing, Warning, TEXT("[LoadSettings] UFishingStateHandUpDown が見つからないため上下運動の負荷を適用できません"));
+		if (UFishingStateHandUpDown* HandUpDown = Owner ? Owner->FindComponentByClass<UFishingStateHandUpDown>() : nullptr)
+		{
+			HandUpDown->TargetUpAndDownCount = FMath::Max(1, VerticalCount);
+		}
+		else
+		{
+			UE_LOG(LogFishing, Warning, TEXT("[LoadSettings] UFishingStateHandUpDown が見つからないため上下運動の負荷を適用できません"));
+		}
 	}
 
 	// ==================== 2. リールの目標回転数と RPM 閾値（protected は反射で書き込み） ====================
 	int32 RotationCount = Subsystem->GetRotationTargetCount();
 	int32 RotationLoadLevel = PresetToLoadLevel(Subsystem->GetRotationPreset());
-	if (UFishingReelStateComponent* ReelState = Owner ? Owner->FindComponentByClass<UFishingReelStateComponent>() : nullptr)
+	if (bHasFishingStateMachine)
 	{
-		// 2026.08.19 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-		// TargetRevolutionCount は Tanimura 氏の protected UPROPERTY。チーム規約により
-		// 本人のコードへ setter を追加できないため、リフレクションで直接書き込む。
-		WriteProtectedIntProperty(ReelState, TEXT("TargetRevolutionCount"), FMath::Max(1, RotationCount));
-
-		// 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-		// Tanimura 氏が追加した RPM 閾値インターフェースへも同期する。
-		// ApplyRotationLoadLevel は TargetRevolutionCount を書き換えないため、上記の反射書き込みは維持する。
-		ReelState->ApplyRotationLoadLevel(RotationLoadLevel);
-		if (UFishingSettingsSubsystem* Settings = GameInstance->GetSubsystem<UFishingSettingsSubsystem>())
+		if (UFishingReelStateComponent* ReelState = Owner ? Owner->FindComponentByClass<UFishingReelStateComponent>() : nullptr)
 		{
-			Settings->SetRotationLoadLevel(RotationLoadLevel);
-		}
-		// 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+			// 2026.08.19 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+			// TargetRevolutionCount は Tanimura 氏の protected UPROPERTY。チーム規約により
+			// 本人のコードへ setter を追加できないため、リフレクションで直接書き込む。
+			WriteProtectedIntProperty(ReelState, TEXT("TargetRevolutionCount"), FMath::Max(1, RotationCount));
 
-		// 2026.08.24 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-		// RPM 閾値の真値は Project Settings（FishingLoadSettingsDeveloperSettings）。
-		// ApplyRotationLoadLevel のハードコード値を上書き反映する（本人コードは変更しない）。
-		// ApplyRotationLoadLevel の後に実行すること（先に書くと上書きされて消える）。
-		const TArray<FRPMPresetThresholds>& RPMTable =
-			GetDefault<UFishingLoadSettingsDeveloperSettings>()->RPMThresholdTable;
-		if (RPMTable.IsValidIndex(RotationLoadLevel))
-		{
-			WriteProtectedFloatProperty(ReelState, TEXT("WheelMaxAllowedRPM"), RPMTable[RotationLoadLevel].WheelMaxAllowedRPM);
-			WriteProtectedFloatProperty(ReelState, TEXT("StickMaxAllowedRPM"), RPMTable[RotationLoadLevel].StickMaxAllowedRPM);
-			WriteProtectedFloatProperty(ReelState, TEXT("MinAllowedRPM"), RPMTable[RotationLoadLevel].MinAllowedRPM);
+			// 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+			// Tanimura 氏が追加した RPM 閾値インターフェースへも同期する。
+			// ApplyRotationLoadLevel は TargetRevolutionCount を書き換えないため、上記の反射書き込みは維持する。
+			ReelState->ApplyRotationLoadLevel(RotationLoadLevel);
+			if (UFishingSettingsSubsystem* Settings = GameInstance->GetSubsystem<UFishingSettingsSubsystem>())
+			{
+				Settings->SetRotationLoadLevel(RotationLoadLevel);
+			}
+			// 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
+			// 2026.08.24 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+			// RPM 閾値の真値は Project Settings（FishingLoadSettingsDeveloperSettings）。
+			// ApplyRotationLoadLevel のハードコード値を上書き反映する（本人コードは変更しない）。
+			// ApplyRotationLoadLevel の後に実行すること（先に書くと上書きされて消える）。
+			const TArray<FRPMPresetThresholds>& RPMTable =
+				GetDefault<UFishingLoadSettingsDeveloperSettings>()->RPMThresholdTable;
+			if (RPMTable.IsValidIndex(RotationLoadLevel))
+			{
+				WriteProtectedFloatProperty(ReelState, TEXT("WheelMaxAllowedRPM"), RPMTable[RotationLoadLevel].WheelMaxAllowedRPM);
+				WriteProtectedFloatProperty(ReelState, TEXT("StickMaxAllowedRPM"), RPMTable[RotationLoadLevel].StickMaxAllowedRPM);
+				WriteProtectedFloatProperty(ReelState, TEXT("MinAllowedRPM"), RPMTable[RotationLoadLevel].MinAllowedRPM);
+			}
+			// 2026.08.24 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+			// 2026.08.19 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		}
-		// 2026.08.24 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-		// 2026.08.19 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	}
-	else
-	{
-		UE_LOG(LogFishing, Warning, TEXT("[LoadSettings] UFishingReelStateComponent が見つからないためリールの負荷を適用できません"));
+		else
+		{
+			UE_LOG(LogFishing, Warning, TEXT("[LoadSettings] UFishingReelStateComponent が見つからないためリールの負荷を適用できません"));
+		}
 	}
 
 	// ==================== 3. 運動時間（未設定時は GameMode アセット値を尊重） ====================

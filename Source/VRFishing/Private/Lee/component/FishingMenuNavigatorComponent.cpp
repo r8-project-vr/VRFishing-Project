@@ -235,10 +235,25 @@ void UFishingMenuNavigatorComponent::HandleNavigation(float DeltaTime)
 		SnapToNavigableItem();
 	}
 
-	if (LastStickValue.Size() < StickThreshold)
+	// 2026.08.31 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// ヒステリシス付きのニュートラル判定。
+	// 倒し込み開始は StickThreshold、解除はその StickReleaseThresholdRatio 倍で判定する。
+	// 単一閾値だと回中残差が閾値付近で振動したとき中性→倒し込みが繰り返され、
+	// フォーカスが勝手に連続移動（漂い）する不具合の対策。
+	const float ReleaseThreshold = StickThreshold * FMath::Clamp(StickReleaseThresholdRatio, 0.1f, 1.0f);
+	if (bStickWasNeutral)
 	{
-		// ニュートラルへ戻ったら反復を解除する
+		if (LastStickValue.Size() < StickThreshold)
+		{
+			// 未だ倒されていない
+			return;
+		}
+	}
+	else if (LastStickValue.Size() < ReleaseThreshold)
+	{
+		// ニュートラルへ戻ったら反復と軸固定を解除する
 		bStickWasNeutral = true;
+		LockedMove = 0;
 		RepeatTimeAccumulated = 0.0f;
 		return;
 	}
@@ -246,15 +261,30 @@ void UFishingMenuNavigatorComponent::HandleNavigation(float DeltaTime)
 	// 初回の倒し込み、または反復間隔の経過で移動する
 	if (bStickWasNeutral || RepeatTimeAccumulated >= NavRepeatDelay)
 	{
-		if (FMath::Abs(LastStickValue.Y) >= FMath::Abs(LastStickValue.X))
+		// 倒し込み開始時に移動を確定し、ニュートラルへ戻るまで固定する。
+		// リピート毎に軸を再判定すると斜め入力で行／列が交互に切り替わり、
+		// フォーカスが意図しない方向へ漂う不具合の対策。
+		if (LockedMove == 0)
 		{
-			// 上下方向の倒し込みが強い場合は行移動（スティック上 = Y 正 = 前の行）
-			MoveRow(LastStickValue.Y < 0.0f);
+			if (FMath::Abs(LastStickValue.Y) >= FMath::Abs(LastStickValue.X))
+			{
+				// 上下方向の倒し込みが強い場合は行移動（スティック上 = Y 正 = 前の行）
+				LockedMove = (LastStickValue.Y < 0.0f) ? 2 : 1;
+			}
+			else
+			{
+				// 左右方向の場合は列移動（スライダー行では運動時間のステップ増減）
+				LockedMove = (LastStickValue.X > 0.0f) ? 4 : 3;
+			}
 		}
-		else
+
+		switch (LockedMove)
 		{
-			// 左右方向の場合は列移動（スライダー行では運動時間のステップ増減）
-			MoveColumn(LastStickValue.X > 0.0f);
+		case 1: MoveRow(false);   break;
+		case 2: MoveRow(true);    break;
+		case 3: MoveColumn(false); break;
+		case 4: MoveColumn(true);  break;
+		default: break;
 		}
 		bStickWasNeutral = false;
 		RepeatTimeAccumulated = 0.0f;
@@ -263,6 +293,7 @@ void UFishingMenuNavigatorComponent::HandleNavigation(float DeltaTime)
 	{
 		RepeatTimeAccumulated += DeltaTime;
 	}
+	// 2026.08.31 endーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
 
 void UFishingMenuNavigatorComponent::MoveRow(bool bNext)

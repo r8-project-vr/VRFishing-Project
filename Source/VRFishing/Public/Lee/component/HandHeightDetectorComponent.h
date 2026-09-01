@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 #pragma once
 
@@ -29,26 +29,28 @@ class VRFISHING_API UHandHeightDetectorComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this component's properties
+	/** @brief コンストラクタ。常駐センサとして毎フレーム自律 Tick を有効化する */
 	UHandHeightDetectorComponent();
 
 	// --- UActorComponent overrides ---
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 protected:
-	// Called when the game starts
+	/** @brief 開始処理。CameraRef が未設定ならオーナーから自動検索する */
 	virtual void BeginPlay() override;
 
 public:
 	// ==================== 設定パラメータ ====================
 
+	/** @brief 正規化 0%（下限）となる「頭より下」の距離 [cm]。カメラ Z − BottomOffset が下端 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Height Detection")
 	float BottomOffset = 50.0f;
 
+	/** @brief 正規化 100%（上限）となる「頭より上」の距離 [cm]。カメラ Z + TopOffset が上端 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Height Detection")
 	float TopOffset = 30.0f;
 
-	/// @brief Debug表示を有効にするかどうか
+	/** @brief Debug表示を有効にするかどうか */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Height Detection|Debug")
 	bool bShowDebug = true;
 
@@ -66,6 +68,7 @@ public:
 
 	// ==================== 出力変数 ====================
 
+	/** @brief 手の高さ（0.0=下限 〜 1.0=上限）。カメラを基準に BottomOffset/TopOffset で正規化 */
 	UPROPERTY(BlueprintReadOnly, Category = "Height Detection")
 	float HandHeightPercent = 0.0f;
 
@@ -94,8 +97,11 @@ public:
 
 	// ==================== 公開API ====================
 
-	/// @brief 頭(カメラ)を基準にした手の下がり量(cm)。正=手が頭より下にある。
-	/// @note Wait状態などが手の「下げ判定」に再利用するための cm 语义インターフェース。
+	/**
+	 * @brief 頭(カメラ)を基準にした手の下がり量(cm)。正=手が頭より下にある。
+	 * @note Ready 状態などが手の「下げ判定」に再利用するための cm 単位インターフェース。
+	 *       値は直近フレームのキャッシュ（CachedHeadZ/CachedHandZ）から即時取得できる。
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Height Detection")
 	float GetHandHeightBelowHeadCm() const;
 
@@ -111,11 +117,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Height Detection|External")
 	void SetExternalHandData(float InHeightPercent, float InSpeed = -1.0f);
 
-	/// @brief 外部データモードを解除し、HandRef ベースの通常動作へ戻す
+	/** @brief 外部データモードを解除し、HandRef ベースの通常動作へ戻す */
 	UFUNCTION(BlueprintCallable, Category = "Height Detection|External")
 	void ClearExternalHandData();
 
-	/// @brief 現在外部データモードかどうか
+	/** @brief 現在外部データモードかどうか */
 	UFUNCTION(BlueprintCallable, Category = "Height Detection|External")
 	bool IsUsingExternalData() const { return bUseExternalData; }
 
@@ -132,10 +138,10 @@ private:
 	/** PreviousHandPercent が有効か（最初のフレームは無効） */
 	bool bHasPreviousPercent = false;
 
-	/// @brief 直近フレームの頭(カメラ)Z座標（GetHandHeightBelowHeadCm 用にキャッシュ）
+	/** @brief 直近フレームの頭(カメラ)Z座標（GetHandHeightBelowHeadCm 用にキャッシュ） */
 	float CachedHeadZ = 0.0f;
 
-	/// @brief 直近フレームの手のZ座標（GetHandHeightBelowHeadCm 用にキャッシュ）
+	/** @brief 直近フレームの手のZ座標（GetHandHeightBelowHeadCm 用にキャッシュ） */
 	float CachedHandZ = 0.0f;
 
 	// ==================== 外部データソース用 内部状態 ====================

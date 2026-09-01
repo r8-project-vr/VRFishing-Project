@@ -19,13 +19,19 @@ struct FFishingDeviceSampleCore
 	double TimestampSec = 0.0;
 
 	// --- アームトラッカー（オイラー角・度） ---
+	/** X軸角度（deg）= Roll */
 	float AxisXDeg = 0.0f;
+	/** Y軸角度（deg）= Pitch。上下運動判定の既定軸 */
 	float AxisYDeg = 0.0f;
+	/** Z軸角度（deg）= Yaw */
 	float AxisZDeg = 0.0f;
 
 	// --- 自転車デバイス ---
+	/** 回転速度 RPS（回転/秒） */
 	float Rps = 0.0f;
+	/** 回転速度 RPM（回転/分）= RPS×60 */
 	float Rpm = 0.0f;
+	/** 回転方向（1=正転 / 0=逆転。取付方向に依存） */
 	uint8 Direction = 1;
 
 	/** @brief 経過秒を計算して返す（未受信時は実質無限大） */
@@ -53,7 +59,7 @@ enum class EFishingWiredDeviceType : uint8
 
 /**
  * @brief 有線デバイスの接続状態。
- * @noteConnecting=接続試行中 / Connected=通信確立 / Disconnected=未接続(再試行待ち) / Idle=未起動
+ * @note Connecting=接続試行中 / Connected=通信確立 / Disconnected=未接続(再試行待ち) / Idle=未起動
  */
 UENUM(BlueprintType)
 enum class EFishingWiredDeviceState : uint8

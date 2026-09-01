@@ -14,9 +14,6 @@
 #include "Tanimura/Component/FishingResultStateComponent.h"
 #include "Tanimura/FishingGameModeBase.h"
 #include "Engine/Engine.h"
-// 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-#include "VRFishingLog.h"
-// 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 AVRPawn::AVRPawn()
 {
@@ -86,24 +83,14 @@ void AVRPawn::BeginPlay()
     }
 
     // 初期状態として準備ステートを設定
-    // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-    // 本編マップ（FishingMapName）でのみ釣りステートマシンを起動する。
-    // タイトルメニュー等の他マップでは全ステートを非アクティブのまま維持し、
-    // リール RPM 誤検知や Ready→HandUpDown の自走によるリザルト誤表示を防ぐ。
-    // ※ PIE では GetMapName() が "UEDPIE_0_LV_MainGame" 形式になるため
-    //   RemovePIEPrefix() で除去してから比較する（FName 比較は大文字小文字を区別しない）
-    const UWorld* World = GetWorld();
-    const bool bIsFishingMap = World && (FName(*UWorld::RemovePIEPrefix(World->GetMapName())) == FishingMapName);
-    if (!bIsFishingMap)
-    {
-        // マップ名の誤記・改名でステートマシンが起動しない状態を早期に検知するための警告
-        UE_LOG(LogFishing, Warning, TEXT("[FishingState] 本編マップではないためステートマシンを起動しません: Map=%s (期待: %s)"),
-            World ? *World->GetMapName() : TEXT("None"), *FishingMapName.ToString());
-    }
-    if (bIsFishingMap && StateManagerComponent && ReadyStateComponent) {
+    // 2026.08.31 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // マップ名判定は廃止（9770f22 の当該部分を削除）。
+    // タイトル／リザルトは BP_MenuPawn（釣りコンポーネントなし）を使うため、
+    // 本ポーンは本編マップでしか生成されず、判定は不要になった。
+    if (StateManagerComponent && ReadyStateComponent) {
         StateManagerComponent->ChangeState(ReadyStateComponent);
     }
-    // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 2026.08.31 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
 
 void AVRPawn::InjectReelStickInput(FVector2D StickInput)
