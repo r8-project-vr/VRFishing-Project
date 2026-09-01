@@ -40,7 +40,7 @@ public class VRFishing : ModuleRules
 		// UHeadMountedDisplayFunctionLibrary は XRBase プラグイン（UE5.8 ではモジュール分割済み）
 		PublicDependencyModuleNames.AddRange(new string[] { "HeadMountedDisplay", "XRBase" });
 		// 2026.08.31 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-		
+
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
 
