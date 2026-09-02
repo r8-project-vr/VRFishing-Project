@@ -105,6 +105,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Height Detection")
 	float GetHandHeightBelowHeadCm() const;
 
+	/**
+	 * @brief 直近フレームの実効的な手のワールド Z 高さを取得する。
+	 * @param OutHandZCm 手の Z 座標 [cm]。通常モード = HandRef の実測値、
+	 *        外部データモード = 注入率から逆算した仮想 Z（BottomOffset/TopOffset 準拠）
+	 * @return Tick で一度でも手 Z を計算済みなら true
+	 * @note 釣り竿ビジュアライザなど「センサの実効値に追従したい」表示系が利用する。
+	 *       両モードで同一規約の値を返すため、呼び出し側はデータ経路を意識しなくてよい。
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Height Detection")
+	bool GetEffectiveHandZCm(float& OutHandZCm) const;
+
 	// ==================== 外部データソース用 I/F ====================
 
 	/**
@@ -143,6 +154,9 @@ private:
 
 	/** @brief 直近フレームの手のZ座標（GetHandHeightBelowHeadCm 用にキャッシュ） */
 	float CachedHandZ = 0.0f;
+
+	/** @brief CachedHandZ を Tick で一度でも計算済みか（GetEffectiveHandZCm の有効判定） */
+	bool bHasCachedHandZ = false;
 
 	// ==================== 外部データソース用 内部状態 ====================
 

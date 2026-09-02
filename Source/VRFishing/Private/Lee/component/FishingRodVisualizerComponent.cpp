@@ -37,10 +37,17 @@ void UFishingRodVisualizerComponent::BeginPlay()
 		return;
 	}
 
-	// --- 実行時キャッシュの構築（カメラ / 状態マネージャ / 同期元コントローラ） ---
+	// --- 実行時キャッシュの構築（カメラ / 状態マネージャ / センサ / 同期元コントローラ） ---
 	CachedCamera = Owner->FindComponentByClass<UCameraComponent>();
 	CachedStateManager = Owner->FindComponentByClass<UFishingStateManagerComponent>();
 	CachedHandController = FindHandMotionController();
+
+	// --- センサの Tick を先行させる（外部データモードの仮想 Z を本フレーム値で受けるため） ---
+	CachedDetector = Owner->FindComponentByClass<UHandHeightDetectorComponent>();
+	if (CachedDetector)
+	{
+		AddTickPrerequisiteComponent(CachedDetector);
+	}
 
 	if (!CachedHandController)
 	{
@@ -87,7 +94,7 @@ void UFishingRodVisualizerComponent::TickComponent(float DeltaTime, enum ELevelT
 	}
 
 	// --- 同期元が無い場合はスポーン姿勢のまま静止 ---
-	if (!CachedHandController)
+	if (!CachedHandController && !CachedDetector)
 	{
 		return;
 	}
@@ -315,11 +322,25 @@ void UFishingRodVisualizerComponent::SetRodHidden(bool bHidden)
 
 float UFishingRodVisualizerComponent::GetRodHandHeight(bool& bOutValid) const
 {
-	bOutValid = CachedHandController != nullptr;
-	if (!CachedHandController)
+	bOutValid = false;
+
+	// 最優先: センサの実効手 Z（通常 = HandRef の実測、外部データ/模擬モード = 注入データの仮想 Z）
+	if (CachedDetector)
 	{
-		return 0.0f;
+		float SensorZ = 0.0f;
+		if (CachedDetector->GetEffectiveHandZCm(SensorZ))
+		{
+			bOutValid = true;
+			return SensorZ;
+		}
 	}
-	// ワールド Z をそのまま使う（HMD 座標系に依存しない素直な高さ）
-	return CachedHandController->GetComponentLocation().Z;
+
+	// フォールバック: センサ未検出/未計算時はモーションコントローラの実 Z（従来動作）
+	if (CachedHandController)
+	{
+		bOutValid = true;
+		// ワールド Z をそのまま使う（HMD 座標系に依存しない素直な高さ）
+		return CachedHandController->GetComponentLocation().Z;
+	}
+	return 0.0f;
 }
