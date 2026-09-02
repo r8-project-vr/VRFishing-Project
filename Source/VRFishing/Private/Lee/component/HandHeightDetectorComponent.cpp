@@ -59,6 +59,7 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 			// HandHeightPercent(0=下,1=上) を BottomOffset〜-TopOffset にマッピング
 			const float VirtualZOffset = FMath::Lerp(BottomOffset, -TopOffset, ExternalHeightPercent);
 			CachedHandZ = CachedHeadZ - VirtualZOffset;
+			bHasCachedHandZ = true;
 		}
 
 		// 速度の処理（注入された速度が有効な場合のみ。負値は「速度計算スキップ」の意味）
@@ -117,6 +118,7 @@ void UHandHeightDetectorComponent::TickComponent(float DeltaTime, enum ELevelTic
 	// cm 意味インターフェース用にキャッシュ
 	CachedHeadZ = HeadZ;
 	CachedHandZ = HandZ;
+	bHasCachedHandZ = true;
 
 	// 絶対高さの範囲を計算
 	const float MinZ = HeadZ - BottomOffset;
@@ -198,6 +200,13 @@ float UHandHeightDetectorComponent::GetHandHeightBelowHeadCm() const
 {
 	// 正 = 手が頭より下にある
 	return CachedHeadZ - CachedHandZ;
+}
+
+bool UHandHeightDetectorComponent::GetEffectiveHandZCm(float& OutHandZCm) const
+{
+	// 両データ経路（HandRef 実測 / 外部注入の仮想 Z）で共通に書き込まれるキャッシュを返す
+	OutHandZCm = CachedHandZ;
+	return bHasCachedHandZ;
 }
 
 void UHandHeightDetectorComponent::SetExternalHandData(float InHeightPercent, float InSpeed)

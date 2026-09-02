@@ -9,6 +9,7 @@
 
 class AActor;
 class UCameraComponent;
+class UHandHeightDetectorComponent;
 class UMaterialInterface;
 class UMotionControllerComponent;
 class USkeletalMeshComponent;
@@ -22,8 +23,10 @@ class UFishingStateManagerComponent;
  *        BeginPlay: RodActorClass（BP_FishingRod）をカメラ正面へスポーン（水平前向きの初期姿勢）。
  *                   この位置・基礎回転を CachedSpawnPose に固定する
  *        Tick:      Location は常にスポーン位置のまま（追従しない）。
- *                   Rotation はピッチ 1 軸のみ、同期元（センサ HandRef＝進行バーと同一データ経路）の
+ *                   Rotation はピッチ 1 軸のみ、同期元（センサの実効手 Z＝進行バーと同一データ経路。
+ *                   外部デバイス/模擬モードでは注入データの仮想 Z に追従する）の
  *                   ワールド Z 変位 × PitchDegreesPerCm で駆動（FInterpTo 平滑）。
+ *                   センサが値を持つまでのフォールバックとして MotionController の実 Z も使用。
  *        両手のスケルタルメッシュは非表示化し、竿を視覚の主役にする。
  *        入力・判定系（ステートマシン/センサ/ウィジェット）には一切触れない純視覚コンポーネント。
  */
@@ -144,13 +147,14 @@ private:
 	/** @brief 竿アクタの表示/非表示を切替える（結果状態表示中は非表示、準備復帰で再表示） */
 	void SetRodHidden(bool bHidden);
 
-	/** @brief 同期元の手のワールド Z 高さを取得する（bOutValid=同期元有効時 true） */
+	/** @brief 同期元の手のワールド Z 高さを取得する（センサ実効値優先、コントローラ実 Z フォールバック。bOutValid=同期元有効時 true） */
 	float GetRodHandHeight(bool& bOutValid) const;
 
-	// 実行時キャッシュ（カメラ / 状態マネージャ / 同期元コントローラ）
+	// 実行時キャッシュ（カメラ / 状態マネージャ / センサ / 同期元コントローラ）
 	TObjectPtr<UCameraComponent> CachedCamera = nullptr;
 	TObjectPtr<UMotionControllerComponent> CachedHandController = nullptr;
 	TObjectPtr<UFishingStateManagerComponent> CachedStateManager = nullptr;
+	TObjectPtr<UHandHeightDetectorComponent> CachedDetector = nullptr;
 
 	// 非表示化対象の手メッシュ（BeginPlay で一度だけ収集）
 	UPROPERTY(Transient)
