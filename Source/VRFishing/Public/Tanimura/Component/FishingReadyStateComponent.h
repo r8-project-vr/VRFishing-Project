@@ -13,6 +13,7 @@ class UHandHeightDetectorComponent;
 /**
  * ゲーム開始直後の「準備モード」
  * HUDを基準に、指定の高さ(初期値50cm)より低い位置で数秒(初期値2秒)待つと、次のモードへ
+ * (2026.09.03 Lee: 実機デバイスは正規化 0% を下回らないため、正規化手高率 20% 以下のキープ判定へ変更)
  */
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class VRFISHING_API UFishingReadyStateComponent : public UFishingStateComponentBase
@@ -42,6 +43,13 @@ protected:
 	// 準備完了（手を下ろしている）と判定する、HUDとの下向き距離 (cm)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Fishing|Ready")
     float RequiredDownDistance = 50.0f;
+
+    // 2026.09.03 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 準備完了（手を下ろしている）と判定する、正規化手高率のしきい値 (0.0=下限 〜 1.0=上限)。
+	// 実機デバイスは正規化 0% を下回らないため、RequiredDownDistance の cm 判定からこちらへ変更
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Fishing|Ready")
+    float RequiredDownPercent = 0.2f;
+    // 2026.09.03 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 	// 次のステートに進むために、準備完了状態でキープしなければいけない時間 (秒)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Fishing|Ready")

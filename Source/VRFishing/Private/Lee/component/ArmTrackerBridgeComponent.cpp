@@ -131,7 +131,7 @@ void UArmTrackerBridgeComponent::TickComponent(float DeltaTime, enum ELevelTick 
 	{
 		const FString SourceText = Subsystem->IsSimulatorMode()
 			? TEXT("SIM")
-			: FString::Printf(TEXT("COM%d"), Subsystem->GetConnectedComPort());
+			: FString::Printf(TEXT("COM%d"), Subsystem->GetDeviceComPort(EFishingWiredDeviceType::ArmTracker));
 		FString DebugMsg = FString::Printf(
 			TEXT("[ArmBridge] Raw: %.1f° | Percent: %.2f | Speed: %.1f cm/s | Age: %.2fs | %s"),
 			RawAngleDeg, SmoothedPercent, SpeedCmPerSec, Sample.AgeSeconds, *SourceText);

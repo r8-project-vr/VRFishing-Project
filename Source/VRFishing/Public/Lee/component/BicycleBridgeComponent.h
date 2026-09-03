@@ -18,6 +18,8 @@ class UFishingWiredDeviceSubsystem;
  *         → AVRPawn::InjectReelStickInput((cosθ, sinθ))
  *       InjectReelStickInput は前後フレームのベクトル角差 → Δangle → RPM 計算・速すぎ/遅すぎ判定
  *       （CalculateRPM/JudgeRPM）へそのまま流れるため、実リールと同じ判定プレイが成立する。
+ *       デバイスの回転方向(0x23)が 0（逆転）でも踏み込み強度は絶対値で正方向へ反映される
+ *       （ゲーム判定は正角差のみ受理のため。方向はログ/Debug 表示専用）。
  *       Reel 状態が非アクティブのときは Pawn 側で入力が無視されるため本ブリッジの個別ゲートは不要。
  *       BP_XRPawn へ手動追加して使用する。
  */
@@ -34,13 +36,14 @@ public:
 
 	// ==================== 設定パラメータ ====================
 
-	/** @brief デバイスの回転方向データが 0（逆転）のときに入力方向を反転するか（既定: 反転する） */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|WiredDevice")
-	bool bRespectDeviceDirection = true;
-
-	/** @brief 仮想スティックの回転向きを反転する（回転角度の進む向き調整） */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|WiredDevice")
-	bool bInvertVirtualRotation = false;
+	// 2026.09.03 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 旧パラメータ bRespectDeviceDirection / bInvertVirtualRotation は削除。
+	// ゲーム側 SimulateReelByStick は「正方向の角差」のみ受理する（DeltaAngle>0 フィルタ）ため、
+	// 方向 0x23=0 (逆転) を負の RPS として注入すると負角差が全てフィルタされ「完全無反応」になる。
+	// → 有効 RPS は絶対値へ正規化して常に正方向へ進める方式へ変更（回転方向はログ/表示専用）。
+	//   なお旧 bInvertVirtualRotation は毎フレーム θ の符号を反転する実装であり、
+	//   反転ではなく ±振動（巨大な角差ジャンプ）を生むバグだったため、一緒に撤去した。
+	// 2026.09.03 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 	/** @brief RPS に掛ける係数（装置のギヤ比などで実効速度を調整する場合に使用） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|WiredDevice", meta = (ClampMin = "0.0"))

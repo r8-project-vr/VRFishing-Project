@@ -35,14 +35,17 @@ void UFishingReadyStateComponent::UpdateState(float DeltaTime)
         return;
     }
 
-    // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-    // 手部運動センサから手の下がり量を取得して判定（従来の Actor 位置参照の誤判定を修正）
+    // 2026.09.03 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 手部運動センサから正規化手高率を取得して判定（実機デバイスは 0% を下回らないため cm 判定から率判定へ変更）
     if (!HandHeightDetector.IsValid() && GetOwner())
     {
         HandHeightDetector = GetOwner()->FindComponentByClass<UHandHeightDetectorComponent>();
     }
+    //const bool bIsHandLowered = HandHeightDetector.IsValid()
+    //    && (HandHeightDetector->GetHandHeightBelowHeadCm() >= RequiredDownDistance);←もともとのコードも消さない！
     const bool bIsHandLowered = HandHeightDetector.IsValid()
-        && (HandHeightDetector->GetHandHeightBelowHeadCm() >= RequiredDownDistance);
+        && (HandHeightDetector->HandHeightPercent <= RequiredDownPercent);
+    // 2026.09.03 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     //const FVector HUDLocation = GetHUDLocation();
     //const FVector HandLocation = GetRightHandLocation();

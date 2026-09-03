@@ -11,7 +11,8 @@
  * @brief 有線デバイス（ASerial/UART）連携の調整項目を Project Settings で設定するための DeveloperSettings。
  * @note 変更は DefaultGame.ini に保存され、再コンパイル不要。実行中の読み取りは都度 CDO を参照するため即時反映される。
  * @note 「Fishing Wired Device (有線デバイス設定)」カテゴリで表示される。
- *       デバイス実機が未完成の間は bUseSimulator=true（既定）で模擬データが流れる。
+ *       2 台（アームトラッカー 0x02 / 自転車 0x03）は種別ごとのスイッチと COM 指定で同時接続できる。
+ *       デバイス実機が未完成の間は bUseSimulator=true（既定）で模擬データが流れる（両デバイス分を生成）。
  */
 UCLASS(Config = Game, DefaultConfig, meta = (DisplayName = "Fishing Wired Device (有線デバイス設定)"))
 class VRFISHING_API UFishingWiredDeviceSettings : public UDeveloperSettings
@@ -25,13 +26,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "接続")
 	bool bAutoConnectOnStartup = true;
 
-	/** @brief 接続対象のデバイス種別（ASerial デバイスID 照合に使用） */
+	/** @brief アームトラッカー(0x02)に接続するか。実機が手元に無い間は false で探査を止められる */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "接続")
-	EFishingWiredDeviceType DeviceType = EFishingWiredDeviceType::ArmTracker;
+	bool bConnectArmTracker = true;
 
-	/** @brief 接続先 COM ポート指定（0 = 自動探査: COM1〜255 を順に試す。ASerial 規格 6-5 の自動探査に相当） */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "接続", meta = (ClampMin = "0", ClampMax = "255"))
-	int32 ComPortOverride = 0;
+	/** @brief 自転車デバイス(0x03)に接続するか。実機が手元に無い間は false で探査を止められる */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "接続")
+	bool bConnectBicycle = true;
+
+	/** @brief アームトラッカーの接続先 COM ポート指定（0 = 自動探査: COM1〜256 を順に試す。ASerial 規格 6-5 の自動探査に相当） */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "接続", meta = (ClampMin = "0", ClampMax = "256"))
+	int32 ArmTrackerComPortOverride = 0;
+
+	/** @brief 自転車デバイスの接続先 COM ポート指定（0 = 自動探査） */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "接続", meta = (ClampMin = "0", ClampMax = "256"))
+	int32 BicycleComPortOverride = 0;
 
 	/** @brief データ取得（ポーリング）周期 [秒]。ASerial は応答型のため常時ポーリングが必要 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "接続", meta = (ClampMin = "0.002", ClampMax = "0.1"))
@@ -79,19 +88,27 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "模擬データ", meta = (ClampMin = "1.0"))
 	float SimRpsWavePeriodSeconds = 6.0f;
 
-	// ==================== ASerial デバイス定数（仕様書値） ====================
+	// ==================== ASerial デバイス識別（既定値は仕様書バージョン2 準拠） ====================
+	// ※ 前作『自転車でGo!』の DeviceManager(WiredDeviceID/WiredDeviceVer) と同様に、
+	//    エディタから変更可能なプロパティとしている。実機ファームの報告する ID/Ver が
+	//    仕様書と異なる場合でも、ここを実機値へ合わせれば再コンパイルなしで照合を通過できる。
+	//   （照合は min=max の一致判定: サブシステムから Initialize(ID, Ver, Ver) として渡す）
 
-	/** @brief アームトラッカーの DeviceID（仕様書: 0x02） */
-	static constexpr uint8 ArmTrackerDeviceId = 0x02;
+	/** @brief アームトラッカーの DeviceID（仕様書: 0x02 = 2） */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "ASerialデバイス識別", meta = (ClampMin = "0", ClampMax = "255"))
+	int32 ArmTrackerDeviceId = 0x02;
 
-	/** @brief アームトラッカーの DeviceVer（仕様書: 0x01） */
-	static constexpr uint8 ArmTrackerDeviceVer = 0x01;
+	/** @brief アームトラッカーの DeviceVer（仕様書: 0x01 = 1）。実機の報告値との一致が必要 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "ASerialデバイス識別", meta = (ClampMin = "0", ClampMax = "255"))
+	int32 ArmTrackerDeviceVer = 0x01;
 
-	/** @brief 自転車デバイスの DeviceID（仕様書: 0x03） */
-	static constexpr uint8 BicycleDeviceId = 0x03;
+	/** @brief 自転車デバイスの DeviceID（仕様書: 0x03 = 3） */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "ASerialデバイス識別", meta = (ClampMin = "0", ClampMax = "255"))
+	int32 BicycleDeviceId = 0x03;
 
-	/** @brief 自転車デバイスの DeviceVer（仕様書: 0x02） */
-	static constexpr uint8 BicycleDeviceVer = 0x02;
+	/** @brief 自転車デバイスの DeviceVer（仕様書: 0x02 = 2）。実機の報告値との一致が必要 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "ASerialデバイス識別", meta = (ClampMin = "0", ClampMax = "255"))
+	int32 BicycleDeviceVer = 0x02;
 
 	/** @brief アームトラッカー: オイラー角取得コマンド（仕様書: 0x21, 符号付き4Byte×3軸 X Y Z, 1000倍） */
 	static constexpr uint8 ArmTrackerCmdGetEuler = 0x21;

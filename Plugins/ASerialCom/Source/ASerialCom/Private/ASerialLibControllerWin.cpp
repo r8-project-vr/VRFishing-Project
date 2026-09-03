@@ -93,7 +93,12 @@ ConnectResult UASerialLibControllerWin::AutoConnectDevice() {
     ConnectResult ret = ConnectResult::Fail;
     // 2025.08.06 end
 
-    for (int i = 1; i <= 255; ++i) {
+    // 2026.09.02 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // ASerial 規格 6-5「シリアルポートの最大数 256 個試す」に準拠させ、探査上限を COM255 から COM256 へ拡大。
+    // 元コード（消さずにコメントで残す）:
+    //     for (int i = 1; i <= 255; ++i) {
+    for (int i = 1; i <= 256; ++i) {
+    // 2026.09.02 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
         int st = ConnectDevice(i);
 
         if (st == 0) {

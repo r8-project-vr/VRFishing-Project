@@ -169,6 +169,17 @@ private:
     uint16_t m_lase_error_code = static_cast<uint16_t>(ASerial::ErrorCodeList::ERR_NONE);     //最後にエラーになったときのエラーコード
     bool m_connection_state = false;        //コントローラモード時の接続ステータス
 
+    // 2026.09.03 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 旧 ReadPacketData 内の static 局所変数（読み取り位置/カウンタ/チェックサム/バッファ）を
+    // インスタンス メンバへ移管。静的変数は全インスタンス（=全シリアルポート）で共用されるため、
+    // 複数デバイスの同時受信（双ワーカー: アーム 0x02 + 自転車 0x03）時にフレーム解析状態が
+    // 相互破壊され、偶然の応答異常・チェックサムエラーが発生する問題への対処。
+    uint8_t m_packet_step = 0;                 //パケット読み取り位置管理
+    uint8_t m_data_read_count = 0;             //データ読み取り数カウント
+    uint16_t m_check_data_sum = 0;             //チェック用データ加算変数
+    uint8_t m_check_data_buf[2] = { 0 };       //2データ分のデータを読むためのバッファ
+    // 2026.09.03 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
     /// @brief フラグをリセット
     void ResetFlags(void);
 
