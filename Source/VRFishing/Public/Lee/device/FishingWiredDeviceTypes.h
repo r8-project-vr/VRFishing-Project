@@ -29,7 +29,10 @@ struct FFishingDeviceSampleCore
 	// --- 自転車デバイス ---
 	/** 回転速度 RPS（回転/秒） */
 	float Rps = 0.0f;
-	/** 回転速度 RPM（回転/分）= RPS×60 */
+	// 2026.09.03 Lee(2) startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/** 回転速度 RPM（回転/分）。デバイスの 0x21 応答の生値（診断用の併取得値）。
+	 *  旧仕様（消さずに残す）: RPS×60 で算出した値 */
+	// 2026.09.03 Lee(2) endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	float Rpm = 0.0f;
 	/** 回転方向（1=正転 / 0=逆転。取付方向に依存） */
 	uint8 Direction = 1;
@@ -122,7 +125,10 @@ struct FBicycleSample
 	UPROPERTY(BlueprintReadOnly, Category = "Fishing|WiredDevice")
 	float Rps = 0.0f;
 
-	/** @brief 回転速度 RPM（回転/分）= RPS×60 */
+	// 2026.09.03 Lee(2) startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/** @brief 回転速度 RPM。デバイスの 0x21 応答の生値（RPS 不推移の診断用併取得値）。
+	 *  旧仕様（消さずに残す）: RPS×60 で算出 */
+	// 2026.09.03 Lee(2) endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	UPROPERTY(BlueprintReadOnly, Category = "Fishing|WiredDevice")
 	float Rpm = 0.0f;
 

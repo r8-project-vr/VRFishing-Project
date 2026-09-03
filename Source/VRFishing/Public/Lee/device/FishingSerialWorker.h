@@ -81,6 +81,18 @@ private:
 	/** @brief 接続断とみなしてポートを閉じ、再接続シーケンスへ遷移させる */
 	void ForceReconnect(const TCHAR* Reason);
 
+	// 2026.09.03 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/** @brief 送信前に受信バッファをクリアしてからコマンドを送る（応答型一問一答の徹底）。
+	 *  @return WriteData の戻り値（0=成功）
+	 *  @note 遅延した前回応答を受信バッファへ残さないことで、ReadData の応答が
+	 *        必ず直前の送信へのものになる（フレーム食い違いの根本対策） */
+	int32 WriteCmdFlushed(uint8 Cmd);
+
+	/** @brief ポーリング異常（応答長異常・タイムアウト）の復旧。バッファをクリアし連続失敗を加算、
+	 *        閾値（20 回）超過時のみ再接続へ。前作『自転車でGo!』の「異常時も切断しない」方式に準拠 */
+	void HandlePollFailure(const TCHAR* Reason);
+	// 2026.09.03 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 	/** @brief 状態を更新する（スレッド安全） */
 	void SetState(EFishingWiredDeviceState NewState);
 
@@ -133,4 +145,12 @@ private:
 	int32 ConsecutiveFailures = 0;
 	/** 最後に受信した回転方向（1 秒毎の 0x23 ポーリング結果を RPS 取得時に添付する） */
 	uint8 LastDirection = 1;
+	// 2026.09.03 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/** @brief 踩踏検知ログ（初回 RPS≠0）を出力済みか（自転車のみ使用・1 回限り） */
+	bool bLoggedFirstNonZeroRps = false;
+	// 2026.09.03 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 2026.09.03 Lee(2) startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/** @brief 直近の RPM(0x21) 応答の生値（診断併取得用。読取失敗時は前回値を維持） */
+	float RpmFromDevice = 0.0f;
+	// 2026.09.03 Lee(2) endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 };
