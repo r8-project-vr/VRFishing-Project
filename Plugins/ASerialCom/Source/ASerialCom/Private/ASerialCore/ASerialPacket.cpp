@@ -202,10 +202,15 @@ void UASerialPacket::SetConnectionState(bool state) { m_connection_state = state
 int UASerialPacket::ReadPacketData(uint8_t _indata, ASerialDataStruct::ASerialData* data_buf_pt)
 {
     int ret_st = 0;                          // リターンステート
-    static uint8_t step = 0;                 // パケット読み取り位置管理
-    static uint8_t data_read_count = 0;      // データ読み取り数カウント
-    static uint16_t check_data_sum = 0;      // チェック用データ加算変数
-    static uint8_t check_data_buf[2] = { 0 };  // 2データ分のデータを読むためのバッファ
+    // 2026.09.03 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 旧来はここに static 局所変数で解析状態を保持していたが、全インスタンス（全ポート）で
+    // 共用されるため複数デバイス同時受信時に解析状態が相互破壊される。メンバ変数へ移管した。
+    // 元コード（消さずにコメントで残す）:
+    //     static uint8_t m_packet_step = 0;                 // パケット読み取り位置管理
+    //     static uint8_t m_data_read_count = 0;      // データ読み取り数カウント
+    //     static uint16_t m_check_data_sum = 0;      // チェック用データ加算変数
+    //     static uint8_t m_check_data_buf[2] = { 0 };  // 2データ分のデータを読むためのバッファ
+    // 2026.09.03 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
     if (_indata == DO_FLAG) {         // スタートフラグ
         if (m_read_packet == true) {  // パケットの読み飛ばし発生警告
@@ -219,9 +224,9 @@ int UASerialPacket::ReadPacketData(uint8_t _indata, ASerialDataStruct::ASerialDa
             m_from_controller_data_buf.command = 0;
         }
         m_read_packet = true;
-        step = 0;
-        data_read_count = 0;
-        check_data_sum = 0;
+        m_packet_step = 0;
+        m_data_read_count = 0;
+        m_check_data_sum = 0;
 
         ret_st = 0;
     }
@@ -248,11 +253,11 @@ int UASerialPacket::ReadPacketData(uint8_t _indata, ASerialDataStruct::ASerialDa
         }
 
         if (GetMode() == MODE_DEVICE) {  // デバイスモード
-            switch (step) {
+            switch (m_packet_step) {
             case 0:  // ターゲットデバイスID読み取り
                 m_from_controller_data_buf.target_device_id = _indata;
 
-                step = 1;
+                m_packet_step = 1;
                 break;
 
             case 1:  // 送信データ数
@@ -265,7 +270,7 @@ int UASerialPacket::ReadPacketData(uint8_t _indata, ASerialDataStruct::ASerialDa
                 else {
                     ret_st = 0;
                 }
-                step = 2;
+                m_packet_step = 2;
                 break;
 
             case 2:  // コマンド
@@ -283,38 +288,38 @@ int UASerialPacket::ReadPacketData(uint8_t _indata, ASerialDataStruct::ASerialDa
                 }
 
                 if (m_from_controller_data_buf.data_num <= 0) {  // データが0個ならチェックデータ読み取りへ
-                    step = 4;
+                    m_packet_step = 4;
                 }
                 else {
-                    step = 3;
+                    m_packet_step = 3;
                 }
 
                 break;
 
             case 3:  // データ読み取り
-                m_from_controller_data_buf.data[data_read_count] = _indata;
-                check_data_sum += _indata;
+                m_from_controller_data_buf.data[m_data_read_count] = _indata;
+                m_check_data_sum += _indata;
 
-                if (data_read_count >= (m_from_controller_data_buf.data_num - 1)) {
-                    step = 4;
+                if (m_data_read_count >= (m_from_controller_data_buf.data_num - 1)) {
+                    m_packet_step = 4;
                 }
 
-                ++data_read_count;
+                ++m_data_read_count;
                 ret_st = 0;
                 break;
 
             case 4:  // チェックデータ1
-                check_data_buf[0] = _indata;
+                m_check_data_buf[0] = _indata;
 
-                step = 5;
+                m_packet_step = 5;
 
                 ret_st = 0;
                 break;
 
             case 5:  // チェックデータ2
-                check_data_buf[1] = _indata;
-                uint16_t check_data = (((uint16_t)check_data_buf[0] << 8) | check_data_buf[1]);
-                if (check_data_sum != check_data) {
+                m_check_data_buf[1] = _indata;
+                uint16_t check_data = (((uint16_t)m_check_data_buf[0] << 8) | m_check_data_buf[1]);
+                if (m_check_data_sum != check_data) {
                     ret_st = -1;
                     m_error_flag = true;
                     m_lase_error_code = static_cast<uint16_t>(ASerial::ErrorCodeList::ERR_CHECK_DATA_MISMATCH);
@@ -334,7 +339,7 @@ int UASerialPacket::ReadPacketData(uint8_t _indata, ASerialDataStruct::ASerialDa
             }
         }
         else {  // コントローラモード
-            switch (step) {
+            switch (m_packet_step) {
             case 0:  // 送信データ数の読み取り
                 m_from_device_data_buf.data_num = _indata;
                 if (m_from_device_data_buf.data_num > DATA_NUM_MAX) {
@@ -345,32 +350,32 @@ int UASerialPacket::ReadPacketData(uint8_t _indata, ASerialDataStruct::ASerialDa
                 else {
                     ret_st = 0;
                 }
-                step = 1;
+                m_packet_step = 1;
                 break;
             case 1:  // データ読み取り
-                m_from_device_data_buf.data[data_read_count] = _indata;
-                check_data_sum += _indata;
+                m_from_device_data_buf.data[m_data_read_count] = _indata;
+                m_check_data_sum += _indata;
 
-                if (data_read_count >= (m_from_device_data_buf.data_num - 1)) {
-                    step = 2;
+                if (m_data_read_count >= (m_from_device_data_buf.data_num - 1)) {
+                    m_packet_step = 2;
                 }
 
-                ++data_read_count;
+                ++m_data_read_count;
                 ret_st = 0;
                 break;
 
             case 2:  // チェックデータ1
-                check_data_buf[0] = _indata;
+                m_check_data_buf[0] = _indata;
 
-                step = 3;
+                m_packet_step = 3;
 
                 ret_st = 0;
                 break;
 
             case 3:  // チェックデータ2
-                check_data_buf[1] = _indata;
-                uint16_t check_data = (((uint16_t)check_data_buf[0] << 8) | check_data_buf[1]);
-                if (check_data_sum != check_data) {
+                m_check_data_buf[1] = _indata;
+                uint16_t check_data = (((uint16_t)m_check_data_buf[0] << 8) | m_check_data_buf[1]);
+                if (m_check_data_sum != check_data) {
                     ret_st = -1;
                     m_error_flag = true;
                     m_lase_error_code = static_cast<uint16_t>(ASerial::ErrorCodeList::ERR_CHECK_DATA_MISMATCH);
