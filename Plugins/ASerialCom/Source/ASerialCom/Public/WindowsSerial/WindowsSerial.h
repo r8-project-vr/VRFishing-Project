@@ -3,7 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include <Windows.h>
+// 2026.09.02 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// Windows.h をヘッダから外す（前作『自転車でGo!』最終版 ウー 2025.12.23 の改修を準拠移植）。
+// ヘッダ経由で Windows.h のマクロ(min/max等)がゲームモジュール全体に漏れるのを防ぐため、
+// include は WindowsSerial.cpp 側へ移動。ハンドル型は void* で保持する。
+// 元コード（消さずにコメントで残す）:
+//     #include <Windows.h>
+// 2026.09.02 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -91,7 +97,12 @@ private:
     static const int ASERIAL_WRITETIMEOUT_NORMAL = 200;          // デフォルト送信タイムアウト時間[ms]
     static const int ASERIAL_READ_INTERVAL_TIMEOUT_NORMAL = 50;  // デフォルト読み込みインターバルタイム
 
-    HANDLE m_serial_handle = nullptr;  // シリアル通信ハンドル
+    // 2026.09.02 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // Windows.h をヘッダから外したため、ハンドルは void* で保持（WindowsSerial.cpp 内で HANDLE へ復元して使用）。
+    // 元コード（消さずにコメントで残す）:
+    //     HANDLE m_serial_handle = nullptr;  // シリアル通信ハンドル
+    void* m_serial_handle = nullptr;  // シリアル通信ハンドル
+    // 2026.09.02 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     int m_connect_comnum = 0;          // 接続しているポート番号
     bool m_connect_state = false;  // 接続ステータス
     int m_baudrate = 0;                // 通信速度(ボーレート)

@@ -2,6 +2,12 @@
 
 
 #include "WindowsSerial/WindowsSerial.h"
+// 2026.09.02 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// ヘッダから外した Windows.h はここ（実装側）で取り込む。前作最終版と同じ構成。
+//#include "Windows/AllowWindowsPlatformTypes.h"
+#include <Windows.h>
+//#include "Windows/HideWindowsPlatformTypes.h"
+// 2026.09.02 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 // public
 WindowsSerial::WindowsSerial(int baudrate) { m_baudrate = baudrate; }
