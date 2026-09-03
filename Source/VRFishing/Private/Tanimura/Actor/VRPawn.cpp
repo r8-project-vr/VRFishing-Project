@@ -14,6 +14,9 @@
 #include "Tanimura/Component/FishingResultStateComponent.h"
 #include "Tanimura/FishingGameModeBase.h"
 #include "Engine/Engine.h"
+// 2026.09.01 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+#include "Lee/component/FishingRodVisualizerComponent.h"
+// 2026.09.01 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 AVRPawn::AVRPawn()
 {
@@ -37,6 +40,10 @@ AVRPawn::AVRPawn()
     ReelStateComponent = CreateDefaultSubobject<UFishingReelStateComponent>(TEXT("ReelStateComponent"));
     CatchingStateComponent = CreateDefaultSubobject<UFishingCatchingStateComponent>(TEXT("CatchingStateComponent"));
     ResultStateComponent = CreateDefaultSubobject<UFishingResultStateComponent>(TEXT("ResultStateComponent"));
+    // 2026.09.01 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 独立型釣り竿の視覚同期コンポーネント（CDO サブオブジェクトとして BP_XRPawn に現れる）
+    RodVisualizerComponent = CreateDefaultSubobject<UFishingRodVisualizerComponent>(TEXT("RodVisualizerComponent"));
+    // 2026.09.01 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
 
 void AVRPawn::BeginPlay()

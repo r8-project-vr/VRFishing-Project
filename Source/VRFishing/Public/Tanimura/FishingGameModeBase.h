@@ -10,8 +10,9 @@ class AFish;
 class AVRPawn;
 
 /**
- * 釣りゲーム全体の進行を管理するゲームモード
+ * 釣りゲーム本編（LV_MainGame）専用のゲームモード
  * 制限時間内でモード1（準備）からモード5（結果）のセットを繰り返し、魚の再スポーンも担当する
+ * タイトル・リザルト等の他画面は本クラスを継承せず、それぞれ専用のゲームモードを使う
  */
 UCLASS()
 class VRFISHING_API AFishingGameModeBase : public AGameModeBase
@@ -77,29 +78,12 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Fish")
     FVector FishSpawnLocation = FVector::ZeroVector;
 
-    // 本編マップ名（このマップでのみ魚のスポーンと制限時間のカウントを行う）
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Game")
-    FName FishingMapName = TEXT("LV_MainGame");
-
-    // タイトルマップ名（このマップでも残り時間を表示するが、時間はカウントしない）
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Game")
-    FName TitleMapName = TEXT("LV_Aquarium");
-
 private:
     // 魚を生成する
     AFish* SpawnFish();
 
     // レベル上の既存の魚をすべて破棄する
     void DestroyAllFish();
-
-    // 現在のマップが本編マップかを判定する
-    bool IsCurrentMapFishing() const;
-
-    // 現在のマップがタイトルマップかを判定する
-    bool IsCurrentMapTitle() const;
-
-    // 残り時間を表示するマップかを判定する（本編マップまたはタイトルマップ）
-    bool IsTimeDisplayMap() const;
 
     // RemainingTime から表示用テキストを更新する
     void UpdateRemainingTimeText();
