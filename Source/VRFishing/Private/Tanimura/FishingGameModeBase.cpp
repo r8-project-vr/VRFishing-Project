@@ -4,10 +4,10 @@
 #include "Tanimura/FishingGameModeBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
-#include "Engine/Engine.h"
 #include "GameFramework/PlayerController.h"
 #include "Takeuchi/Actor/Fish.h"
 #include "Tanimura/Actor/VRPawn.h"
+#include "VRFishingLog.h"
 
 AFishingGameModeBase::AFishingGameModeBase()
 {
@@ -44,13 +44,6 @@ void AFishingGameModeBase::Tick(float DeltaSeconds)
 
     // 残り時間の表示用テキストを更新する（BPのUIバインド用）
     UpdateRemainingTimeText();
-
-    // 残り時間を画面表示する（テスト用）
-    if (GEngine) {
-        GEngine->AddOnScreenDebugMessage(
-            6, 0.0f, FColor::Green,
-            FString::Printf(TEXT("[Time] 残り %.0f 秒 / 合計 %.0f 秒"), GetRemainingTime(), TotalGameTime));
-    }
 
     // 制限時間を超えたらゲームを終了する
     if (CurrentGameTime >= TotalGameTime) {
@@ -95,8 +88,9 @@ void AFishingGameModeBase::EndGame()
 
 AFish* AFishingGameModeBase::SpawnFish()
 {
-    // 魚クラス未設定なら生成しない
+	// 魚クラス未設定なら生成せずに警告ログを出す
     if (!FishClass) {
+        UE_LOG(LogFishing, Warning, TEXT("AFishingGameModeBase::SpawnFish: FishClass が未設定のため魚をスポーンできません。BPのClass Defaultsで設定してください。"));
         return nullptr;
     }
 
@@ -123,9 +117,9 @@ float AFishingGameModeBase::GetRemainingTime() const
 
 void AFishingGameModeBase::UpdateRemainingTimeText()
 {
-    // 残り時間を「残り 分:秒」形式へ整形して表示用テキストを更新する
+    // 残り時間を分:秒形式にして表示用テキストを更新する
     RemainingTimeText = FText::FromString(FString::Printf(
-        TEXT("残り %d:%02d"),
+        TEXT("%d:%02d"),
         FMath::FloorToInt(RemainingTime / 60.0f),
         FMath::FloorToInt(RemainingTime) % 60));
 }
