@@ -221,6 +221,11 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
 
             // 引数で渡された上限RPMで速すぎ・遅すぎを判定
             JudgeRPM(CalculatedRPM, MaxAllowedRPM);
+
+            // ミス累積で失敗が確定した場合は、成功判定や回転数加算へ進まない
+            if (bIsCompleted) {
+                return;
+            }
         }
 
         // 累積角度と時間をリセット
