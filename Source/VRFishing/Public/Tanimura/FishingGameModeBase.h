@@ -45,7 +45,7 @@ public:
     UPROPERTY(BlueprintReadOnly, Category = "Fishing|Game")
     float RemainingTime = 0.0f;
 
-    // 残り時間の表示用テキスト（例：残り 1:30）（BPのUIバインド用に毎Tick更新する）
+    // 残り時間の表示用テキスト（例：1:30）（BPのUIバインド用に毎Tick更新する）
     UPROPERTY(BlueprintReadOnly, Category = "Fishing|Game")
     FText RemainingTimeText;
 
