@@ -150,6 +150,34 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 	}
 }
 
+// 2026.09.07 Lee startーーー 破棄時のタイマー解除とデリゲート購読解除 ーーー
+void UFishFightMeterWidget::NativeDestruct()
+{
+	// ステップバー自動隠蔽タイマーが破棄後に発火しないよう解除する
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(StepBarHideTimerHandle);
+	}
+
+	// 動的デリゲートはオブジェクトを GC から保護するため、破棄時に必ず解除する
+	// （RpmGaugeWidget と同じ方式。解除漏れがあると Widget 破棄後も古いインスタンスが保持され続ける）
+	if (HandUpDownState)
+	{
+		HandUpDownState->OnFishingStateCompleted.RemoveDynamic(this, &UFishFightMeterWidget::OnHandUpDownCompleted);
+	}
+	if (ReelSimulator)
+	{
+		ReelSimulator->OnRPMCalculated.RemoveDynamic(this, &UFishFightMeterWidget::OnRPMUpdated);
+	}
+	if (StateManager)
+	{
+		StateManager->OnFishingStateChanged.RemoveDynamic(this, &UFishFightMeterWidget::HandleFishingStateChanged);
+	}
+
+	Super::NativeDestruct();
+}
+// 2026.09.07 Lee endーーー
+
 /** @brief OnRPMCalculated（1 回転ごと）受信ハンドラ。実判定と同じ閾値で RPM 判定表示を更新する */
 void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 {
@@ -304,6 +332,34 @@ void UFishFightMeterWidget::ApplyPhase(EFishingPhase NewPhase, const FString& Ph
 	// BP イベント発火（OnArrowUpdated と同じプッシュ方式）
 	OnPhaseChanged(CurrentPhase, CurrentPhaseName, bPhaseSkipped);
 
+	// 2026.09.07 Lee startーーー フェーズ連動の表示切替 ーーー
+	// 矢印ガイド＝手上下フェーズ専用、RPM ゲージ一式＝リールフェーズ専用で表示する。
+	// ApplyPhase は状態遷移イベントと NativeConstruct 初回同期の合流点のため、
+	// ここで適用すればゲーム途中で生成された Widget でも正しい初期表示が得られる。
+	ApplyPhaseVisibility(NewPhase == EFishingPhase::HandUpDown, NewPhase == EFishingPhase::Reel);
+
+	// ステップバーは切替直後に表示し、StepBarDisplaySeconds 秒後に自動隠蔽する。
+	// 同一ハンドルへの再 SetTimer はカウントダウンをリセットするため、
+	// 短時間で連続遷移しても最後の切替から計時される。
+	if (!bStepBarVisible)
+	{
+		bStepBarVisible = true;
+		OnStepBarVisibilityChanged(true);
+	}
+	if (UWorld* World = GetWorld())
+	{
+		if (StepBarDisplaySeconds > 0.0f)
+		{
+			World->GetTimerManager().SetTimer(StepBarHideTimerHandle, this, &UFishFightMeterWidget::HideStepBar, StepBarDisplaySeconds, false);
+		}
+		else
+		{
+			// 0 以下＝常時表示モード（レイアウト調整用）。保留中の自動隠蔽があれば解除する
+			World->GetTimerManager().ClearTimer(StepBarHideTimerHandle);
+		}
+	}
+	// 2026.09.07 Lee endーーー
+
 	// VR テスト用の画面デバッグ表示（VRPawn の [Fishing Mode] と同じ形式）
 	if (GEngine)
 	{
@@ -314,3 +370,30 @@ void UFishFightMeterWidget::ApplyPhase(EFishingPhase NewPhase, const FString& Ph
 		GEngine->AddOnScreenDebugMessage(5, 3600.0f, FColor::Cyan, PhaseMsg);
 	}
 }
+
+// 2026.09.07 Lee startーーー フェーズ連動表示切替 ーーー
+void UFishFightMeterWidget::ApplyPhaseVisibility(bool bNewArrowGuideVisible, bool bNewRpmGaugeVisible)
+{
+	// 初回適用はデザイナー既定値に依存せず強制発火（途中生成でも正しい初期表示を保証）、以降は変化時のみ発火
+	if (!bPhaseVisibilityApplied || bNewArrowGuideVisible != bArrowGuideVisible)
+	{
+		bArrowGuideVisible = bNewArrowGuideVisible;
+		OnArrowGuideVisibilityChanged(bArrowGuideVisible);
+	}
+	if (!bPhaseVisibilityApplied || bNewRpmGaugeVisible != bRpmGaugeVisible)
+	{
+		bRpmGaugeVisible = bNewRpmGaugeVisible;
+		OnRpmGaugeVisibilityChanged(bRpmGaugeVisible);
+	}
+	bPhaseVisibilityApplied = true;
+}
+
+void UFishFightMeterWidget::HideStepBar()
+{
+	if (bStepBarVisible)
+	{
+		bStepBarVisible = false;
+		OnStepBarVisibilityChanged(false);
+	}
+}
+// 2026.09.07 Lee endーーー
