@@ -39,6 +39,10 @@ public:
     UFUNCTION(BlueprintPure, Category = "Fishing|State")
     virtual bool IsSuccessState() const;
 
+    // ステートが「制限時間を進める計時対象」か（本編タイマーの加算判定用）
+    UFUNCTION(BlueprintPure, Category = "Fishing|State")
+    virtual bool IsTimeCountingState() const;
+
 public:
     // ステート完了を外部へ通知するデリゲートインスタンス
     UPROPERTY(BlueprintAssignable, Category = "Fishing|Events")

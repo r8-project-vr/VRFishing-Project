@@ -173,6 +173,14 @@ FString UFishingStateHandUpDown::GetStateDisplayName() const
 	return TEXT("うでをあげさげ！");
 }
 
+// 2026.09.08 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+bool UFishingStateHandUpDown::IsTimeCountingState() const
+{
+	// 上下運動中は残り時間を進める
+	return true;
+}
+// 2026.09.08 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 float UFishingStateHandUpDown::CalcMatchQuality(float Error) const
 {
 	// 誤差が perfect 以下なら満点、fail 以上なら 0 点、間は線形補間

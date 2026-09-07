@@ -43,6 +43,11 @@ public:
 	/** @brief ステートの表示名（ログ・UI表示用） */
 	virtual FString GetStateDisplayName() const override;
 
+	// 2026.09.08 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 上下運動ステート中は制限時間を進める
+	virtual bool IsTimeCountingState() const override;
+	// 2026.09.08 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 	// ==================== 設定パラメータ ====================
 
 	// ---- 上下カウント ----

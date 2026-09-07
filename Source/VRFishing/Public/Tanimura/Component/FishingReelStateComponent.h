@@ -28,6 +28,9 @@ public:
 	virtual FString GetStateDisplayName() const override; // ステートの表示名（ログ・UI表示用）
 	// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
+	// リール操作中は制限時間を進める（計時対象）
+	virtual bool IsTimeCountingState() const override;
+
 	// スティック入力を基にRPMシミュレーションを実行
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
 	void SimulateReelByStick(FVector2D StickInput);

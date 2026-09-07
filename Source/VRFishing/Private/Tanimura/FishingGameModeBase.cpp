@@ -7,6 +7,8 @@
 #include "GameFramework/PlayerController.h"
 #include "Takeuchi/Actor/Fish.h"
 #include "Tanimura/Actor/VRPawn.h"
+#include "Tanimura/Component/FishingStateManagerComponent.h"
+#include "Tanimura/Component/FishingStateComponentBase.h"
 #include "VRFishingLog.h"
 
 AFishingGameModeBase::AFishingGameModeBase()
@@ -36,8 +38,10 @@ void AFishingGameModeBase::Tick(float DeltaSeconds)
         return;
     }
 
-    // 経過時間を進める
-    CurrentGameTime += DeltaSeconds;
+    // 制限時間を進める対象のステート（モード2・モード3）時のみタイマーを進める
+    if (ShouldAdvanceTimer()) {
+        CurrentGameTime += DeltaSeconds;
+    }
 
     // 残り時間を更新する（BPのUIバインド用）
     RemainingTime = GetRemainingTime();
@@ -122,4 +126,41 @@ void AFishingGameModeBase::UpdateRemainingTimeText()
         TEXT("%d:%02d"),
         FMath::FloorToInt(RemainingTime / 60.0f),
         FMath::FloorToInt(RemainingTime) % 60));
+}
+
+bool AFishingGameModeBase::ShouldAdvanceTimer()
+{
+    UWorld* World = GetWorld();
+    if (!World) {
+        return false;
+    }
+
+    // プレイヤーPawnを取得する
+    APlayerController* PC = World->GetFirstPlayerController();
+    if (!PC) {
+        CachedStateManagerComponent.Reset();
+        return false;
+    }
+    APawn* Pawn = PC->GetPawn();
+    if (!Pawn) {
+        CachedStateManagerComponent.Reset();
+        return false;
+    }
+
+    // キャッシュが無効（初回・Pawn差し替え・破棄）のときは状態管理コンポーネントを取り直す
+    UFishingStateManagerComponent* StateManager = CachedStateManagerComponent.Get();
+    if (!StateManager || StateManager->GetOwner() != Pawn) {
+        StateManager = Pawn->FindComponentByClass<UFishingStateManagerComponent>();
+        CachedStateManagerComponent = StateManager;
+    }
+    if (!StateManager) {
+        return false;
+    }
+
+    // 現在アクティブなステートが計時対象かを問い合わせる
+    UFishingStateComponentBase* CurrentState = StateManager->GetCurrentState();
+    if (!CurrentState) {
+        return false;
+    }
+    return CurrentState->IsTimeCountingState();
 }
