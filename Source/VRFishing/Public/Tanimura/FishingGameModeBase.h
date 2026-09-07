@@ -8,6 +8,7 @@
 
 class AFish;
 class AVRPawn;
+class UFishingStateManagerComponent;
 
 /**
  * 釣りゲーム本編（LV_MainGame）専用のゲームモード
@@ -87,6 +88,12 @@ private:
 
     // RemainingTime から表示用テキストを更新する
     void UpdateRemainingTimeText();
+
+    // 現在ステートが制限時間を進める対象か判定
+    bool ShouldAdvanceTimer();
+
+    // ステート管理コンポーネントのキャッシュ
+    TWeakObjectPtr<UFishingStateManagerComponent> CachedStateManagerComponent;
 
     // ゲーム終了フラグ（trueの間は新しいセットを開始しない）
     bool bIsGameOver = false;

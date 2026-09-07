@@ -65,6 +65,12 @@ FString UFishingReelStateComponent::GetStateDisplayName() const
 {
     return TEXT("ぐるぐるまわして！");
 }
+
+bool UFishingReelStateComponent::IsTimeCountingState() const
+{
+    // リール操作中は残り時間を進める（計時対象）
+    return true;
+}
 // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 void UFishingReelStateComponent::ResetRevolutionCount()

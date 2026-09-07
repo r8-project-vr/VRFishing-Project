@@ -42,3 +42,9 @@ bool UFishingStateComponentBase::IsSuccessState() const
     // 通常ステートは成功を表さない
     return false;
 }
+
+bool UFishingStateComponentBase::IsTimeCountingState() const
+{
+    // 既定では計時対象にしない（計時するステートはオーバーライドして true を返す）
+    return false;
+}
