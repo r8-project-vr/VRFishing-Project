@@ -38,9 +38,16 @@ void AFishingGameModeBase::Tick(float DeltaSeconds)
         return;
     }
 
-    // 制限時間を進める対象のステート（モード2・モード3）時のみタイマーを進める
-    if (ShouldAdvanceTimer()) {
+    // 時間切れ済みなら計時しない（進行中のセットは完走させる）
+    if (!bIsTimeUp && ShouldAdvanceTimer()) {
         CurrentGameTime += DeltaSeconds;
+
+        // 制限時間に達した瞬間に時間切れを確定し、BPへ通知する
+        if (CurrentGameTime >= TotalGameTime) {
+            CurrentGameTime = TotalGameTime;
+            bIsTimeUp = true;
+            OnTimeUpBP();
+        }
     }
 
     // 残り時間を更新する（BPのUIバインド用）
@@ -48,12 +55,6 @@ void AFishingGameModeBase::Tick(float DeltaSeconds)
 
     // 残り時間の表示用テキストを更新する（BPのUIバインド用）
     UpdateRemainingTimeText();
-
-    // 制限時間を超えたらゲームを終了する
-    if (CurrentGameTime >= TotalGameTime) {
-        bIsGameOver = true;
-        OnTimeUpBP();
-    }
 }
 
 void AFishingGameModeBase::OnSetCompleted(bool bIsSuccess)
@@ -64,8 +65,8 @@ void AFishingGameModeBase::OnSetCompleted(bool bIsSuccess)
 
 void AFishingGameModeBase::StartNextSet()
 {
-    // ゲーム終了後は新しいセットを開始しない
-    if (bIsGameOver) {
+    // ゲーム終了後や時間切れ後は新しいセットを開始しない
+    if (bIsGameOver || bIsTimeUp) {
         return;
     }
 

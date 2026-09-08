@@ -65,12 +65,6 @@ void AVRPawn::BeginPlay()
         ReelStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnReelStateCompleted);
     }
 
-    // 2026.07.27 Lee start
-    // 手の上下運動ステートの完了イベントをバインド
-    //if (HandUpDownComponent) {
-    //    HandUpDownComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnHandUpDownCompleted);
-    //}
-    // 2026.07.27 Lee end
     // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     // センサ(HandUpDownComponent)は常駐化して OnFishingStateCompleted を持たないため、
     // 完了イベントは上下運動プレイステート(HandUpDownStateComponent)へバインドする
@@ -89,11 +83,8 @@ void AVRPawn::BeginPlay()
         ResultStateComponent->OnFishingStateCompleted.AddDynamic(this, &AVRPawn::OnResultStateCompleted);
     }
 
-    // 初期状態として準備ステートを設定
     // 2026.08.31 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-    // マップ名判定は廃止（9770f22 の当該部分を削除）。
-    // タイトル／リザルトは BP_MenuPawn（釣りコンポーネントなし）を使うため、
-    // 本ポーンは本編マップでしか生成されず、判定は不要になった。
+    // 初期状態として準備ステートを設定
     if (StateManagerComponent && ReadyStateComponent) {
         StateManagerComponent->ChangeState(ReadyStateComponent);
     }

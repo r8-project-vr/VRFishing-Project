@@ -50,6 +50,10 @@ public:
     UPROPERTY(BlueprintReadOnly, Category = "Fishing|Game")
     FText RemainingTimeText;
 
+    // 時間切れフラグ（タイムアップの瞬間にtrueへ変わり、最終セットの結果Widget表示判定に使う）
+    UPROPERTY(BlueprintReadOnly, Category = "Fishing|Game")
+    bool bIsTimeUp = false;
+
     // 残り時間（秒）を取得する
     UFUNCTION(BlueprintPure, Category = "Fishing|Game")
     float GetRemainingTime() const;
