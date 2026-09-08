@@ -45,3 +45,6 @@ docs/AbstractionLayer_WhyGameLogicUnchanged.md
 
 # docs: technical reports / device specs (PDF,PPTX) / extracted texts / memory notes
 docs/
+
+# UI asset backup files (local manual backups)
+*.bak-*
