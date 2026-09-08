@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Engine/TimerHandle.h"
 #include "Lee/component/HandHeightDetectorComponent.h"
 #include "Lee/component/FishingStateHandUpDown.h"
 #include "FishFightMeterWidget.generated.h"
@@ -46,6 +47,7 @@ public:
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+	virtual void NativeDestruct() override;
 
 	// ==================== 表示設定（RPM） ====================
 
@@ -56,6 +58,26 @@ protected:
 	/** 表示用の許容誤差。実行時は ReelState の判定閾値から算出された値で上書きされる（閾値が読み取れない場合のみこの設定値を使用） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|RPM")
 	float RPMTolerance = 10.0f;
+
+	// 2026.09.07 Lee startーーー フェーズ連動表示切替 ーーー
+
+	/** @brief ステップバーを表示してから自動隠蔽するまでの秒数（0 以下＝自動隠蔽せず常時表示。レイアウト調整用） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Phase", meta = (ClampMin = "0.0"))
+	float StepBarDisplaySeconds = 2.5f;
+
+	// 2026.09.07 Lee endーーー
+
+	// 2026.09.07 Lee startーーー 推奨範囲表示 ーーー
+
+	/** @brief 手が推奨範囲内のときの ProgressBar フィル色（通常色。WBP の既定フィル色＝青 (0, 0.5, 1) と同一値で復帰させる） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Arrow")
+	FLinearColor HandRangeNormalColor = FLinearColor(0.0f, 0.5f, 1.0f, 1.0f);
+
+	/** @brief 手が推奨範囲外のときの ProgressBar フィル色（警告色） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Arrow")
+	FLinearColor HandRangeWarningColor = FLinearColor::Red;
+
+	// 2026.09.07 Lee endーーー
 
 	// ==================== 出力（読み取り専用） ====================
 
@@ -100,6 +122,24 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|Arrow")
 	void OnArrowUpdated(float Position, EFishArrowState State);
 
+	// 2026.09.07 Lee startーーー 推奨範囲表示 ーーー
+
+	/**
+	 * @brief 矢印周辺の推奨範囲（評点閾値と同源）更新時に発火。各値は 0.0～1.0 の軌道スケールでクランプ済み。
+	 * @param GoodBottom    有得帯（減点なし側の限界）の下端
+	 * @param GoodTop       有得帯の上端
+	 * @param PerfectBottom 満点帯の下端
+	 * @param PerfectTop    満点帯の上端
+	 */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|Arrow")
+	void OnArrowRangeUpdated(float GoodBottom, float GoodTop, float PerfectBottom, float PerfectTop);
+
+	/** @brief 手が推奨範囲を出たり戻ったりした時に発火。ProgressBar のフィル色を BP 側で反映する */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|Arrow")
+	void OnHandRangeColorChanged(FLinearColor NewColor);
+
+	// 2026.09.07 Lee endーーー
+
 	/** @brief RPM 更新時に発火（数値表示と速度判定色を BP 側で反映する） */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|RPM")
 	void OnRPMChanged(float RPM, EHandSpeedState State);
@@ -135,6 +175,22 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|Phase")
 	void OnPhaseChanged(EFishingPhase NewPhase, const FString& PhaseName, bool bSkipped);
 
+	// 2026.09.07 Lee startーーー フェーズ連動表示切替イベント ーーー
+
+	/** @brief 矢印ガイド（手上下フェーズ専用の UI 群）の表示切替時に発火。BP 側で SetVisibility を行う */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|Phase")
+	void OnArrowGuideVisibilityChanged(bool bVisible);
+
+	/** @brief RPM ゲージ一式（リールフェーズ専用の UI 群）の表示切替時に発火。BP 側で SetVisibility を行う */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|Phase")
+	void OnRpmGaugeVisibilityChanged(bool bVisible);
+
+	/** @brief ステップバーの表示切替時に発火（切替直後に true、StepBarDisplaySeconds 経過後に false） */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Meter|Phase")
+	void OnStepBarVisibilityChanged(bool bVisible);
+
+	// 2026.09.07 Lee endーーー
+
 private:
 	/** @brief ReelState の OnRPMCalculated 受信ハンドラ（RPM 表示の更新） */
 	UFUNCTION()
@@ -153,6 +209,45 @@ private:
 
 	/** @brief フェーズを適用して BP イベントを発火（イベント駆動と初回同期で共用） */
 	void ApplyPhase(EFishingPhase NewPhase, const FString& PhaseName, bool bSkipped);
+
+	// 2026.09.07 Lee startーーー フェーズ連動表示切替 ーーー
+
+	/** @brief フェーズから導出した表示状態を BP へ通知する（変化時のみ発火。初回適用は強制発火） */
+	void ApplyPhaseVisibility(bool bNewArrowGuideVisible, bool bNewRpmGaugeVisible);
+
+	/** @brief ステップバー自動隠蔽タイマーのコールバック（表示中なら非表示へ切替通知） */
+	UFUNCTION()
+	void HideStepBar();
+
+	/** @brief ステップバー自動隠蔽タイマーのハンドル */
+	FTimerHandle StepBarHideTimerHandle;
+
+	/** @brief 前回 BP へ通知した矢印ガイド表示状態（変化検出用キャッシュ） */
+	bool bArrowGuideVisible = false;
+
+	/** @brief 前回 BP へ通知した RPM ゲージ表示状態（変化検出用キャッシュ） */
+	bool bRpmGaugeVisible = false;
+
+	/** @brief 前回 BP へ通知したステップバー表示状態（変化検出用キャッシュ） */
+	bool bStepBarVisible = false;
+
+	/** @brief フェーズ由来可視性の初回適用済みフラグ（途中生成でもデザイナー既定値に依存せず強制同期する） */
+	bool bPhaseVisibilityApplied = false;
+
+	// 2026.09.07 Lee endーーー
+
+	// 2026.09.07 Lee startーーー 推奨範囲表示 ーーー
+
+	/** @brief 矢印周辺の推奨範囲（評点閾値と同源）を算出して BP へ通知する */
+	void PushArrowRange();
+
+	/** @brief 手の帯内外判定を更新してフィル色を通知する（変化時のみ。bForce=true で強制通知） */
+	void UpdateHandRangeColor(bool bForce);
+
+	/** @brief 前回の帯内外判定キャッシュ（変化検出用） */
+	bool bHandInRange = true;
+
+	// 2026.09.07 Lee endーーー
 
 	/** @brief 常駐センサ（HandHeightPercent 表示用。所有は Pawn、Widget は参照のみ） */
 	UPROPERTY()
