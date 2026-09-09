@@ -93,7 +93,7 @@ protected:
 
     // 制限時間（秒）
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Game")
-    float TotalGameTime = 90.0f;
+    float TotalGameTime = 300.0f;
 
     // スポーンする魚クラス
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Fish")
