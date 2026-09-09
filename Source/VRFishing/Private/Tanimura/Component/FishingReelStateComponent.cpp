@@ -4,6 +4,8 @@
 #include "Tanimura/Component/FishingReelStateComponent.h"
 
 #include "Engine/Engine.h"
+#include "Engine/World.h"
+#include "Tanimura/FishingGameModeBase.h"
 // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 #include "VRFishingLog.h"
 // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
@@ -25,6 +27,7 @@ UFishingReelStateComponent::UFishingReelStateComponent()
     bIsStickTracking = false;
     TargetRevolutionCount = 10;
     CurrentRevolutionCount = 0;
+    LastRevolutionTime = 0.0;
 
     OverRPMCount = 0;
     UnderRPMCount = 0;
@@ -38,6 +41,17 @@ void UFishingReelStateComponent::EnterState()
     bIsCompleted = false;
     ResetRevolutionCount();
 
+    // 残り運動時間をGameModeの現在レベルから設定する（時間ベース完了へ移行）
+    RemainingExerciseSeconds = 20.0f;
+    const UWorld* World = GetWorld();
+    AFishingGameModeBase* GameMode = nullptr;
+    if (World) {
+        GameMode = World->GetAuthGameMode<AFishingGameModeBase>();
+    }
+    if (GameMode) {
+        RemainingExerciseSeconds = GameMode->GetCurrentExerciseSeconds();
+    }
+
     // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     // 第2セット以降にリールが無反作になる問題の切り分け用ログ。
     // ChangeState() は Activate() → EnterState() の順で呼ぶため、ここでの IsActive() は
@@ -50,6 +64,37 @@ void UFishingReelStateComponent::EnterState()
 void UFishingReelStateComponent::UpdateState(float DeltaTime)
 {
     Super::UpdateState(DeltaTime);
+
+    // 完了済み（成功/失敗）なら以降の処理を行わない
+    if (bIsCompleted) {
+        return;
+    }
+
+    // 最初の1回転を検知するまで時間計測と停止検知を開始しない（無回転のまま成功させない）
+    if (CurrentRevolutionCount <= 0) {
+        return;
+    }
+
+    const UWorld* World = GetWorld();
+    if (!World) {
+        return;
+    }
+    const double CurrentTime = World->GetTimeSeconds();
+
+    // 停止検知：最後の1回転から一定時間が経過したら失敗として完了する（停止=失敗）
+    if (CurrentTime - LastRevolutionTime >= RevolveStopTimeoutSeconds) {
+        bIsCompleted = true;
+        OnFishingStateCompleted.Broadcast(false);
+        return;
+    }
+
+    // 残り運動時間を減算し、0以下になったら時間ベースで成功として完了する
+    RemainingExerciseSeconds -= DeltaTime;
+    if (RemainingExerciseSeconds <= 0.0f) {
+        RemainingExerciseSeconds = 0.0f;
+        bIsCompleted = true;
+        OnFishingStateCompleted.Broadcast(true);
+    }
 }
 
 void UFishingReelStateComponent::ExitState()
@@ -83,6 +128,9 @@ void UFishingReelStateComponent::ResetRevolutionCount()
     // ミス回数をリセット
     OverRPMCount = 0;
     UnderRPMCount = 0;
+
+    // 停止検知の基準時刻を無効化（次の最初の1回転を起点に再設定する）
+    LastRevolutionTime = 0.0;
 }
 
 void UFishingReelStateComponent::ApplyRotationLoadLevel(int32 LoadLevel)
@@ -215,22 +263,28 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
     // 累積角度が1回転（2π）に達したか判定
     const float OneRevolutionRad = UE_TWO_PI;   // 2π ≒ 6.28318530717f
     if (AccumulatedAngleRad >= OneRevolutionRad) {
-        // 経過時間を算出
-        const double DeltaTime = CurrentTime - RotationStartTime;
+        // 最初の1回転かどうかを判定（回転数加算前の値で判定する）
+        const bool bIsFirstRevolution = (CurrentRevolutionCount == 0);
 
-        // 0で割るのを防止
-        if (DeltaTime > 0.001) {
-            // 1Min = 60秒で何回転できるか（RPM）を計算
-            const float CalculatedRPM = static_cast<float>(60.0 / DeltaTime);
-            // 算出したRPMをバインド先へ通知
-            OnRPMCalculated.Broadcast(CalculatedRPM);
+        // 最初の1回転の速度は失敗判定にもUI表示にも使わない（計時・停止検知の起点のみ）
+        if (!bIsFirstRevolution) {
+            // 経過時間を算出
+            const double DeltaTime = CurrentTime - RotationStartTime;
 
-            // 引数で渡された上限RPMで速すぎ・遅すぎを判定
-            JudgeRPM(CalculatedRPM, MaxAllowedRPM);
+            // 0で割るのを防止
+            if (DeltaTime > 0.001) {
+                // 1Min = 60秒で何回転できるか（RPM）を計算
+                const float CalculatedRPM = static_cast<float>(60.0 / DeltaTime);
+                // 算出したRPMをバインド先へ通知
+                OnRPMCalculated.Broadcast(CalculatedRPM);
 
-            // ミス累積で失敗が確定した場合は、成功判定や回転数加算へ進まない
-            if (bIsCompleted) {
-                return;
+                // 引数で渡された上限RPMで速すぎ・遅すぎを判定
+                JudgeRPM(CalculatedRPM, MaxAllowedRPM);
+
+                // ミス累積で失敗が確定した場合は、回転数加算・計時開始へ進まない
+                if (bIsCompleted) {
+                    return;
+                }
             }
         }
 
@@ -238,18 +292,16 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
         AccumulatedAngleRad -= OneRevolutionRad;   // 誤差の蓄積を防ぐため端数は残す
         RotationStartTime = CurrentTime;
 
-        // 回転数を加算し、目標に達したら通知
+        // 回転数を加算する（完了判定はUpdateStateの時間ベース処理へ移行）
         CurrentRevolutionCount++;
+
+        // 停止検知の基準時刻を更新（最初の1回転完了時から停止検知・計時を開始する）
+        LastRevolutionTime = CurrentTime;
 
         // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
         // 1回転ごとの進捗ログ（入力がステートまで届いているかの確認用）
         UE_LOG(LogFishing, Log, TEXT("[FishingReel] Revolution: %d/%d"), CurrentRevolutionCount, TargetRevolutionCount);
         // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-
-        if (CurrentRevolutionCount >= TargetRevolutionCount) {
-            bIsCompleted = true;
-            OnFishingStateCompleted.Broadcast(true);
-        }
     }
 }
 

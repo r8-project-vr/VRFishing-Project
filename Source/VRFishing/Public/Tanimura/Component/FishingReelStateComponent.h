@@ -80,9 +80,17 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "1"))
 	int32 MaxMistakeCount = 3;
 
+	// 停止とみなす無回転時間（秒）。最初の1回転を検知してから計測を開始する
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "0.1"))
+	float RevolveStopTimeoutSeconds = 5.0f;
+
 	// 現在の累積回転数
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Reel Simulator")
 	int32 CurrentRevolutionCount;
+
+	// 残り運動時間（秒）。0になると時間ベースで成功完了する（BPのUI表示用）
+	UPROPERTY(BlueprintReadOnly, Category = "Reel Simulator")
+	float RemainingExerciseSeconds = 20.0f;
 
 private:
 	// 角度変化量が1回転に達したらRPMを算出し、デリゲートを呼び出す
@@ -106,4 +114,6 @@ private:
 
 	// ミスログを画面と出力ログに表示する
 	void ShowErrorLog(bool bIsTooFast, float CurrentRPM);
+
+	double	LastRevolutionTime;		// 最後に1回転を完了した時刻（秒、停止検知に使用）
 };

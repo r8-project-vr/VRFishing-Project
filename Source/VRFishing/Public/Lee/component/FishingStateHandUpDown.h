@@ -132,6 +132,12 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Fail")
 	bool bIsFailed = false;
 
+	// 2026.09.09 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/** @brief 残り運動時間（秒）。EnterState で GameMode の現在レベルから設定し、0 で時間ベース成功 */
+	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Count")
+	float RemainingExerciseSeconds = 20.0f;
+	// 2026.09.09 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 private:
 	/** @brief 手部運動センサへの参照（EnterState で所有者から取得） */
 	TWeakObjectPtr<UHandHeightDetectorComponent> Detector;
