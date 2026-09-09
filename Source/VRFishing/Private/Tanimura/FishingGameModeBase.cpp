@@ -59,6 +59,11 @@ void AFishingGameModeBase::Tick(float DeltaSeconds)
 
 void AFishingGameModeBase::OnSetCompleted(bool bIsSuccess)
 {
+    // セット成功時のみ運動レベルを上げる（上限で頭打ち）
+    if (bIsSuccess) {
+        ExerciseLevel = FMath::Min(ExerciseLevel + 1, MaxExerciseLevel);
+    }
+
     // セット完了をBPへ通知する（BPでリザルトWidgetを生成・表示する）
     OnSetCompletedBP(bIsSuccess);
 }
@@ -127,6 +132,12 @@ void AFishingGameModeBase::UpdateRemainingTimeText()
         TEXT("%d:%02d"),
         FMath::FloorToInt(RemainingTime / 60.0f),
         FMath::FloorToInt(RemainingTime) % 60));
+}
+
+float AFishingGameModeBase::GetCurrentExerciseSeconds() const
+{
+    // 現在レベルに応じた運動秒数を計算する（レベル1で基本秒数、以降レベルごとに加算）
+    return BaseExerciseSeconds + (ExerciseLevel - 1) * ExerciseSecondsPerLevel;
 }
 
 bool AFishingGameModeBase::ShouldAdvanceTimer()

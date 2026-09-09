@@ -4,6 +4,10 @@
 #include "Lee/component/HandHeightDetectorComponent.h"
 #include "VRFishingLog.h"
 #include "GameFramework/Actor.h"
+// 2026.09.09 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+#include "Engine/World.h"
+#include "Tanimura/FishingGameModeBase.h"
+// 2026.09.09 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 UFishingStateHandUpDown::UFishingStateHandUpDown()
 {
@@ -40,6 +44,19 @@ void UFishingStateHandUpDown::EnterState()
 	// 失敗検知状態を初期化
 	FailTimeAccumulated = 0.0f;
 	bIsFailed = false;
+
+	// 2026.09.09 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 残り運動時間をGameModeの現在レベルから初期化（回数ベース→時間ベース完了へ移行）
+	RemainingExerciseSeconds = 20.0f;
+	const UWorld* World = GetWorld();
+	AFishingGameModeBase* GameMode = nullptr;
+	if (World) {
+		GameMode = World->GetAuthGameMode<AFishingGameModeBase>();
+	}
+	if (GameMode) {
+		RemainingExerciseSeconds = GameMode->GetCurrentExerciseSeconds();
+	}
+	// 2026.09.09 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
 
 /** @brief 毎フレーム処理。矢印更新 → スコア計算 → 上下カウント判定 → 失敗検知 の固定順で進める */
@@ -112,16 +129,43 @@ void UFishingStateHandUpDown::UpdateState(float DeltaTime)
 		bIsHandAtTop = false;
 		CurrentUpAndDownCount++;
 
-		// 目標回数に達したらステート完了を通知
-		if (CurrentUpAndDownCount >= TargetUpAndDownCount)
-		{
-			// 最終スコアを全フレームの真の平均から算出
-			FinalScore = (TotalFrameCount > 0) ? (TotalQualitySum / TotalFrameCount) * 100.0f : 0.0f;
-
-			bIsCompleted = true;
-			OnFishingStateCompleted.Broadcast(true);
-		}
+		// 2026.09.09 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		// 回数到達での完了判定を廃止し、下記3.5の時間ベース完了へ移行する
+		//		// 目標回数に達したらステート完了を通知
+		//		if (CurrentUpAndDownCount >= TargetUpAndDownCount)
+		//		{
+		//			// 最終スコアを全フレームの真の平均から算出
+		//			FinalScore = (TotalFrameCount > 0) ? (TotalQualitySum / TotalFrameCount) * 100.0f : 0.0f;
+		//
+		//			bIsCompleted = true;
+		//			OnFishingStateCompleted.Broadcast(true);
+		//		}
+		// 2026.09.09 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	}
+
+	// 2026.09.09 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	//bIsCompleted = true;
+	//OnFishingStateCompleted.Broadcast(true);
+
+	// ==================== 3.5 運動時間での完了判定 ====================
+
+	// 残り運動時間を減算し、0以下になったら時間ベースで成功として完了する
+	RemainingExerciseSeconds -= DeltaTime;
+	if (RemainingExerciseSeconds <= 0.0f) {
+		RemainingExerciseSeconds = 0.0f;
+
+		// 最終スコアを全フレームの真の平均から算出
+		if (TotalFrameCount > 0) {
+			FinalScore = (TotalQualitySum / TotalFrameCount) * 100.0f;
+		}
+		else {
+			FinalScore = 0.0f;
+		}
+
+		bIsCompleted = true;
+		OnFishingStateCompleted.Broadcast(true);
+	}
+	// 2026.09.09 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 	// ==================== 4. 失敗検知（過速・過遅） ====================
 
@@ -165,6 +209,11 @@ void UFishingStateHandUpDown::ExitState()
 	// 失敗検知状態をリセット
 	FailTimeAccumulated = 0.0f;
 	bIsFailed = false;
+
+	// 2026.09.09 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 残り運動時間をリセット（次回EnterStateでGameModeから再設定）
+	RemainingExerciseSeconds = 0.0f;
+	// 2026.09.09 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
 
 FString UFishingStateHandUpDown::GetStateDisplayName() const

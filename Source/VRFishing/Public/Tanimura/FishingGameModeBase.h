@@ -54,6 +54,26 @@ public:
     UPROPERTY(BlueprintReadOnly, Category = "Fishing|Game")
     bool bIsTimeUp = false;
 
+    // 現在の運動レベル（セット成功ごとに1増え、MaxExerciseLevelで頭打ち）
+    UPROPERTY(BlueprintReadOnly, Category = "Fishing|Exercise")
+    int32 ExerciseLevel = 1;
+
+    // レベル1のときの1セットあたりの運動時間（秒）
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Exercise")
+    float BaseExerciseSeconds = 20.0f;
+
+    // レベルが1上がるごとに増える運動時間（秒）
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Exercise")
+    float ExerciseSecondsPerLevel = 5.0f;
+
+    // 運動レベルの上限
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Exercise")
+    int32 MaxExerciseLevel = 5;
+
+    // 現在レベルに応じた運動時間（秒）を返す（各運動ステートがEnter時に参照）
+    UFUNCTION(BlueprintPure, Category = "Fishing|Exercise")
+    float GetCurrentExerciseSeconds() const;
+
     // 残り時間（秒）を取得する
     UFUNCTION(BlueprintPure, Category = "Fishing|Game")
     float GetRemainingTime() const;
