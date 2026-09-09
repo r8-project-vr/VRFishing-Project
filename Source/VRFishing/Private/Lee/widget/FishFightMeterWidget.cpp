@@ -2,6 +2,11 @@
 
 #include "Lee/widget/FishFightMeterWidget.h"
 #include "Lee/widget/ReelRPMThresholdReader.h"
+// 2026.09.09 Lee startーーー ステップバー 3 状態表示 ーーー
+#include "Components/Image.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Engine/Texture2D.h"
+// 2026.09.09 Lee endーーー
 #include "Tanimura/Component/FishingReelStateComponent.h"
 #include "Tanimura/Component/FishingStateManagerComponent.h"
 #include "Tanimura/Component/FishingStateComponentBase.h"
@@ -15,6 +20,13 @@
 UFishFightMeterWidget::UFishFightMeterWidget(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	// 2026.09.09 Lee startーーー 未到達ドットの既定ブラシ（円形。WBP の Class Defaults で差し替え可） ーーー
+	// HalfHeightRadius＝高さの半分を半径にするため、任意の寸法で常に真円になる
+	UnreachedDotBrush.DrawAs = ESlateBrushDrawType::RoundedBox;
+	UnreachedDotBrush.ImageSize = FVector2f(24.0f, 24.0f);
+	UnreachedDotBrush.TintColor = FSlateColor(FLinearColor::White);
+	UnreachedDotBrush.OutlineSettings.RoundingType = ESlateBrushRoundingType::HalfHeightRadius;
+	// 2026.09.09 Lee endーーー
 }
 
 /** @brief 生成時処理。オーナー Pawn から各コンポーネントを解決してデリゲートを購読する */
@@ -60,6 +72,33 @@ void UFishFightMeterWidget::NativeConstruct()
 
 		bComponentsInitialized = true;
 	}
+
+	// 2026.09.09 Lee startーーー 魚アイコンの初期設定 ーーー
+	// 貼り付けTexture とスロット寸法を実行時に反映する（デザイナー既定値に依存しない）
+	if (Image_PhaseFish)
+	{
+		// スロット寸法の基準値（Texture 未設定時は正方形のまま）
+		float FishW = PhaseFishSize;
+		float FishH = PhaseFishSize;
+		if (PhaseFishTexture)
+		{
+			Image_PhaseFish->SetBrushFromTexture(PhaseFishTexture);
+			// テクスチャのアスペクト比を保つ（Image はスロット寸法へ引き伸ばして描画するため。
+			// 高さ = PhaseFishSize を基準に、幅をテクスチャ比率から自動算出する）
+			const float TexW = static_cast<float>(PhaseFishTexture->GetSurfaceWidth());
+			const float TexH = static_cast<float>(PhaseFishTexture->GetSurfaceHeight());
+			if (TexW > 1.0f && TexH > 1.0f)
+			{
+				FishH = PhaseFishSize;
+				FishW = PhaseFishSize * (TexW / TexH);
+			}
+		}
+		if (UCanvasPanelSlot* FishSlot = Cast<UCanvasPanelSlot>(Image_PhaseFish->Slot))
+		{
+			FishSlot->SetSize(FVector2D(FishW, FishH));
+		}
+	}
+	// 2026.09.09 Lee endーーー
 
 	// RPM 表示を初期化
 	OnRPMChanged(0.0f, EHandSpeedState::TooSlow);
@@ -113,6 +152,12 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 		UpdateHandRangeColor(false);
 	}
 	// 2026.09.07 Lee endーーー
+
+	// 2026.09.09 Lee startーーー 魚アイコンの位置追従 ーーー
+	// 現在ドットの中心は GetCachedGeometry の実寸から毎フレーム再計算する
+	// （レイアウト変更に C++ を追従させないため。推奨範囲帯と同じ方式）
+	UpdateStepFishPosition(InDeltaTime);
+	// 2026.09.09 Lee endーーー
 
 	// ==================== Debug ====================
 	if (GEngine)
@@ -370,6 +415,12 @@ void UFishFightMeterWidget::ApplyPhase(EFishingPhase NewPhase, const FString& Ph
 	}
 	// 2026.09.07 Lee endーーー
 
+	// 2026.09.09 Lee startーーー ステップバー 3 状態の再適用 ーーー
+	// ApplyPhase は状態遷移と NativeConstruct 初回同期の合流点のため、
+	// ここで適用すればゲーム途中で生成された Widget でも正しい初期状態が得られる
+	UpdateStepBarVisuals();
+	// 2026.09.09 Lee endーーー
+
 	// VR テスト用の画面デバッグ表示（VRPawn の [Fishing Mode] と同じ形式）
 	if (GEngine)
 	{
@@ -414,6 +465,15 @@ void UFishFightMeterWidget::HideStepBar()
 	{
 		bStepBarVisible = false;
 		OnStepBarVisibilityChanged(false);
+
+		// 2026.09.09 Lee startーーー 魚アイコンもバーと一緒に隠す ーーー
+		// 魚アイコンは PhasePanel の外（CanvasPanel 直下）にいるため、
+		// PhasePanel 側の隠蔽とは連動しない。ここで明示的に隠す
+		if (Image_PhaseFish)
+		{
+			Image_PhaseFish->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		// 2026.09.09 Lee endーーー
 	}
 }
 // 2026.09.07 Lee endーーー
@@ -465,3 +525,126 @@ void UFishFightMeterWidget::UpdateHandRangeColor(bool bForce)
 	}
 }
 // 2026.09.07 Lee endーーー
+
+// 2026.09.09 Lee startーーー ステップバー 3 状態表示＋魚アイコン指示器 ーーー
+
+void UFishFightMeterWidget::UpdateStepBarVisuals()
+{
+	UImage* Dots[4] = { Dot_1, Dot_2, Dot_3, Dot_4 };
+	UImage* Lines[3] = { Line_1, Line_2, Line_3 };
+
+	// バー本体が無い場合は何もしない（WBP 側未更新時のフォールバック）
+	if (!Dots[0] || !Dots[1] || !Dots[2] || !Dots[3])
+	{
+		return;
+	}
+
+	// デザイナー設定ブラシを初回のみ退避する（未到達态で差し替えた後、完了态で復元するため）
+	if (!bOriginalBrushCaptured)
+	{
+		for (int32 i = 0; i < 4; ++i)
+		{
+			OriginalDotBrushes[i] = Dots[i]->GetBrush();
+		}
+		bOriginalBrushCaptured = true;
+	}
+
+	// 表示インデックス: enum 順＝ステップ順。Result(4) は最終段（3）へ丸め込む
+	const int32 CurrentIdx = FMath::Min(static_cast<int32>(CurrentPhase), 3);
+	const bool bUseFishIcon = (PhaseFishTexture != nullptr);
+
+	for (int32 i = 0; i < 4; ++i)
+	{
+		UImage* Dot = Dots[i];
+		if (i < CurrentIdx || (i == CurrentIdx && !bUseFishIcon))
+		{
+			// 完了（貼り付けTexture 未設定時は現在ドットもこの外観で代替）:
+			// 元ブラシ（四角）＋等倍＋有得色
+			Dot->SetVisibility(ESlateVisibility::Visible);
+			Dot->SetBrush(OriginalDotBrushes[i]);
+			Dot->SetRenderScale(FVector2D::UnitVector);
+			Dot->SetColorAndOpacity(StepCompletedColor);
+		}
+		else if (i == CurrentIdx)
+		{
+			// 現在: 魚アイコンと置き換わるため透明で表示する
+			// （Hidden/Collapsed にすると描画経路から外れ GetCachedGeometry が更新されず、
+			//   魚アイコンの位置計算が破綻する。可視のまま完全透明＝幾何だけ生かす）
+			Dot->SetVisibility(ESlateVisibility::Visible);
+			Dot->SetBrush(OriginalDotBrushes[i]);
+			Dot->SetRenderScale(FVector2D::UnitVector);
+			Dot->SetColorAndOpacity(FLinearColor(1.0f, 1.0f, 1.0f, 0.0f));
+		}
+		else
+		{
+			// 未到達: 円ブラシへ差し替え＋縮小（RenderScale の原点はコントロール中心）
+			Dot->SetVisibility(ESlateVisibility::Visible);
+			Dot->SetBrush(UnreachedDotBrush);
+			Dot->SetRenderScale(FVector2D(UnreachedDotScale, UnreachedDotScale));
+			Dot->SetColorAndOpacity(StepUnreachedColor);
+		}
+	}
+
+	// 接続線: Line i（0 始まり）は Dot i と Dot i+1 を結ぶ。現在段に届いた線のみ有得色
+	for (int32 i = 0; i < 3; ++i)
+	{
+		if (Lines[i])
+		{
+			Lines[i]->SetColorAndOpacity(i < CurrentIdx ? StepLineActiveColor : StepLineInactiveColor);
+		}
+	}
+
+	// 魚アイコン: 貼り付けTexture がありバー表示中のみ表示（Texture 未設定は常に非表示）
+	if (Image_PhaseFish)
+	{
+		const bool bFishVisible = bUseFishIcon && bStepBarVisible;
+		Image_PhaseFish->SetVisibility(bFishVisible ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	}
+}
+
+void UFishFightMeterWidget::UpdateStepFishPosition(float DeltaTime)
+{
+	// 非表示中・Texture 未設定は位置更新も不要
+	if (!Image_PhaseFish || !PhaseFishTexture ||
+		Image_PhaseFish->GetVisibility() == ESlateVisibility::Collapsed)
+	{
+		return;
+	}
+
+	UImage* Dots[4] = { Dot_1, Dot_2, Dot_3, Dot_4 };
+	const int32 CurrentIdx = FMath::Min(static_cast<int32>(CurrentPhase), 3);
+	UImage* CurrentDot = Dots[CurrentIdx];
+	if (!CurrentDot)
+	{
+		return;
+	}
+
+	// 現在ドットの中心を自 Widget ローカル座標へ変換（DPI スケールは AbsoluteToLocal が吸収する）
+	const FGeometry DotGeo = CurrentDot->GetCachedGeometry();
+	if (DotGeo.GetLocalSize().IsNearlyZero())
+	{
+		return; // レイアウト未確定（初フレーム等）は前回位置を維持
+	}
+	const FVector2D DotCenterLocal = GetCachedGeometry().AbsoluteToLocal(DotGeo.GetAbsolutePosition())
+		+ DotGeo.GetLocalSize() * 0.5f;
+	// 魚アイコンの実描画寸法はスロットから取る（アスペクト比維持により正方形とは限らないため）
+	FVector2D FishDrawSize(PhaseFishSize, PhaseFishSize);
+	if (const UCanvasPanelSlot* FishSlot = Cast<UCanvasPanelSlot>(Image_PhaseFish->Slot))
+	{
+		FishDrawSize = FishSlot->GetSize();
+	}
+	StepFishTargetPos = DotCenterLocal - FishDrawSize * 0.5f;
+
+	// 初回はスナップ、以降は補間で滑らかに追従する（フェーズ切替時は移動アニメになる）
+	if (!bStepFishPosInitialized)
+	{
+		StepFishCurrentPos = StepFishTargetPos;
+		bStepFishPosInitialized = true;
+	}
+	else
+	{
+		StepFishCurrentPos = FMath::Vector2DInterpTo(StepFishCurrentPos, StepFishTargetPos, DeltaTime, PhaseFishInterpSpeed);
+	}
+	Image_PhaseFish->SetRenderTranslation(StepFishCurrentPos);
+}
+// 2026.09.09 Lee endーーー
