@@ -113,8 +113,8 @@ FString UFishingReelStateComponent::GetStateDisplayName() const
 
 bool UFishingReelStateComponent::IsTimeCountingState() const
 {
-    // リール操作中は残り時間を進める（計時対象）
-    return true;
+    // 最初の1回転を検知するまでは全体タイマーを進めない（無回転の待機時間を消費しない）
+    return CurrentRevolutionCount >= 1;
 }
 // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
