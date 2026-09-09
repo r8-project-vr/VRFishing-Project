@@ -5,10 +5,13 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Engine/TimerHandle.h"
+#include "Styling/SlateBrush.h"
 #include "Lee/component/HandHeightDetectorComponent.h"
 #include "Lee/component/FishingStateHandUpDown.h"
 #include "FishFightMeterWidget.generated.h"
 
+class UImage;
+class UTexture2D;
 class UFishingReelStateComponent;
 class UFishingStateManagerComponent;
 class UFishingStateComponentBase;
@@ -66,6 +69,80 @@ protected:
 	float StepBarDisplaySeconds = 2.5f;
 
 	// 2026.09.07 Lee endーーー
+
+	// 2026.09.09 Lee startーーー ステップバー 3 状態表示＋魚アイコン指示器 ーーー
+
+	/** @brief 現在フェーズ位置を示す魚アイコンのテクスチャ。未設定時は魚アイコンを非表示にし、現在ドットを完了色のまま代替表示する（WBP の Class Defaults で割り当てる） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Phase")
+	TObjectPtr<UTexture2D> PhaseFishTexture = nullptr;
+
+	/** @brief 魚アイコンの表示基準サイズ（px）。高さ基準で適用し、幅はテクスチャのアスペクト比から自動算出する */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Phase", meta = (ClampMin = "8.0"))
+	float PhaseFishSize = 36.0f;
+
+	/** @brief 魚アイコンが目標位置へ追従する補間速度（大きいほど速く滑る） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Phase", meta = (ClampMin = "0.1"))
+	float PhaseFishInterpSpeed = 10.0f;
+
+	/** @brief 完了ドットの色（デザイナー設定ブラシ＝四角にこの色を重ねて表示する） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Phase")
+	FLinearColor StepCompletedColor = FLinearColor::Green;
+
+	/** @brief 未到達ドットの色（小円で表示） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Phase")
+	FLinearColor StepUnreachedColor = FLinearColor::Gray;
+
+	/** @brief 到達済み接続線（完了〜現在を結ぶ線を含む）の色 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Phase")
+	FLinearColor StepLineActiveColor = FLinearColor::Green;
+
+	/** @brief 未到達接続線の色 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Phase")
+	FLinearColor StepLineInactiveColor = FLinearColor(0.25f, 0.25f, 0.25f, 1.0f);
+
+	/** @brief 未到達ドットのブラシ（形状のみ使用。既定＝円形。色は StepUnreachedColor で上書き表示する） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Phase")
+	FSlateBrush UnreachedDotBrush;
+
+	/** @brief 未到達ドットの縮小率（1.0 で完了ドットと同寸法。RenderScale の原点はコントロール中心） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Phase", meta = (ClampMin = "0.1", ClampMax = "1.0"))
+	float UnreachedDotScale = 0.5f;
+
+	// ---- WBP ウィジェット束縛（名前一致必須。無い場合は該当機能を静かに無効化する） ----
+
+	/** @brief ステップドット 1〜4（左から よーい/うで/リール/つりあげ。Result は表示しない） */
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> Dot_1 = nullptr;
+
+	/** @brief ステップドット 2（手上下） */
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> Dot_2 = nullptr;
+
+	/** @brief ステップドット 3（リール） */
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> Dot_3 = nullptr;
+
+	/** @brief ステップドット 4（釣り上げ） */
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> Dot_4 = nullptr;
+
+	/** @brief 接続線 1〜3（Dot i と Dot i+1 の間。到達済みなら StepLineActiveColor） */
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> Line_1 = nullptr;
+
+	/** @brief 接続線 2（Dot_2〜Dot_3 間） */
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> Line_2 = nullptr;
+
+	/** @brief 接続線 3（Dot_3〜Dot_4 間） */
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> Line_3 = nullptr;
+
+	/** @brief 現在フェーズを示す魚アイコン（CanvasPanel_24 直下・PhasePanel より手前に配置） */
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> Image_PhaseFish = nullptr;
+
+	// 2026.09.09 Lee endーーー
 
 	// 2026.09.07 Lee startーーー 推奨範囲表示 ーーー
 
@@ -248,6 +325,40 @@ private:
 	bool bHandInRange = true;
 
 	// 2026.09.07 Lee endーーー
+
+	// 2026.09.09 Lee startーーー ステップバー 3 状態表示＋魚アイコン指示器 ーーー
+
+	/**
+	 * @brief 現在フェーズに応じて全ドット／接続線／魚アイコンへ 3 状態（完了・現在・未到達）を適用する
+	 * @note 表示は 4 段構成（Result は最終段に丸め込み、ステップバーには出さない）。
+	 *       現在ドットは魚アイコンと置き換わるため完全透明で表示する（Hidden にすると
+	 *       描画経路から外れて GetCachedGeometry が更新されなくなるため）
+	 */
+	void UpdateStepBarVisuals();
+
+	/**
+	 * @brief 魚アイコンを現在ドットの中心へ補間移動する（NativeTick から毎フレーム呼ぶ）
+	 * @note ドット中心は GetCachedGeometry の実寸から毎フレーム再計算する（デザイナー座標の
+	 *       定数は持たない。推奨範囲帯と同じ方式）。初回のみスナップし、以降は補間で滑らかに追従
+	 */
+	void UpdateStepFishPosition(float DeltaTime);
+
+	/** @brief 初回適用時に退避したドットのデザイナー設定ブラシ（未到達态で差し替えた後、完了态で復元するため） */
+	FSlateBrush OriginalDotBrushes[4];
+
+	/** @brief デザイナー設定ブラシの退避済みフラグ */
+	bool bOriginalBrushCaptured = false;
+
+	/** @brief 魚アイコンの現在描画位置（RenderTranslation。補間状態の保持用） */
+	FVector2D StepFishCurrentPos = FVector2D::ZeroVector;
+
+	/** @brief 魚アイコンの目標位置（現在ドット中心の左上基準位置） */
+	FVector2D StepFishTargetPos = FVector2D::ZeroVector;
+
+	/** @brief 魚アイコン位置の初回確定済みフラグ（初回は補間せずスナップする） */
+	bool bStepFishPosInitialized = false;
+
+	// 2026.09.09 Lee endーーー
 
 	/** @brief 常駐センサ（HandHeightPercent 表示用。所有は Pawn、Widget は参照のみ） */
 	UPROPERTY()
