@@ -185,8 +185,10 @@ private:
 	/** @brief 前回の RPM 判定（変化検出用） */
 	EFishingSeRpmJudge LastRpmJudge = EFishingSeRpmJudge::None;
 
-	/** @brief 反射による RPM 閾値の取得結果キャッシュ（取得時刻とセットで 0.25 秒間隔で更新） */
+	/** @brief 反射による RPM 閾値の取得結果キャッシュ（取得時刻とセットで 0.25 秒間隔で更新）。
+	 *  上限は「判定が実際に使った値」を毎回直読するため、ここでは未入力時の予測用に 2 本保持する */
 	float CachedMinRPM = 0.0f;
-	float CachedMaxRPM = 0.0f;
+	float CachedWheelMaxRPM = 0.0f;
+	float CachedStickMaxRPM = 0.0f;
 	float RpmThresholdCacheTime = -1.0f;
 };

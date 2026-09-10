@@ -254,8 +254,9 @@ void UFishingSeControllerSubsystem::HandleRpmCalculated(float NewRPM)
 			if (LeeReelRpm::ReadReelRPMThresholds(Reel, MinRpm, WheelMaxRpm, StickMaxRpm))
 			{
 				CachedMinRPM = MinRpm;
-				// 入力デバイス（VR 中はスティック／非 VR はホイール）に応じた上限へ解決する
-				CachedMaxRPM = LeeReelRpm::ResolveMaxAllowedRPM(WheelMaxRpm, StickMaxRpm);
+				// 上限は未入力時の予測用に両デバイス分を保持する（解決は下で毎回行う）
+				CachedWheelMaxRPM = WheelMaxRpm;
+				CachedStickMaxRPM = StickMaxRpm;
 				RpmThresholdCacheTime = World->GetTimeSeconds();
 			}
 		}
@@ -268,11 +269,17 @@ void UFishingSeControllerSubsystem::HandleRpmCalculated(float NewRPM)
 	}
 
 	// --- 判定分類と変化検出（判定が切り替わった瞬間のみ鳴らす） ---
-	const EFishingSeRpmJudge Judge = (NewRPM < CachedMinRPM)
-		? EFishingSeRpmJudge::TooSlow
-		: (NewRPM > CachedMaxRPM)
-			? EFishingSeRpmJudge::TooFast
-			: EFishingSeRpmJudge::Good;
+	// 上限は 0.25 秒キャッシュを介さず判定側の実値を毎回参照する。キャッシュ経由だと入力デバイスが
+	// 切り替わった直後（例：非 VR 実行で自転車デバイスを使い始めた直後）に予測値で誤判定し、
+	// 誤った判定変化音が鳴る。直読みはメンバ参照のみでコストが無い。
+	const float MaxRpm = LeeReelRpm::ResolveJudgedMaxAllowedRPM(BoundReelState.Get(), CachedWheelMaxRPM, CachedStickMaxRPM);
+
+	// 分類は共通実装へ委譲し、ここでは音用の内部列挙へ名前を付け替えるだけにする
+	const EHandSpeedState RpmState = LeeReelRpm::ClassifyRPM(CachedMinRPM, MaxRpm, NewRPM);
+	const EFishingSeRpmJudge Judge =
+		(RpmState == EHandSpeedState::TooSlow) ? EFishingSeRpmJudge::TooSlow
+		: (RpmState == EHandSpeedState::TooFast) ? EFishingSeRpmJudge::TooFast
+		: EFishingSeRpmJudge::Good;
 
 	if (Judge != LastRpmJudge)
 	{

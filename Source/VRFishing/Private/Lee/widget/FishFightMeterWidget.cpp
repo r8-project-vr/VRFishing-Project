@@ -260,21 +260,12 @@ void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 	float StickMaxRPM = 0.0f;
 	if (ReelSimulator && LeeReelRpm::ReadReelRPMThresholds(ReelSimulator, MinRPM, WheelMaxRPM, StickMaxRPM))
 	{
-		// 入力デバイスに応じた速すぎ閾値を使用（VR 起動中＝スティック／非 VR＝マウスホイール）
-		const float MaxRPM = LeeReelRpm::ResolveMaxAllowedRPM(WheelMaxRPM, StickMaxRPM);
+		// 上限は「判定（JudgeRPM）が実際に使った値」を最優先する。未入力の間のみデバイス予測へ
+		// フォールバック（非 VR 実行＋自転車デバイスのように、入力と予測が食い違う状況で判定と一致させるため）
+		const float MaxRPM = LeeReelRpm::ResolveJudgedMaxAllowedRPM(ReelSimulator, WheelMaxRPM, StickMaxRPM);
 
-		if (NewRPM < MinRPM)
-		{
-			RPMState = EHandSpeedState::TooSlow;
-		}
-		else if (NewRPM > MaxRPM)
-		{
-			RPMState = EHandSpeedState::TooFast;
-		}
-		else
-		{
-			RPMState = EHandSpeedState::Good;
-		}
+		// 分類は共通実装へ一本化（JudgeRPM と同一の区間・優先順）
+		RPMState = LeeReelRpm::ClassifyRPM(MinRPM, MaxRPM, NewRPM);
 
 		// デバッグ表示と BP 向けに、判定区間を中心＋半幅の形式で表示値へ反映する
 		TargetRPM = (MinRPM + MaxRPM) * 0.5f;
@@ -283,18 +274,7 @@ void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 	else
 	{
 		// フォールバック：ReelState の閾値が読み取れない場合はデザイナー設定値で分類（旧挙動）
-		if (NewRPM < TargetRPM - RPMTolerance)
-		{
-			RPMState = EHandSpeedState::TooSlow;
-		}
-		else if (NewRPM > TargetRPM + RPMTolerance)
-		{
-			RPMState = EHandSpeedState::TooFast;
-		}
-		else
-		{
-			RPMState = EHandSpeedState::Good;
-		}
+		RPMState = LeeReelRpm::ClassifyRPM(TargetRPM - RPMTolerance, TargetRPM + RPMTolerance, NewRPM);
 	}
 
 	OnRPMChanged(CurrentRPM, RPMState);

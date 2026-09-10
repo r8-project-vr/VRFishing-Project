@@ -126,6 +126,15 @@ void UFishingLoadApplierComponent::ApplyLoadSettings()
 				WriteProtectedFloatProperty(ReelState, TEXT("StickMaxAllowedRPM"), RPMTable[RotationLoadLevel].StickMaxAllowedRPM);
 				WriteProtectedFloatProperty(ReelState, TEXT("MinAllowedRPM"), RPMTable[RotationLoadLevel].MinAllowedRPM);
 			}
+			else
+			{
+				// 2026.09.10 Lee
+				// 表の要素数が足りないと直上の ApplyRotationLoadLevel が書いたハードコード値が残る。
+				// その値は表より大きい（Stick 120 対 90）ため、RPM ゲージの満量程が足りなくなる。
+				// 表の編集事故に気付けるよう警告だけ出す（動作は従来どおり）。
+				UE_LOG(LogFishing, Warning, TEXT("[LoadSettings] RPM 閾値表の要素が不足しています（要素数=%d / 負荷レベル=%d）。ReelState の既定値が残ります"),
+					RPMTable.Num(), RotationLoadLevel);
+			}
 			// 2026.08.24 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 			// 2026.08.19 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		}
