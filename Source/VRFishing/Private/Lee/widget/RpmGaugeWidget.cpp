@@ -327,9 +327,18 @@ void URpmGaugeWidget::RefreshThresholds()
 	float MinRPM = 0.0f;
 	float WheelMaxRPM = 0.0f;
 	float StickMaxRPM = 0.0f;
-	if (LeeReelRpm::ReadReelRPMThresholds(ReelState, MinRPM, WheelMaxRPM, StickMaxRPM))
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// ホイール専用の下限を受け取る（SafeMinRPM の決定に使用）
+	float WheelMinRPM = 0.0f;
+	if (LeeReelRpm::ReadReelRPMThresholds(ReelState, MinRPM, WheelMaxRPM, StickMaxRPM, WheelMinRPM))
+	//if (LeeReelRpm::ReadReelRPMThresholds(ReelState, MinRPM, WheelMaxRPM, StickMaxRPM))
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	{
-		SafeMinRPM = FMath::Max(MinRPM, 0.0f);
+		// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		// 下限も「実判定（JudgeRPM）が実際に使った値」を最優先する（ホイールとスティックで下限が異なるため）
+		SafeMinRPM = FMath::Max(LeeReelRpm::ResolveJudgedMinAllowedRPM(ReelState, MinRPM, WheelMinRPM), 0.0f);
+		//SafeMinRPM = FMath::Max(MinRPM, 0.0f);
+		// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		// 上限は「実判定（JudgeRPM）が実際に使った値」を最優先する（未入力時のみデバイス予測）。
 		// デザイン側の clamp は従来どおり維持する（共通ユーティリティは clamp しないため）
 		SafeMaxRPM = FMath::Max(LeeReelRpm::ResolveJudgedMaxAllowedRPM(ReelState, WheelMaxRPM, StickMaxRPM), SafeMinRPM);

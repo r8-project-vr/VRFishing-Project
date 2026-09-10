@@ -19,12 +19,23 @@ namespace LeeReelRpm
 	/**
 	 * @brief リールステートの RPM 判定閾値を反射で読み取る。
 	 * @param ReelState      読み取り元のリールステート
-	 * @param OutMinRPM      遅すぎ閾値（入力デバイス共通）
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	 * @param OutMinRPM      遅すぎ閾値（スティック／ASerial 入力用）
+	//* @param OutMinRPM      遅すぎ閾値（入力デバイス共通）
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	 * @param OutWheelMaxRPM 速すぎ閾値（マウスホイール入力用）
 	 * @param OutStickMaxRPM 速すぎ閾値（スティック入力用）
-	 * @return 3 つの閾値をすべて取得できた場合 true
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	 * @param OutWheelMinRPM 遅すぎ閾値（マウスホイール入力用）
+	 * @return 4 つの閾値をすべて取得できた場合 true
+	//* @return 3 つの閾値をすべて取得できた場合 true
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	 */
-	bool ReadReelRPMThresholds(const UFishingReelStateComponent* ReelState, float& OutMinRPM, float& OutWheelMaxRPM, float& OutStickMaxRPM);
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// ホイール専用の下限が増えたため、出力に OutWheelMinRPM を追加する
+	bool ReadReelRPMThresholds(const UFishingReelStateComponent* ReelState, float& OutMinRPM, float& OutWheelMaxRPM, float& OutStickMaxRPM, float& OutWheelMinRPM);
+	//bool ReadReelRPMThresholds(const UFishingReelStateComponent* ReelState, float& OutMinRPM, float& OutWheelMaxRPM, float& OutStickMaxRPM);
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 	/**
 	 * @brief 現在の入力デバイスに応じた速すぎ閾値を返す。
@@ -45,6 +56,24 @@ namespace LeeReelRpm
 	 *       ReelState 側の LastAppliedMaxAllowedRPM は public のため反射は不要。
 	 */
 	float ResolveJudgedMaxAllowedRPM(const UFishingReelStateComponent* ReelState, float WheelMaxRPM, float StickMaxRPM);
+
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/**
+	 * @brief 現在の入力デバイスに応じた遅すぎ閾値を返す（ResolveMaxAllowedRPM の下限版）。
+	 * @note 判定条件は ResolveMaxAllowedRPM と同一（VR 起動中＝スティック／非 VR 実行＝ホイール）。
+	 */
+	float ResolveMinAllowedRPM(float WheelMinRPM, float StickMinRPM);
+
+	/**
+	 * @brief ゲーム判定（UFishingReelStateComponent::JudgeRPM）が実際に使用した遅すぎ下限を返す。
+	 * @param ReelState   読み取り元のリールステート（nullptr 可）
+	 * @param StickMinRPM スティック／ASerial 用の下限（まだ回転入力が無い間の予測に使用）
+	 * @param WheelMinRPM ホイール用の下限（まだ回転入力が無い間の予測に使用）
+	 * @return 直近の入力で判定に渡された下限。未入力（0.0）の間のみ ResolveMinAllowedRPM の予測値。
+	 * @note ホイールとスティックで下限が異なるため、表示・SE が本値を参照しないと判定と食い違う。
+	 */
+	float ResolveJudgedMinAllowedRPM(const UFishingReelStateComponent* ReelState, float StickMinRPM, float WheelMinRPM);
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 	/**
 	 * @brief JudgeRPM と同一基準・同一優先順で RPM を 3 状態に分類する（判定表示の唯一の実装）。

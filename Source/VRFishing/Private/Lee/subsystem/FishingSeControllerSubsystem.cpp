@@ -251,12 +251,20 @@ void UFishingSeControllerSubsystem::HandleRpmCalculated(float NewRPM)
 			float MinRpm = 0.0f;
 			float WheelMaxRpm = 0.0f;
 			float StickMaxRpm = 0.0f;
-			if (LeeReelRpm::ReadReelRPMThresholds(Reel, MinRpm, WheelMaxRpm, StickMaxRpm))
+			// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+			// 下限も未入力時の予測用に両デバイス分を保持する（解決は下で毎回行う）
+			float WheelMinRpm = 0.0f;
+			if (LeeReelRpm::ReadReelRPMThresholds(Reel, MinRpm, WheelMaxRpm, StickMaxRpm, WheelMinRpm))
+			//if (LeeReelRpm::ReadReelRPMThresholds(Reel, MinRpm, WheelMaxRpm, StickMaxRpm))
+			// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 			{
 				CachedMinRPM = MinRpm;
 				// 上限は未入力時の予測用に両デバイス分を保持する（解決は下で毎回行う）
 				CachedWheelMaxRPM = WheelMaxRpm;
 				CachedStickMaxRPM = StickMaxRpm;
+				// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+				CachedWheelMinRPM = WheelMinRpm;
+				// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 				RpmThresholdCacheTime = World->GetTimeSeconds();
 			}
 		}
@@ -273,9 +281,16 @@ void UFishingSeControllerSubsystem::HandleRpmCalculated(float NewRPM)
 	// 切り替わった直後（例：非 VR 実行で自転車デバイスを使い始めた直後）に予測値で誤判定し、
 	// 誤った判定変化音が鳴る。直読みはメンバ参照のみでコストが無い。
 	const float MaxRpm = LeeReelRpm::ResolveJudgedMaxAllowedRPM(BoundReelState.Get(), CachedWheelMaxRPM, CachedStickMaxRPM);
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 下限も同じ理由でキャッシュを介さず判定側の実値を参照する（ホイールとスティックで下限が異なるため）
+	const float MinRpm = LeeReelRpm::ResolveJudgedMinAllowedRPM(BoundReelState.Get(), CachedMinRPM, CachedWheelMinRPM);
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 	// 分類は共通実装へ委譲し、ここでは音用の内部列挙へ名前を付け替えるだけにする
-	const EHandSpeedState RpmState = LeeReelRpm::ClassifyRPM(CachedMinRPM, MaxRpm, NewRPM);
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	const EHandSpeedState RpmState = LeeReelRpm::ClassifyRPM(MinRpm, MaxRpm, NewRPM);
+	//const EHandSpeedState RpmState = LeeReelRpm::ClassifyRPM(CachedMinRPM, MaxRpm, NewRPM);
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	const EFishingSeRpmJudge Judge =
 		(RpmState == EHandSpeedState::TooSlow) ? EFishingSeRpmJudge::TooSlow
 		: (RpmState == EHandSpeedState::TooFast) ? EFishingSeRpmJudge::TooFast
