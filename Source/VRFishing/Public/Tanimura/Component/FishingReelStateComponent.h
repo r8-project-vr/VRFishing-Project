@@ -51,6 +51,19 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Reel Simulator")
 	FOnRPMCalculated OnRPMCalculated;
 
+	// 2026.09.10 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/**
+	 * @brief 直近の回転入力で JudgeRPM に渡された速すぎ上限RPM（0.0＝まだ回転入力が無い）。
+	 * @note 判定（JudgeRPM）が実際に使用した上限をそのまま公開する読み取り専用の出力。
+	 *       スティック入力時は StickMaxAllowedRPM、ホイール入力時は WheelMaxAllowedRPM が入る。
+	 *       表示側（FishFightMeterWidget / RpmGaugeWidget / FishingSeControllerSubsystem）が本値を
+	 *       参照することで、入力デバイスの推定違いによる判定と表示の食い違いを防ぐ。
+	 *       ※ 本値は Project Settings の負荷設定が適用された後の実値であり、閾値そのものではない。
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "Reel Simulator")
+	float LastAppliedMaxAllowedRPM = 0.0f;
+	// 2026.09.10 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 protected:
 	// スティックのデッドゾーン
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config")

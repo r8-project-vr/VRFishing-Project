@@ -131,6 +131,11 @@ void UFishingReelStateComponent::ResetRevolutionCount()
 
     // 停止検知の基準時刻を無効化（次の最初の1回転を起点に再設定する）
     LastRevolutionTime = 0.0;
+
+    // 2026.09.10 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // セット開始時は「未入力」へ戻す（前セットで使った入力デバイスの上限を持ち越さない）
+    LastAppliedMaxAllowedRPM = 0.0f;
+    // 2026.09.10 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
 
 void UFishingReelStateComponent::ApplyRotationLoadLevel(int32 LoadLevel)
@@ -247,6 +252,13 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
     if (bIsCompleted) {
         return;
     }
+
+    // 2026.09.10 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // 今回の RPM 算出に適用する上限をここで公開する（表示側が判定と同じ口径を参照するため）。
+    // 回転成立判定より前に置くのは、最初の1回転（判定も通知もされない）や 1 回転に満たない
+    // 途中の入力でも「今使われている入力デバイスの上限」を表示側へ伝えるため。
+    LastAppliedMaxAllowedRPM = MaxAllowedRPM;
+    // 2026.09.10 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
     const double CurrentTime = World->GetTimeSeconds();
 
