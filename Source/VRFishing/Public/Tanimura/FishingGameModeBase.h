@@ -4,11 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "Tanimura/Subsystem/FishingCatchHistorySubsystem.h"
 #include "FishingGameModeBase.generated.h"
 
 class AFish;
 class AVRPawn;
 class UFishingStateManagerComponent;
+class UTexture2D;
 
 /**
  * 釣りゲーム本編（LV_MainGame）専用のゲームモード
@@ -70,9 +72,25 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Exercise")
     int32 MaxExerciseLevel = 5;
 
+    // レベル別の魚表示情報（インデックス0がレベル1。MaxExerciseLevelぶん設定する）
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Catch")
+    TArray<FFishDisplayInfo> FishDisplays;
+
     // 現在レベルに応じた運動時間（秒）を返す（各運動ステートがEnter時に参照）
     UFUNCTION(BlueprintPure, Category = "Fishing|Exercise")
     float GetCurrentExerciseSeconds() const;
+
+    // 指定レベルに対応する魚の表示名を返す（サブシステムへ委譲する）
+    UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
+    FText GetFishNameByLevel(int32 Level) const;
+
+    // 指定レベルに対応する魚のイラストを返す（サブシステムへ委譲する）
+    UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
+    UTexture2D* GetFishTextureByLevel(int32 Level) const;
+
+    // 今回のセットで釣った魚のレベルを返す（0=釣れていない）
+    UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
+    int32 GetCaughtFishLevel() const;
 
     // 残り時間（秒）を取得する
     UFUNCTION(BlueprintPure, Category = "Fishing|Game")
@@ -115,6 +133,12 @@ private:
 
     // 現在ステートが制限時間を進める対象か判定
     bool ShouldAdvanceTimer();
+
+    // 釣果サブシステムを取得する
+    UFishingCatchHistorySubsystem* GetCatchHistorySubsystem() const;
+
+    // 釣果サブシステムへ魚表示情報を転送し、今回の釣果を破棄する
+    void InitializeCatchHistory();
 
     // ステート管理コンポーネントのキャッシュ
     TWeakObjectPtr<UFishingStateManagerComponent> CachedStateManagerComponent;
