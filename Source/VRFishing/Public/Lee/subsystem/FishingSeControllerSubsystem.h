@@ -190,5 +190,9 @@ private:
 	float CachedMinRPM = 0.0f;
 	float CachedWheelMaxRPM = 0.0f;
 	float CachedStickMaxRPM = 0.0f;
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/** @brief ホイール用の下限 RPM（CachedMinRPM はスティック／ASerial 用。未入力時の予測に使用） */
+	float CachedWheelMinRPM = 0.0f;
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	float RpmThresholdCacheTime = -1.0f;
 };

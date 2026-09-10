@@ -23,6 +23,12 @@ struct FRPMPresetThresholds
 	/** 下限 RPM（これを下回ると遅すぎミス） */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "Fishing|RPM", meta = (ClampMin = "0.0"))
 	float MinAllowedRPM = 30.0f;
+
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/** マウスホイール操作時の下限 RPM（これを下回ると遅すぎミス）。スティック／ASerial は MinAllowedRPM を使う */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "Fishing|RPM", meta = (ClampMin = "0.0"))
+	float WheelMinAllowedRPM = 25.0f;
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 };
 
 /**
@@ -69,8 +75,15 @@ public:
 	/** RPM 閾値（要素順 = 低/中/高）。要素が足りない場合は ReelState 既定が維持される */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "Fishing|プリセット")
 	TArray<FRPMPresetThresholds> RPMThresholdTable = {
-		FRPMPresetThresholds{ 30.0f, 50.0f, 20.0f },
-		FRPMPresetThresholds{ 40.0f, 70.0f, 30.0f },
-		FRPMPresetThresholds{ 50.0f, 90.0f, 40.0f }
+		// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		// 第4要素にホイール下限を追加（低15/中25/高35）。既存3値の並びは変更しない。
+		// ホイール成功範囲＝低15〜30 / 中25〜40 / 高35〜50、スティック・ASerial＝低20〜50 / 中30〜70 / 高40〜90
+		FRPMPresetThresholds{ 30.0f, 50.0f, 20.0f, 15.0f },
+		FRPMPresetThresholds{ 40.0f, 70.0f, 30.0f, 25.0f },
+		FRPMPresetThresholds{ 50.0f, 90.0f, 40.0f, 35.0f }
+		//FRPMPresetThresholds{ 30.0f, 50.0f, 20.0f },
+		//FRPMPresetThresholds{ 40.0f, 70.0f, 30.0f },
+		//FRPMPresetThresholds{ 50.0f, 90.0f, 40.0f }
+		// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	};
 };

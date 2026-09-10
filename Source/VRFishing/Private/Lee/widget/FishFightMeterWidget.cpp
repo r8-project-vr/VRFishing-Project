@@ -258,18 +258,34 @@ void UFishFightMeterWidget::OnRPMUpdated(float NewRPM)
 	float MinRPM = 0.0f;
 	float WheelMaxRPM = 0.0f;
 	float StickMaxRPM = 0.0f;
-	if (ReelSimulator && LeeReelRpm::ReadReelRPMThresholds(ReelSimulator, MinRPM, WheelMaxRPM, StickMaxRPM))
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// ホイール専用の下限を受け取る（判定区間の下端に使用）
+	float WheelMinRPM = 0.0f;
+	if (ReelSimulator && LeeReelRpm::ReadReelRPMThresholds(ReelSimulator, MinRPM, WheelMaxRPM, StickMaxRPM, WheelMinRPM))
+	//if (ReelSimulator && LeeReelRpm::ReadReelRPMThresholds(ReelSimulator, MinRPM, WheelMaxRPM, StickMaxRPM))
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	{
 		// 上限は「判定（JudgeRPM）が実際に使った値」を最優先する。未入力の間のみデバイス予測へ
 		// フォールバック（非 VR 実行＋自転車デバイスのように、入力と予測が食い違う状況で判定と一致させるため）
 		const float MaxRPM = LeeReelRpm::ResolveJudgedMaxAllowedRPM(ReelSimulator, WheelMaxRPM, StickMaxRPM);
+		// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		// 下限も同じ理由で判定側の実値を最優先する
+		const float JudgedMinRPM = LeeReelRpm::ResolveJudgedMinAllowedRPM(ReelSimulator, MinRPM, WheelMinRPM);
+		// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 		// 分類は共通実装へ一本化（JudgeRPM と同一の区間・優先順）
-		RPMState = LeeReelRpm::ClassifyRPM(MinRPM, MaxRPM, NewRPM);
+		// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		RPMState = LeeReelRpm::ClassifyRPM(JudgedMinRPM, MaxRPM, NewRPM);
+		//RPMState = LeeReelRpm::ClassifyRPM(MinRPM, MaxRPM, NewRPM);
+		// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 		// デバッグ表示と BP 向けに、判定区間を中心＋半幅の形式で表示値へ反映する
-		TargetRPM = (MinRPM + MaxRPM) * 0.5f;
-		RPMTolerance = (MaxRPM - MinRPM) * 0.5f;
+		// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		TargetRPM = (JudgedMinRPM + MaxRPM) * 0.5f;
+		RPMTolerance = (MaxRPM - JudgedMinRPM) * 0.5f;
+		//TargetRPM = (MinRPM + MaxRPM) * 0.5f;
+		//RPMTolerance = (MaxRPM - MinRPM) * 0.5f;
+		// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	}
 	else
 	{

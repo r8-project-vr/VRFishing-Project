@@ -64,6 +64,16 @@ public:
 	float LastAppliedMaxAllowedRPM = 0.0f;
 	// 2026.09.10 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
+	/**
+	 * @brief 直近の回転入力で JudgeRPM に渡された遅すぎ下限RPM（0.0＝まだ回転入力が無い）。
+	 * @note 判定（JudgeRPM）が実際に使用した下限をそのまま公開する読み取り専用の出力。
+	 *       スティック入力時は MinAllowedRPM、ホイール入力時は WheelMinAllowedRPM が入る。
+	 *       表示側（FishFightMeterWidget / RpmGaugeWidget / FishingSeControllerSubsystem）が本値を
+	 *       参照することで、入力デバイスの推定違いによる判定と表示の食い違いを防ぐ。
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "Reel Simulator")
+	float LastAppliedMinAllowedRPM = 0.0f;
+
 protected:
 	// スティックのデッドゾーン
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config")
@@ -81,15 +91,19 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "0.0"))
 	float WheelMaxAllowedRPM = 40.0f;
 
+	// ホイール操作時の下限RPM（これを下回ると遅すぎミス）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "0.0"))
+	float WheelMinAllowedRPM = 10.0f;
+
 	// スティック操作時の上限RPM（これを超えると速すぎミス）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "0.0"))
 	float StickMaxAllowedRPM = 60.0f;
 
-	// 下限RPM（これを下回ると遅すぎミス）
+	// スティック操作時の下限RPM（これを下回ると遅すぎミス。ASerial＝自転車デバイスも本値を使う）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "0.0"))
 	float MinAllowedRPM = 10.0f;
 
-	// ミスの上限回数（この回数ミスすると釣り失敗）
+	// 連続ミスの上限回数（速すぎ・遅すぎが続けてこの回数に達すると釣り失敗）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "1"))
 	int32 MaxMistakeCount = 3;
 
@@ -107,7 +121,7 @@ protected:
 
 private:
 	// 角度変化量が1回転に達したらRPMを算出し、デリゲートを呼び出す
-	void CalculateRPM(float DeltaAngle, float MaxAllowedRPM);
+	void CalculateRPM(float DeltaAngle, float MaxAllowedRPM, float MinRPM);
 
 	float	LastAngle;				// 前フレームの入力角度（ラジアン）
 	float	AccumulatedAngleRad;	// 累積角度（ラジアン）
@@ -116,14 +130,14 @@ private:
 	bool	bIsStickTracking;		// 入力を追跡中かどうか（スティック操作時用）
 	bool	bIsCompleted;			// ステート完了（成功/失敗）フラグ
 
-	// 速すぎミスの累積回数
+	// 速すぎミスの連続回数（許容範囲内または遅すぎミスで0に戻る）
 	int32 OverRPMCount;
 
-	// 遅すぎミスの累積回数
+	// 遅すぎミスの連続回数（許容範囲内または速すぎミスで0に戻る）
 	int32 UnderRPMCount;
 
 	// RPMの許容範囲判定（速すぎ・遅すぎ）と失敗判定を行う
-	void JudgeRPM(float CalculatedRPM, float MaxAllowedRPM);
+	void JudgeRPM(float CalculatedRPM, float MaxAllowedRPM, float MinRPM);
 
 	// ミスログを画面と出力ログに表示する
 	void ShowErrorLog(bool bIsTooFast, float CurrentRPM);
