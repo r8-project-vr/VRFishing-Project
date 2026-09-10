@@ -48,6 +48,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|RodView")
 	TSoftClassPtr<AActor> RodActorClass;
 
+	/**
+	 * @brief cook 収録保証用のハード参照アンカー（2026-09-10 追加）。
+	 *        RodActorClass はソフト参照のため、プロジェクト内にハード参照経路が無いと
+	 *        BP_FishingRod がパッケージに含まれず、実行時ロードに失敗して竿が消える
+	 *        （エディタ PIE では再現しない）。既定クラスをここに硬参照して cook に強制収録させる。
+	 */
+	UPROPERTY(VisibleAnywhere, Category = "Fishing|RodView")
+	TSubclassOf<AActor> RodActorClassAnchor;
+
 	/** @brief 同期元の手。MotionControllerComponent の TrackingSource / MotionSource と照合する */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|RodView")
 	EControllerHand RodHand = EControllerHand::Right;
