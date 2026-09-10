@@ -11,6 +11,7 @@
 #include "Lee/component/FishingStateHandUpDown.h"
 #include "Lee/component/HandHeightDetectorComponent.h"
 #include "MotionControllerComponent.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Tanimura/Component/FishingCatchingStateComponent.h"
 #include "Tanimura/Component/FishingReadyStateComponent.h"
 #include "Tanimura/Component/FishingReelStateComponent.h"
@@ -23,8 +24,15 @@ UFishingRodVisualizerComponent::UFishingRodVisualizerComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 
-	// 既定の竿クラス（BP 側で上書き可能）
-	RodActorClass = TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Game/Blueprints/BP_FishingRod.BP_FishingRod_C")));
+	// 既定の竿クラス（BP 側で上書き可能）。
+	// ソフト参照だけでは cook 依存にならずパッケージから欠落するため、
+	// ConstructorHelpers のハード参照で既定クラスを CDO に保持させる（2026-09-10）
+	static ConstructorHelpers::FClassFinder<AActor> RodClassFinder(TEXT("/Game/Blueprints/BP_FishingRod"));
+	if (RodClassFinder.Class)
+	{
+		RodActorClass = TSoftClassPtr<AActor>(RodClassFinder.Class);
+		RodActorClassAnchor = RodClassFinder.Class;
+	}
 }
 
 void UFishingRodVisualizerComponent::BeginPlay()
