@@ -66,7 +66,7 @@ protected:
 
 	/** @brief ステップバーを表示してから自動隠蔽するまでの秒数（0 以下＝自動隠蔽せず常時表示。レイアウト調整用） */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|Phase", meta = (ClampMin = "0.0"))
-	float StepBarDisplaySeconds = 2.5f;
+	float StepBarDisplaySeconds = 5.0f;
 
 	// 2026.09.07 Lee endーーー
 
