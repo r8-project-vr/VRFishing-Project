@@ -125,6 +125,10 @@ void UFishingLoadApplierComponent::ApplyLoadSettings()
 				WriteProtectedFloatProperty(ReelState, TEXT("WheelMaxAllowedRPM"), RPMTable[RotationLoadLevel].WheelMaxAllowedRPM);
 				WriteProtectedFloatProperty(ReelState, TEXT("StickMaxAllowedRPM"), RPMTable[RotationLoadLevel].StickMaxAllowedRPM);
 				WriteProtectedFloatProperty(ReelState, TEXT("MinAllowedRPM"), RPMTable[RotationLoadLevel].MinAllowedRPM);
+				// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+				// ホイール下限は MinAllowedRPM（スティック・ASerial 用）とは別のプロパティへ書く
+				WriteProtectedFloatProperty(ReelState, TEXT("WheelMinAllowedRPM"), RPMTable[RotationLoadLevel].WheelMinAllowedRPM);
+				// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 			}
 			else
 			{

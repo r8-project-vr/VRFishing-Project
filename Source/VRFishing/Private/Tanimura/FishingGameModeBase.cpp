@@ -4,11 +4,14 @@
 #include "Tanimura/FishingGameModeBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+#include "Engine/GameInstance.h"
+#include "Engine/Texture2D.h"
 #include "GameFramework/PlayerController.h"
 #include "Takeuchi/Actor/Fish.h"
 #include "Tanimura/Actor/VRPawn.h"
 #include "Tanimura/Component/FishingStateManagerComponent.h"
 #include "Tanimura/Component/FishingStateComponentBase.h"
+#include "Tanimura/Subsystem/FishingCatchHistorySubsystem.h"
 #include "VRFishingLog.h"
 
 AFishingGameModeBase::AFishingGameModeBase()
@@ -24,6 +27,9 @@ void AFishingGameModeBase::BeginPlay()
     // 残り時間を初期表示する（BPのUIバインド用）
     RemainingTime = TotalGameTime;
     UpdateRemainingTimeText();
+
+    // 釣果サブシステムへ魚表示情報を転送し、前回プレイの釣果を破棄する
+    InitializeCatchHistory();
 
     // ゲーム開始時に最初の魚をスポーンする（セット開始はVRPawnのReady遷移が担当）
     SpawnFish();
@@ -59,12 +65,29 @@ void AFishingGameModeBase::Tick(float DeltaSeconds)
 
 void AFishingGameModeBase::OnSetCompleted(bool bIsSuccess)
 {
+    // 今回釣った魚はレベル加算前のレベルに対応する（成功するとレベルが上がるため）
+    const int32 CaughtFishLevel = ExerciseLevel;
+
+    // 釣果をサブシステムへ記録する（レベル遷移後の最終リザルトでも参照するため）
+    UFishingCatchHistorySubsystem* CatchHistory = GetCatchHistorySubsystem();
+    if (CatchHistory) {
+        if (bIsSuccess) {
+            // 成功時のみ釣果として積み、今回のセット結果にも同じレベルを残す
+            CatchHistory->AddCaughtFish(CaughtFishLevel);
+            CatchHistory->SetCaughtFishLevel(CaughtFishLevel);
+        }
+        else {
+            // 失敗時は釣れていないため履歴に積まず、レベル0（釣れていない）を残す
+            CatchHistory->SetCaughtFishLevel(0);
+        }
+    }
+
     // セット成功時のみ運動レベルを上げる（上限で頭打ち）
     if (bIsSuccess) {
         ExerciseLevel = FMath::Min(ExerciseLevel + 1, MaxExerciseLevel);
     }
 
-    // セット完了をBPへ通知する（BPでリザルトWidgetを生成・表示する）
+    // セット完了をBPへ通知する（サブシステム更新後に呼ぶことでBPが最新値を読める）
     OnSetCompletedBP(bIsSuccess);
 }
 
@@ -140,6 +163,36 @@ float AFishingGameModeBase::GetCurrentExerciseSeconds() const
     return BaseExerciseSeconds + (ExerciseLevel - 1) * ExerciseSecondsPerLevel;
 }
 
+FText AFishingGameModeBase::GetFishNameByLevel(int32 Level) const
+{
+    // 釣果サブシステムへ委譲する（未取得時は空テキストを返す）
+    UFishingCatchHistorySubsystem* CatchHistory = GetCatchHistorySubsystem();
+    if (!CatchHistory) {
+        return FText::GetEmpty();
+    }
+    return CatchHistory->GetFishNameByLevel(Level);
+}
+
+UTexture2D* AFishingGameModeBase::GetFishTextureByLevel(int32 Level) const
+{
+    // 釣果サブシステムへ委譲する（未取得時はnullptrを返す）
+    UFishingCatchHistorySubsystem* CatchHistory = GetCatchHistorySubsystem();
+    if (!CatchHistory) {
+        return nullptr;
+    }
+    return CatchHistory->GetFishTextureByLevel(Level);
+}
+
+int32 AFishingGameModeBase::GetCaughtFishLevel() const
+{
+    // 釣果サブシステムへ委譲する（未取得時は釣れていない扱いにする）
+    UFishingCatchHistorySubsystem* CatchHistory = GetCatchHistorySubsystem();
+    if (!CatchHistory) {
+        return 0;
+    }
+    return CatchHistory->GetCaughtFishLevel();
+}
+
 bool AFishingGameModeBase::ShouldAdvanceTimer()
 {
     UWorld* World = GetWorld();
@@ -175,4 +228,40 @@ bool AFishingGameModeBase::ShouldAdvanceTimer()
         return false;
     }
     return CurrentState->IsTimeCountingState();
+}
+
+UFishingCatchHistorySubsystem* AFishingGameModeBase::GetCatchHistorySubsystem() const
+{
+    const UWorld* World = GetWorld();
+    if (!World) {
+        return nullptr;
+    }
+
+    // GameInstanceに属するサブシステムを取得する（レベル遷移後も生存する）
+    UGameInstance* GameInstance = World->GetGameInstance();
+    if (!GameInstance) {
+        return nullptr;
+    }
+
+    return GameInstance->GetSubsystem<UFishingCatchHistorySubsystem>();
+}
+
+void AFishingGameModeBase::InitializeCatchHistory()
+{
+    UFishingCatchHistorySubsystem* CatchHistory = GetCatchHistorySubsystem();
+    if (!CatchHistory) {
+        UE_LOG(LogFishing, Warning, TEXT("AFishingGameModeBase::InitializeCatchHistory: 釣果サブシステムを取得できませんでした。"));
+        return;
+    }
+
+    // 前回プレイの釣果を破棄してから、今回の魚表示情報を転送する
+    CatchHistory->ResetCaughtFish();
+    CatchHistory->SetFishDisplays(FishDisplays);
+
+    // Class Defaultsの設定漏れ（レベル数より魚表示情報が少ない）を警告する
+    if (FishDisplays.Num() < MaxExerciseLevel) {
+        UE_LOG(LogFishing, Warning,
+            TEXT("AFishingGameModeBase::InitializeCatchHistory: FishDisplays が %d 件しか設定されていません（MaxExerciseLevel は %d）。BPのClass Defaultsで設定してください。"),
+            FishDisplays.Num(), MaxExerciseLevel);
+    }
 }

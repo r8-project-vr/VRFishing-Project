@@ -56,8 +56,8 @@ void UFishingReelStateComponent::EnterState()
     // 第2セット以降にリールが無反作になる問題の切り分け用ログ。
     // ChangeState() は Activate() → EnterState() の順で呼ぶため、ここでの IsActive() は
     // Activate が実際に効いているかを直接検証する（false のままなら Activate 不生效）。
-    UE_LOG(LogFishing, Log, TEXT("[FishingReel] EnterState: IsActive=%d TargetRevolutionCount=%d Min=%.0f WheelMax=%.0f StickMax=%.0f"),
-        IsActive() ? 1 : 0, TargetRevolutionCount, MinAllowedRPM, WheelMaxAllowedRPM, StickMaxAllowedRPM);
+    UE_LOG(LogFishing, Log, TEXT("[FishingReel] EnterState: IsActive=%d TargetRevolutionCount=%d StickMin=%.0f WheelMin=%.0f WheelMax=%.0f StickMax=%.0f"),
+        IsActive() ? 1 : 0, TargetRevolutionCount, MinAllowedRPM, WheelMinAllowedRPM, WheelMaxAllowedRPM, StickMaxAllowedRPM);
     // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
 
@@ -136,6 +136,9 @@ void UFishingReelStateComponent::ResetRevolutionCount()
     // セット開始時は「未入力」へ戻す（前セットで使った入力デバイスの上限を持ち越さない）
     LastAppliedMaxAllowedRPM = 0.0f;
     // 2026.09.10 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
+    // 同上（下限もセット開始時は未入力へ戻す）
+    LastAppliedMinAllowedRPM = 0.0f;
 }
 
 void UFishingReelStateComponent::ApplyRotationLoadLevel(int32 LoadLevel)
@@ -143,14 +146,17 @@ void UFishingReelStateComponent::ApplyRotationLoadLevel(int32 LoadLevel)
     // 負荷が高いほど速すぎ閾値と遅すぎ閾値を上げて厳しくする
     if (LoadLevel == 0) {
         WheelMaxAllowedRPM = 30.0f;
+        WheelMinAllowedRPM = 15.0f;
         StickMaxAllowedRPM = 80.0f;
         MinAllowedRPM = 20.0f;
     } else if (LoadLevel == 1) {
         WheelMaxAllowedRPM = 40.0f;
+        WheelMinAllowedRPM = 25.0f;
         StickMaxAllowedRPM = 100.0f;
         MinAllowedRPM = 30.0f;
     } else {
         WheelMaxAllowedRPM = 50.0f;
+        WheelMinAllowedRPM = 35.0f;
         StickMaxAllowedRPM = 120.0f;
         MinAllowedRPM = 40.0f;
     }
@@ -206,7 +212,7 @@ void UFishingReelStateComponent::SimulateReelByStick(FVector2D StickInput)
 
 	// 順方向回転のみRPMの算出対象とする
     if (DeltaAngle > 0.0f) {
-        CalculateRPM(DeltaAngle, StickMaxAllowedRPM);
+        CalculateRPM(DeltaAngle, StickMaxAllowedRPM, MinAllowedRPM);
     }
 
     // 次フレーム計算用に現在の角度を保存
@@ -238,10 +244,10 @@ void UFishingReelStateComponent::SimulateReelByWheel()
     // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
     // ホイール1ノッチ分の回転角（固定）を流し込む
-    CalculateRPM(WheelNotchAngleRad, WheelMaxAllowedRPM);
+    CalculateRPM(WheelNotchAngleRad, WheelMaxAllowedRPM, WheelMinAllowedRPM);
 }
 
-void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowedRPM)
+void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowedRPM, float MinRPM)
 {
     const UWorld* World = GetWorld();
     if (!World) {
@@ -259,6 +265,9 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
     // 途中の入力でも「今使われている入力デバイスの上限」を表示側へ伝えるため。
     LastAppliedMaxAllowedRPM = MaxAllowedRPM;
     // 2026.09.10 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
+    // 下限も同じ理由でここで公開する（ホイールとスティックで下限が異なるため）
+    LastAppliedMinAllowedRPM = MinRPM;
 
     const double CurrentTime = World->GetTimeSeconds();
 
@@ -290,8 +299,8 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
                 // 算出したRPMをバインド先へ通知
                 OnRPMCalculated.Broadcast(CalculatedRPM);
 
-                // 引数で渡された上限RPMで速すぎ・遅すぎを判定
-                JudgeRPM(CalculatedRPM, MaxAllowedRPM);
+                // 引数で渡された上限・下限RPMで速すぎ・遅すぎを判定
+                JudgeRPM(CalculatedRPM, MaxAllowedRPM, MinRPM);
 
                 // ミス累積で失敗が確定した場合は、回転数加算・計時開始へ進まない
                 if (bIsCompleted) {
@@ -317,14 +326,27 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
     }
 }
 
-void UFishingReelStateComponent::JudgeRPM(float CalculatedRPM, float MaxAllowedRPM)
+void UFishingReelStateComponent::JudgeRPM(float CalculatedRPM, float MaxAllowedRPM, float MinRPM)
 {
+    // ミスの種別を先に判定する（上限超過を優先する優先順は表示側と共通）
+    const bool bIsTooFast = (CalculatedRPM > MaxAllowedRPM);
+    const bool bIsTooSlow = (CalculatedRPM < MinRPM);
+
+    // 許容範囲内なら連続ミスが途切れたものとして両方をリセット
+    if (!bIsTooFast && !bIsTooSlow) {
+        OverRPMCount = 0;
+        UnderRPMCount = 0;
+        return;
+    }
+
     // 速すぎミス（上限超過）をカウント
-    if (CalculatedRPM > MaxAllowedRPM) {
+    if (bIsTooFast) {
         OverRPMCount++;
+        // 速すぎが来た時点で遅すぎの連続は途切れる
+        UnderRPMCount = 0;
         ShowErrorLog(true, CalculatedRPM);
 
-        // 許容回数に達したら釣り失敗
+        // 連続で許容回数に達したら釣り失敗
         if (OverRPMCount >= MaxMistakeCount) {
             bIsCompleted = true;
             OnFishingStateCompleted.Broadcast(false);
@@ -333,15 +355,15 @@ void UFishingReelStateComponent::JudgeRPM(float CalculatedRPM, float MaxAllowedR
     }
 
     // 遅すぎミス（下限未満）をカウント
-    if (CalculatedRPM < MinAllowedRPM) {
-        UnderRPMCount++;
-        ShowErrorLog(false, CalculatedRPM);
+    UnderRPMCount++;
+    // 遅すぎが来た時点で速すぎの連続は途切れる
+    OverRPMCount = 0;
+    ShowErrorLog(false, CalculatedRPM);
 
-        // 許容回数に達したら釣り失敗
-        if (UnderRPMCount >= MaxMistakeCount) {
-            bIsCompleted = true;
-            OnFishingStateCompleted.Broadcast(false);
-        }
+    // 連続で許容回数に達したら釣り失敗
+    if (UnderRPMCount >= MaxMistakeCount) {
+        bIsCompleted = true;
+        OnFishingStateCompleted.Broadcast(false);
     }
 }
 
@@ -353,7 +375,7 @@ void UFishingReelStateComponent::ShowErrorLog(bool bIsTooFast, float CurrentRPM)
         ErrorName = TEXT("速すぎ");
     }
 
-    // ミスの累積回数を取得
+    // ミスの連続回数を取得
     int32 MistakeCount = UnderRPMCount;
     if (bIsTooFast) {
         MistakeCount = OverRPMCount;
@@ -363,11 +385,11 @@ void UFishingReelStateComponent::ShowErrorLog(bool bIsTooFast, float CurrentRPM)
     if (GEngine) {
         GEngine->AddOnScreenDebugMessage(
             -1, 3.0f, FColor::Red,
-            FString::Printf(TEXT("[FishingReel] %sミス RPM=%.1f (%d/%d回)"),
+            FString::Printf(TEXT("[FishingReel] %sミス RPM=%.1f (%d回連続/%d回で失敗)"),
                 *ErrorName, CurrentRPM, MistakeCount, MaxMistakeCount));
     }
 
     // ミスログを出力ログにも表示
-    UE_LOG(LogTemp, Error, TEXT("[FishingReel] %sミス RPM=%.1f (%d/%d回)"),
+    UE_LOG(LogTemp, Error, TEXT("[FishingReel] %sミス RPM=%.1f (%d回連続/%d回で失敗)"),
         *ErrorName, CurrentRPM, MistakeCount, MaxMistakeCount);
 }
