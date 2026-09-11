@@ -12,6 +12,7 @@
 #include "Tanimura/Component/FishingStateManagerComponent.h"
 #include "Tanimura/Component/FishingStateComponentBase.h"
 #include "Tanimura/Subsystem/FishingCatchHistorySubsystem.h"
+#include "Tanimura/Subsystem/FishingWorkoutStatsSubsystem.h"
 #include "VRFishingLog.h"
 
 AFishingGameModeBase::AFishingGameModeBase()
@@ -31,6 +32,9 @@ void AFishingGameModeBase::BeginPlay()
     // 釣果サブシステムへ魚表示情報を転送し、前回プレイの釣果を破棄する
     InitializeCatchHistory();
 
+    // 運動成績サブシステムを取得し、前回プレイの成績を破棄する
+    InitializeWorkoutStats();
+
     // ゲーム開始時に最初の魚をスポーンする（セット開始はVRPawnのReady遷移が担当）
     SpawnFish();
 }
@@ -44,8 +48,16 @@ void AFishingGameModeBase::Tick(float DeltaSeconds)
         return;
     }
 
+    // 運動ステート中かどうかは1回だけ判定する（残り時間と運動時間で共用する）
+    const bool bIsExerciseState = ShouldAdvanceTimer();
+
+    // 運動ステートの間は合計運動時間を加算する（制限時間のタイムアップ後も最終セットぶんを数える）
+    if (bIsExerciseState && CachedWorkoutStats.IsValid()) {
+        CachedWorkoutStats->AddExerciseSeconds(DeltaSeconds);
+    }
+
     // 時間切れ済みなら計時しない（進行中のセットは完走させる）
-    if (!bIsTimeUp && ShouldAdvanceTimer()) {
+    if (!bIsTimeUp && bIsExerciseState) {
         CurrentGameTime += DeltaSeconds;
 
         // 制限時間に達した瞬間に時間切れを確定し、BPへ通知する
@@ -79,6 +91,14 @@ void AFishingGameModeBase::OnSetCompleted(bool bIsSuccess)
         else {
             // 失敗時は釣れていないため履歴に積まず、レベル0（釣れていない）を残す
             CatchHistory->SetCaughtFishLevel(0);
+        }
+    }
+
+    // セット失敗はそのまま「逃がした魚1匹」として数える
+    if (!bIsSuccess) {
+        UFishingWorkoutStatsSubsystem* WorkoutStats = GetWorkoutStatsSubsystem();
+        if (WorkoutStats) {
+            WorkoutStats->AddEscapedFish();
         }
     }
 
@@ -193,6 +213,26 @@ int32 AFishingGameModeBase::GetCaughtFishLevel() const
     return CatchHistory->GetCaughtFishLevel();
 }
 
+void AFishingGameModeBase::AddArmUpDownCount(int32 Count)
+{
+    // 運動成績サブシステムへ委譲する（未取得時は何もしない）
+    UFishingWorkoutStatsSubsystem* WorkoutStats = GetWorkoutStatsSubsystem();
+    if (!WorkoutStats) {
+        return;
+    }
+    WorkoutStats->AddArmUpDownCount(Count);
+}
+
+void AFishingGameModeBase::AddReelRevolutionCount(int32 Count)
+{
+    // 運動成績サブシステムへ委譲する（未取得時は何もしない）
+    UFishingWorkoutStatsSubsystem* WorkoutStats = GetWorkoutStatsSubsystem();
+    if (!WorkoutStats) {
+        return;
+    }
+    WorkoutStats->AddReelRevolutionCount(Count);
+}
+
 bool AFishingGameModeBase::ShouldAdvanceTimer()
 {
     UWorld* World = GetWorld();
@@ -264,4 +304,40 @@ void AFishingGameModeBase::InitializeCatchHistory()
             TEXT("AFishingGameModeBase::InitializeCatchHistory: FishDisplays が %d 件しか設定されていません（MaxExerciseLevel は %d）。BPのClass Defaultsで設定してください。"),
             FishDisplays.Num(), MaxExerciseLevel);
     }
+}
+
+UFishingWorkoutStatsSubsystem* AFishingGameModeBase::GetWorkoutStatsSubsystem() const
+{
+    // 初期化済みならキャッシュを返す（Tickから毎フレーム呼ばれるため）
+    if (CachedWorkoutStats.IsValid()) {
+        return CachedWorkoutStats.Get();
+    }
+
+    const UWorld* World = GetWorld();
+    if (!World) {
+        return nullptr;
+    }
+
+    // GameInstanceに属するサブシステムを取得する（レベル遷移後も生存する）
+    UGameInstance* GameInstance = World->GetGameInstance();
+    if (!GameInstance) {
+        return nullptr;
+    }
+
+    return GameInstance->GetSubsystem<UFishingWorkoutStatsSubsystem>();
+}
+
+void AFishingGameModeBase::InitializeWorkoutStats()
+{
+    UFishingWorkoutStatsSubsystem* WorkoutStats = GetWorkoutStatsSubsystem();
+    if (!WorkoutStats) {
+        UE_LOG(LogFishing, Warning, TEXT("AFishingGameModeBase::InitializeWorkoutStats: 運動成績サブシステムを取得できませんでした。"));
+        return;
+    }
+
+    // 前回プレイの成績を破棄する
+    WorkoutStats->ResetWorkoutStats();
+
+    // 以降はキャッシュ経由で参照する
+    CachedWorkoutStats = WorkoutStats;
 }

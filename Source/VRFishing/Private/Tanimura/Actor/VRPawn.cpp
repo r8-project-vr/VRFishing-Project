@@ -133,6 +133,13 @@ void AVRPawn::OnReadyStateCompleted(bool bIsSuccess)
 
 void AVRPawn::OnReelStateCompleted(bool bIsSuccess)
 {
+    // リール回数を合計へ渡す（ChangeStateで次セットに入る前に確定させる）
+    if (AFishingGameModeBase* GameMode = GetWorld()->GetAuthGameMode<AFishingGameModeBase>()) {
+        if (ReelStateComponent) {
+            GameMode->AddReelRevolutionCount(ReelStateComponent->GetCurrentRevolutionCount());
+        }
+    }
+
     // リール成功時は釣り上げステートへ、失敗時（速すぎ検知）は結果ステートへ遷移
     if (bIsSuccess && StateManagerComponent && CatchingStateComponent) {
         StateManagerComponent->ChangeState(CatchingStateComponent);
@@ -166,6 +173,13 @@ void AVRPawn::OnResultStateCompleted(bool bIsSuccess)
 // Reel ステートと同じ方式（基底クラスの失敗通知デリゲートを経由して VRPawn 側で遷移）に変更
 void AVRPawn::OnHandUpDownCompleted(bool bIsSuccess)
 {
+    // 腕上下回数を合計へ渡す（ChangeStateでExitStateが走り回数が0に戻る前に確定させる）
+    if (AFishingGameModeBase* GameMode = GetWorld()->GetAuthGameMode<AFishingGameModeBase>()) {
+        if (HandUpDownStateComponent) {
+            GameMode->AddArmUpDownCount(HandUpDownStateComponent->CurrentUpAndDownCount);
+        }
+    }
+
     // 成功時はリールステートへ、失敗時（過速・過遅検知）は結果ステートへ遷移
     if (bIsSuccess && StateManagerComponent && ReelStateComponent) {
         StateManagerComponent->ChangeState(ReelStateComponent);

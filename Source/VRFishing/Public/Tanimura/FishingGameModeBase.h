@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "Tanimura/Subsystem/FishingCatchHistorySubsystem.h"
+#include "Tanimura/Subsystem/FishingWorkoutStatsSubsystem.h"
 #include "FishingGameModeBase.generated.h"
 
 class AFish;
@@ -92,6 +93,14 @@ public:
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     int32 GetCaughtFishLevel() const;
 
+    // 今回セットの腕上下回数を合計へ加算する（VRPawnの完了通知から呼ばれる）
+    UFUNCTION(BlueprintCallable, Category = "Fishing|Workout")
+    void AddArmUpDownCount(int32 Count);
+
+    // 今回セットのリール回転回数を合計へ加算する（VRPawnの完了通知から呼ばれる）
+    UFUNCTION(BlueprintCallable, Category = "Fishing|Workout")
+    void AddReelRevolutionCount(int32 Count);
+
     // 残り時間（秒）を取得する
     UFUNCTION(BlueprintPure, Category = "Fishing|Game")
     float GetRemainingTime() const;
@@ -139,6 +148,15 @@ private:
 
     // 釣果サブシステムへ魚表示情報を転送し、今回の釣果を破棄する
     void InitializeCatchHistory();
+
+    // 運動成績サブシステムを取得する
+    UFishingWorkoutStatsSubsystem* GetWorkoutStatsSubsystem() const;
+
+    // 運動成績サブシステムを取得して今回の成績を破棄する
+    void InitializeWorkoutStats();
+
+    // 運動成績サブシステムのキャッシュ（Tickで毎フレーム参照するため保持する）
+    TWeakObjectPtr<UFishingWorkoutStatsSubsystem> CachedWorkoutStats;
 
     // ステート管理コンポーネントのキャッシュ
     TWeakObjectPtr<UFishingStateManagerComponent> CachedStateManagerComponent;

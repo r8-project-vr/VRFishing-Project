@@ -141,6 +141,11 @@ void UFishingReelStateComponent::ResetRevolutionCount()
     LastAppliedMinAllowedRPM = 0.0f;
 }
 
+int32 UFishingReelStateComponent::GetCurrentRevolutionCount() const
+{
+    return CurrentRevolutionCount;
+}
+
 void UFishingReelStateComponent::ApplyRotationLoadLevel(int32 LoadLevel)
 {
     // 負荷が高いほど速すぎ閾値と遅すぎ閾値を上げて厳しくする
