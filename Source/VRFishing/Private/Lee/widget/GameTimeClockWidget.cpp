@@ -15,7 +15,11 @@ namespace
 	 * @note 画面座標は Y が下向きのため -Cos を使う。
 	 *       検算：0°→(0,-1)=真上、90°→(1,0)=右、180°→(0,1)=真下。
 	 */
-	FVector2f GaugeAngleToDir(float AngleDeg)
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// ユニティビルドで RpmGaugeWidget.cpp の同名ヘルパーと衝突するため改名
+	FVector2f ClockAngleToDir(float AngleDeg)
+	//FVector2f GaugeAngleToDir(float AngleDeg)
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	{
 		const float AngleRad = FMath::DegreesToRadians(AngleDeg);
 		return FVector2f(FMath::Sin(AngleRad), -FMath::Cos(AngleRad));
@@ -205,7 +209,10 @@ void UGameTimeClockWidget::UpdateForegroundArc()
 	for (int32 k = 0; k <= Segments; ++k)
 	{
 		const float ArcT = static_cast<float>(k) / static_cast<float>(Segments);
-		ForegroundArcPoints.Add(CachedCenter + GaugeAngleToDir(RingStartAngleDeg + SweepDeg * ArcT) * BandRadius);
+		// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		ForegroundArcPoints.Add(CachedCenter + ClockAngleToDir(RingStartAngleDeg + SweepDeg * ArcT) * BandRadius);
+		//ForegroundArcPoints.Add(CachedCenter + GaugeAngleToDir(RingStartAngleDeg + SweepDeg * ArcT) * BandRadius);
+		// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	}
 }
 
@@ -224,7 +231,10 @@ void UGameTimeClockWidget::RebuildDrawCache()
 		for (int32 k = 0; k <= Segments; ++k)
 		{
 			const float ArcT = static_cast<float>(k) / static_cast<float>(Segments);
-			TrackArcPoints.Add(CachedCenter + GaugeAngleToDir(RingStartAngleDeg + 360.0f * ArcT) * BandRadius);
+			// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+			TrackArcPoints.Add(CachedCenter + ClockAngleToDir(RingStartAngleDeg + 360.0f * ArcT) * BandRadius);
+			//TrackArcPoints.Add(CachedCenter + GaugeAngleToDir(RingStartAngleDeg + 360.0f * ArcT) * BandRadius);
+			// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		}
 	}
 
