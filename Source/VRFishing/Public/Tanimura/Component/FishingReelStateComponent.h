@@ -43,6 +43,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
 	void ResetRevolutionCount();
 
+	// 今回セットの累積回転数を取得する（リザルト集計用）
+	UFUNCTION(BlueprintPure, Category = "Reel Simulator")
+	int32 GetCurrentRevolutionCount() const;
+
 	// 負荷レベル（0=Low, 1=Medium, 2=High）に応じてRPM閾値を設定する
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator|Config")
 	void ApplyRotationLoadLevel(int32 LoadLevel);
