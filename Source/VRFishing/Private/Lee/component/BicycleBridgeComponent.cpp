@@ -2,6 +2,9 @@
 
 #include "Lee/component/BicycleBridgeComponent.h"
 #include "Lee/device/FishingWiredDeviceSubsystem.h"
+// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+#include "Lee/device/FishingWiredDeviceSettings.h"
+// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 #include "Tanimura/Actor/VRPawn.h"
 #include "VRFishingLog.h"
 #include "Engine/Engine.h"
@@ -36,7 +39,22 @@ void UBicycleBridgeComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 	// {
 	//     Rps = -Rps;
 	// }
-	const float Rps = FMath::Abs(Sample.Rps) * RpsScale;
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 実機の RPS(0x22) は1回転あたり複数パルスで報告されるため、パルス数で割って実回転数へ換算する
+	float EffectiveRpsScale = RpsScale;
+	if (!Subsystem->IsSimulatorMode()) {
+		const UFishingWiredDeviceSettings* DeviceSettings = GetDefault<UFishingWiredDeviceSettings>();
+		int32 PulsesPerRevolution = 1;
+		if (DeviceSettings) {
+			// 0除算を防ぐため1以上として扱う
+			PulsesPerRevolution = FMath::Max(DeviceSettings->BicyclePulsesPerRevolution, 1);
+		}
+		EffectiveRpsScale = RpsScale / static_cast<float>(PulsesPerRevolution);
+	}
+	// 模擬データは元から実回転数の RPS を生成しているため換算しない（EffectiveRpsScale は RpsScale のまま）
+	const float Rps = FMath::Abs(Sample.Rps) * EffectiveRpsScale;
+	//const float Rps = FMath::Abs(Sample.Rps) * RpsScale;
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	// 2026.09.03 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 	// --- Debug 表示（毎フレーム必ず出す） ---

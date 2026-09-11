@@ -87,6 +87,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Debug", meta = (ClampMin = "0.01"))
 	float WheelNotchAngleRad;
 
+	// スティック／ASerial（自転車デバイス 0x03）操作時のRPM判定間隔（ラジアン）。π/2＝1/4回転ごとに出力・判定する
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "0.01"))
+	float StickJudgeIntervalRad;
+
 	// 目標回転数
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator", meta = (ClampMin = "1"))
 	int32 TargetRevolutionCount;
@@ -107,7 +111,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "0.0"))
 	float MinAllowedRPM = 10.0f;
 
-	// 連続ミスの上限回数（速すぎ・遅すぎが続けてこの回数に達すると釣り失敗）
+	// 連続ミスの上限（速すぎ・遅すぎが続けてこの回転数分に達すると釣り失敗）
+	// 判定間隔が1回転未満の入力では、判定回数を増やして同じ回転数分を維持する
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reel Simulator|Config", meta = (ClampMin = "1"))
 	int32 MaxMistakeCount = 3;
 
@@ -124,11 +129,12 @@ protected:
 	float RemainingExerciseSeconds = 20.0f;
 
 private:
-	// 角度変化量が1回転に達したらRPMを算出し、デリゲートを呼び出す
-	void CalculateRPM(float DeltaAngle, float MaxAllowedRPM, float MinRPM);
+	// 判定間隔（JudgeIntervalRad）分の角度が溜まるたびにRPMを算出し、デリゲートを呼び出す
+	void CalculateRPM(float DeltaAngle, float MaxAllowedRPM, float MinRPM, float JudgeIntervalRad);
 
 	float	LastAngle;				// 前フレームの入力角度（ラジアン）
-	float	AccumulatedAngleRad;	// 累積角度（ラジアン）
+	float	AccumulatedAngleRad;	// 累積角度（ラジアン）＝回転数カウント用
+	float	AccumulatedJudgeAngleRad;	// 累積角度（ラジアン）＝RPM判定間隔用
 	double	RotationStartTime;		// 回転の計測を開始した時間（秒）
 	bool	bIsMeasuringRotation;	// 計測が開始されているかのフラグ
 	bool	bIsStickTracking;		// 入力を追跡中かどうか（スティック操作時用）
@@ -140,11 +146,11 @@ private:
 	// 遅すぎミスの連続回数（許容範囲内または速すぎミスで0に戻る）
 	int32 UnderRPMCount;
 
-	// RPMの許容範囲判定（速すぎ・遅すぎ）と失敗判定を行う
-	void JudgeRPM(float CalculatedRPM, float MaxAllowedRPM, float MinRPM);
+	// RPMの許容範囲判定（速すぎ・遅すぎ）と失敗判定を行う。MistakeCountLimit は連続ミス許容回数（判定間隔換算済み）
+	void JudgeRPM(float CalculatedRPM, float MaxAllowedRPM, float MinRPM, int32 MistakeCountLimit);
 
 	// ミスログを画面と出力ログに表示する
-	void ShowErrorLog(bool bIsTooFast, float CurrentRPM);
+	void ShowErrorLog(bool bIsTooFast, float CurrentRPM, int32 MistakeCountLimit);
 
 	double	LastRevolutionTime;		// 最後に1回転を完了した時刻（秒、停止検知に使用）
 };
