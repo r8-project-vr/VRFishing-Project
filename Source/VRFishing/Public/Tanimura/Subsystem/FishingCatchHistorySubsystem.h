@@ -27,7 +27,33 @@ struct FFishDisplayInfo
 };
 
 /**
- * 釣果（釣った魚のレベル）とレベル別の魚表示情報を保持するサブシステム
+ * 1匹分の釣果
+ * リザルトUIが必要とする情報を1つにまとめて渡す
+ */
+USTRUCT(BlueprintType)
+struct FFishCatchRecord
+{
+    GENERATED_BODY()
+
+    // 魚の名前（未設定時は空テキスト）
+    UPROPERTY(BlueprintReadOnly, Category = "Fishing|Catch")
+    FText FishName;
+
+    // 魚のイラスト（未設定時はnullptr）
+    UPROPERTY(BlueprintReadOnly, Category = "Fishing|Catch")
+    TObjectPtr<UTexture2D> FishTexture = nullptr;
+
+    // 釣ったときの運動レベル（0=釣れていない）
+    UPROPERTY(BlueprintReadOnly, Category = "Fishing|Catch")
+    int32 FishLevel = 0;
+
+    // レア魚かどうか
+    UPROPERTY(BlueprintReadOnly, Category = "Fishing|Catch")
+    bool bIsRare = false;
+};
+
+/**
+ * 釣果（釣った魚のレベルとレア判定）とレベル別の魚表示情報を保持するサブシステム
  * GameInstanceに属するため、LV_MainGameからLV_GameResultへ遷移しても釣果が残る
  */
 UCLASS()
@@ -36,21 +62,33 @@ class VRFISHING_API UFishingCatchHistorySubsystem : public UGameInstanceSubsyste
     GENERATED_BODY()
 
 public:
-    // レベル別の魚表示情報を設定する（GameModeのBeginPlayで呼ばれる）
+    // レベル別の通常魚表示情報を設定する（GameModeのBeginPlayで呼ばれる）
     UFUNCTION(BlueprintCallable, Category = "Fishing|Catch")
     void SetFishDisplays(const TArray<FFishDisplayInfo>& InFishDisplays);
 
-    // 今回釣った魚のレベルを設定する（釣れなかったときは0を渡す）
+    // レベル別のレア魚表示情報を設定する（GameModeのBeginPlayで呼ばれる）
     UFUNCTION(BlueprintCallable, Category = "Fishing|Catch")
-    void SetCaughtFishLevel(int32 FishLevel);
+    void SetRareFishDisplays(const TArray<FFishDisplayInfo>& InRareFishDisplays);
 
-    // 釣った魚のレベルを履歴へ追加する（釣った順に積む。重複もそのまま残す）
+    // 今回釣った魚を記録する（釣れなかったときはレベル0を渡す）
     UFUNCTION(BlueprintCallable, Category = "Fishing|Catch")
-    void AddCaughtFish(int32 FishLevel);
+    void SetCaughtFishLevel(int32 FishLevel, bool bIsRare);
+
+    // 釣った魚を履歴へ追加する（釣った順に積む。重複もそのまま残す）
+    UFUNCTION(BlueprintCallable, Category = "Fishing|Catch")
+    void AddCaughtFish(int32 FishLevel, bool bIsRare);
 
     // 釣果履歴をすべて破棄する（ゲーム開始時に呼ばれる）
     UFUNCTION(BlueprintCallable, Category = "Fishing|Catch")
     void ResetCaughtFish();
+
+    // 今回のセットで釣った魚の釣果を返す（FishLevel 0=釣れていない）
+    UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
+    FFishCatchRecord GetCurrentSetFishRecord() const;
+
+    // 釣った順の指定インデックスの釣果を返す（範囲外は空の釣果）
+    UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
+    FFishCatchRecord GetCaughtFishRecord(int32 Index) const;
 
     // 今回のセットで釣った魚のレベルを返す（0=釣れていない）
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
@@ -64,11 +102,19 @@ public:
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     int32 GetCaughtFishCount() const;
 
-    // 指定レベルに対応する魚の表示名を返す（未設定時は空テキスト）
+    // 指定レベルとレア判定に対応する魚の表示名を返す（レア未設定時は通常魚）
+    UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
+    FText GetFishNameByLevelAndRare(int32 Level, bool bIsRare) const;
+
+    // 指定レベルとレア判定に対応する魚のイラストを返す（レア未設定時は通常魚）
+    UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
+    UTexture2D* GetFishTextureByLevelAndRare(int32 Level, bool bIsRare) const;
+
+    // 指定レベルに対応する通常魚の表示名を返す（未設定時は空テキスト）
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     FText GetFishNameByLevel(int32 Level) const;
 
-    // 指定レベルに対応する魚のイラストを返す（未設定時はnullptr）
+    // 指定レベルに対応する通常魚のイラストを返す（未設定時はnullptr）
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     UTexture2D* GetFishTextureByLevel(int32 Level) const;
 
@@ -77,21 +123,31 @@ public:
     int32 GetFishDisplayCount() const;
 
 private:
-    // レベルが表示情報の範囲内か判定する（レベルは1始まり）
+    // レベルが通常魚の表示情報の範囲内か判定する（レベルは1始まり）
     bool IsValidLevel(int32 Level) const;
+
+    // レベルがレア魚の表示情報の範囲内か判定する（レベルは1始まり）
+    bool IsValidRareLevel(int32 Level) const;
 
     // レベルを配列インデックスへ変換する（レベル1がインデックス0）
     int32 LevelToIndex(int32 Level) const;
 
-    // レベル別の魚表示情報（インデックス0がレベル1）
+    // レベルとレア判定から釣果を組み立てる
+    FFishCatchRecord BuildCatchRecord(int32 Level, bool bIsRare) const;
+
+    // レベル別の通常魚表示情報（インデックス0がレベル1）
     UPROPERTY()
     TArray<FFishDisplayInfo> FishDisplays;
 
-    // 釣った魚のレベル履歴（釣った順・重複あり）
+    // レベル別のレア魚表示情報（インデックス0がレベル1）
     UPROPERTY()
-    TArray<int32> CaughtFishLevels;
+    TArray<FFishDisplayInfo> RareFishDisplays;
 
-    // 今回のセットで釣った魚のレベル（0=釣れていない）
+    // 釣果履歴（釣った順・重複あり）
     UPROPERTY()
-    int32 CaughtFishLevel = 0;
+    TArray<FFishCatchRecord> CaughtFishRecords;
+
+    // 今回のセットで釣った魚の釣果（FishLevel 0=釣れていない）
+    UPROPERTY()
+    FFishCatchRecord CurrentSetFishRecord;
 };
