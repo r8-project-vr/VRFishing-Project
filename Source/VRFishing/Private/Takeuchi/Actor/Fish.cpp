@@ -1,6 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Takeuchi/Actor/Fish.h"
+#include "Components/ActorComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/Pawn.h"
@@ -194,9 +195,18 @@ void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 	else if (NewState->IsA<UFishingReelStateComponent>()) {
 		StartStruggling();
 	}
-	// 釣り上げモード (Catching): 完了イベントで処理するため開始時は処理なし
+	// 釣り上げモード (Catching): 水しぶきを維持したまま周回・回転を止める
 	else if (NewState->IsA<UFishingCatchingStateComponent>()) {
-		//StartCatchDelay();
+		if (CurrentState != EFishState::Caught && CurrentState != EFishState::Escape)
+		{
+			CurrentState = EFishState::CatchDelay;
+			ClearStateTimers();
+			if (RotatingMovementComp)
+			{
+				RotatingMovementComp->Deactivate();
+			}
+			//自動釣り上げタイマーは開始せず、収竿の完了通知を待つ
+		}
 		// 2026.08.05 竹内 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		if (BoundCatchingState && BoundCatchingState != NewState)
 		{
@@ -370,6 +380,7 @@ void AFish::CatchFish()
 	}
 
 	CurrentState = EFishState::Caught;
+	bReachedCaughtTarget = false;
 	ClearStateTimers();
 
 	if (RotatingMovementComp)
@@ -514,9 +525,26 @@ void AFish::Tick(float DeltaTime)
 	}
 	case EFishState::Caught:
 	{
+		if (bReachedCaughtTarget)
+		{
+			break;
+		}
+
 		if (FVector::DistSquared(GetActorLocation(), CaughtTargetLocation) <= FMath::Square(1.0f))
 		{
 			SetActorLocation(CaughtTargetLocation);
+			bReachedCaughtTarget = true;
+
+			//BP_Fishで再生している水しぶきは、釣り上げ先に到着してから止める
+			TInlineComponentArray<UActorComponent*> Components;
+			GetComponents(Components);
+			for (UActorComponent* Component : Components)
+			{
+				if (Component && Component->GetFName() == FName(TEXT("FishSplashEffect")))
+				{
+					Component->Deactivate();
+				}
+			}
 			break;
 		}
 
