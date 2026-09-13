@@ -152,6 +152,7 @@ private:
 	float StruggleCurrentRadius = 0.0f;
 	FVector PokeTargetLocation;
 	FVector CaughtTargetLocation;
+	bool bReachedCaughtTarget = false;
 
 	FVector EscapeTargetLocation;
 	FVector EscapeStartLocation;
