@@ -73,9 +73,17 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Exercise")
     int32 MaxExerciseLevel = 5;
 
-    // レベル別の魚表示情報（インデックス0がレベル1。MaxExerciseLevelぶん設定する）
+    // レベル別の通常魚表示情報（インデックス0がレベル1。MaxExerciseLevelぶん設定する）
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Catch")
     TArray<FFishDisplayInfo> FishDisplays;
+
+    // レベル別のレア魚表示情報（インデックス0がレベル1。MaxExerciseLevelぶん設定する）
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Catch")
+    TArray<FFishDisplayInfo> RareFishDisplays;
+
+    // レア魚の出現確率（0.0〜1.0。全レベル共通）
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Catch", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float RareFishRate = 0.1f;
 
     // 現在レベルに応じた運動時間（秒）を返す（各運動ステートがEnter時に参照）
     UFUNCTION(BlueprintPure, Category = "Fishing|Exercise")
@@ -92,6 +100,10 @@ public:
     // 今回のセットで釣った魚のレベルを返す（0=釣れていない）
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     int32 GetCaughtFishLevel() const;
+
+    // 今回のセットで釣った魚の釣果を返す（サブシステムへ委譲する）
+    UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
+    FFishCatchRecord GetCurrentSetFishRecord() const;
 
     // 今回セットの腕上下回数を合計へ加算する（VRPawnの完了通知から呼ばれる）
     UFUNCTION(BlueprintCallable, Category = "Fishing|Workout")
@@ -133,6 +145,13 @@ protected:
 private:
     // 魚を生成する
     AFish* SpawnFish();
+
+    // レア魚を出すかどうかを出現率から抽選する
+    bool RollRareFish() const;
+
+    // 今回スポーンした魚がレアかどうか（1セットにつき1回だけ抽選する）
+    bool bCurrentFishIsRare = false;
+
 
     // レベル上の既存の魚をすべて破棄する
     void DestroyAllFish();
