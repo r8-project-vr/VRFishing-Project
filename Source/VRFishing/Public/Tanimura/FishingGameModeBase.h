@@ -17,8 +17,10 @@ class UTexture2D;
  * 釣りゲーム本編（LV_MainGame）専用のゲームモード
  * 制限時間内でモード1（準備）からモード5（結果）のセットを繰り返し、魚の再スポーンも担当する
  * タイトル・リザルト等の他画面は本クラスを継承せず、それぞれ専用のゲームモードを使う
+ * Config指定した時間設定は Config/DefaultGame.ini で調整する
+ * パッケージ後は <パッケージ>/VRFishing/Saved/Config/Windows/Game.ini で上書きできる（再ビルド不要）
  */
-UCLASS()
+UCLASS(Config = Game)
 class VRFISHING_API AFishingGameModeBase : public AGameModeBase
 {
     GENERATED_BODY()
@@ -62,11 +64,11 @@ public:
     int32 ExerciseLevel = 1;
 
     // レベル1のときの1セットあたりの運動時間（秒）
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Exercise")
-    float BaseExerciseSeconds = 20.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Config, Category = "Fishing|Exercise")
+    float BaseExerciseSeconds = 14.0f;
 
     // レベルが1上がるごとに増える運動時間（秒）
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Exercise")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Config, Category = "Fishing|Exercise")
     float ExerciseSecondsPerLevel = 5.0f;
 
     // 運動レベルの上限
@@ -131,8 +133,8 @@ protected:
     void OnEndGameBP();
 
     // 制限時間（秒）
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Game")
-    float TotalGameTime = 300.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Config, Category = "Fishing|Game")
+    float TotalGameTime = 240.0f;
 
     // スポーンする魚クラス
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Fish")
@@ -151,7 +153,6 @@ private:
 
     // 今回スポーンした魚がレアかどうか（1セットにつき1回だけ抽選する）
     bool bCurrentFishIsRare = false;
-
 
     // レベル上の既存の魚をすべて破棄する
     void DestroyAllFish();
