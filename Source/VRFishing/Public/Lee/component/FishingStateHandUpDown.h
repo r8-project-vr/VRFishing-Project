@@ -100,7 +100,10 @@ public:
 
 	// ==================== 出力 ====================
 
-	/** @brief 現在の上げ下げ達成回数 */
+	// 2026.09.19 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/** @brief 矢印ガイドの単程移動（上端到達・下端到達）の累計回数。1往復で2加算される */
+	//	/** @brief 現在の上げ下げ達成回数 */
+	// 2026.09.19 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	UPROPERTY(BlueprintReadOnly, Category = "Fishing|HandUpDown|Count")
 	int32 CurrentUpAndDownCount = 0;
 
