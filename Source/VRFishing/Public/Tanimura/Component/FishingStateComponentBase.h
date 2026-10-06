@@ -7,7 +7,7 @@
 #include "FishingStateComponentBase.generated.h"
 
 /**
- * ステート完了時に発火するデリゲートの型宣言
+ * ステートが完了したことを通知するデリゲート（型宣言）
  * @param bIsSuccess true=成功 / false=失敗
  */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFishingStateCompleted, bool, bIsSuccess);

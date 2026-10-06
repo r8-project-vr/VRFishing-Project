@@ -35,6 +35,6 @@ FString UFishingStateComponentBase::GetStateDisplayName() const
 
 bool UFishingStateComponentBase::IsTimeCountingState() const
 {
-	// 既定では計時対象にしない（計時するステートはオーバーライドして true を返す）
+	// 既定では制限時間の対象にしない
 	return false;
 }

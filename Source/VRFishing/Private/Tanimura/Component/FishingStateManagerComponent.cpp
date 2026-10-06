@@ -26,7 +26,7 @@ void UFishingStateManagerComponent::TickComponent(float DeltaTime, ELevelTick Ti
 
 void UFishingStateManagerComponent::ChangeState(UFishingStateComponentBase* NewState)
 {
-	// 同一ステートへの重複遷移を防止
+	// 同一ステートへの遷移を防止
 	if (CurrentState == NewState) {
 		return;
 	}
@@ -57,16 +57,16 @@ void UFishingStateManagerComponent::ChangeState(UFishingStateComponentBase* NewS
 	UE_LOG(LogFishing, Log, TEXT("[FishingState] ChangeState: %s -> %s"), *OldStateName, *NewStateName);
 	// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
-	// ステート変更を外部通知
+	// ステート変更を一斉通知
 	OnFishingStateChanged.Broadcast(CurrentState);
 }
 
-// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 UFishingStateComponentBase* UFishingStateManagerComponent::GetCurrentState() const
 {
 	return CurrentState;
 }
 
+// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 FString UFishingStateManagerComponent::GetCurrentStateName() const
 {
 	return CurrentState ? CurrentState->GetStateDisplayName() : TEXT("None");
