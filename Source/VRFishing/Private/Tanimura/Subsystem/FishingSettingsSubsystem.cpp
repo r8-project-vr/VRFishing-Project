@@ -5,10 +5,10 @@
 
 void UFishingSettingsSubsystem::SetRotationLoadLevel(int32 NewLevel)
 {
-    RotationLoadLevel = NewLevel;
+	RotationLoadLevel = NewLevel;
 }
 
 int32 UFishingSettingsSubsystem::GetRotationLoadLevel() const
 {
-    return RotationLoadLevel;
+	return RotationLoadLevel;
 }

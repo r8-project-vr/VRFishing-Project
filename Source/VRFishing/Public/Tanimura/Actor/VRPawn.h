@@ -27,109 +27,109 @@ class UFishingRodVisualizerComponent;        // 独立型釣り竿の視覚同�
 UCLASS()
 class VRFISHING_API AVRPawn : public APawn
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    AVRPawn();
+	AVRPawn();
 
-    /**
-     * スティック入力発生時に呼び出すハンドラー
-     * @param StickInput スティックの入力値（X=左右, Y=前後）
-     */
-    UFUNCTION(BlueprintCallable, Category = "Fishing|Input")
-    void InjectReelStickInput(FVector2D StickInput);
+	/**
+	 * スティック入力発生時に呼び出すハンドラー
+	 * @param StickInput スティックの入力値（X=左右, Y=前後）
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Fishing|Input")
+	void InjectReelStickInput(FVector2D StickInput);
 
-    // マウスホイール入力発生時に呼び出すハンドラー
-    UFUNCTION(BlueprintCallable, Category = "Fishing|Input")
-    void InjectReelWheelInput();
+	// マウスホイール入力発生時に呼び出すハンドラー
+	UFUNCTION(BlueprintCallable, Category = "Fishing|Input")
+	void InjectReelWheelInput();
 
-    // 次のセットを準備状態（モード1）から開始する（GameModeから呼ばれる）
-    UFUNCTION(BlueprintCallable, Category = "Fishing|Game")
-    void StartNewSet();
-
-protected:
-    virtual void BeginPlay() override;
+	// 次のセットを準備状態（モード1）から開始する（GameModeから呼ばれる）
+	UFUNCTION(BlueprintCallable, Category = "Fishing|Game")
+	void StartNewSet();
 
 protected:
-    // ステートマシンマネージャーコンポーネント
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UFishingStateManagerComponent> StateManagerComponent;
+	virtual void BeginPlay() override;
 
-    // 準備状態コンポーネント
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UFishingReadyStateComponent> ReadyStateComponent;
+protected:
+	// ステートマシンマネージャーコンポーネント
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UFishingStateManagerComponent> StateManagerComponent;
 
-    // 2026.07.27 Lee start
-    // 手の上下運動検出ステートコンポーネント（モード２）
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UHandHeightDetectorComponent> HandUpDownComponent;
-    // 2026.07.27 Lee end
+	// 準備状態コンポーネント
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UFishingReadyStateComponent> ReadyStateComponent;
 
-    // 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-    // 手の上下運動プレイステートコンポーネント（モード２）。感知は HandUpDownComponent(センサ)が常駐で行い、
-    // カウント等のプレイロジックはこのステートが担う。
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UFishingStateHandUpDown> HandUpDownStateComponent;
-    // 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 2026.07.27 Lee start
+	// 手の上下運動検出ステートコンポーネント（モード２）
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UHandHeightDetectorComponent> HandUpDownComponent;
+	// 2026.07.27 Lee end
 
-    // リール回転状態コンポーネント
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UFishingReelStateComponent> ReelStateComponent;
+	// 2026.07.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 手の上下運動プレイステートコンポーネント（モード２）。感知は HandUpDownComponent(センサ)が常駐で行い、
+	// カウント等のプレイロジックはこのステートが担う。
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UFishingStateHandUpDown> HandUpDownStateComponent;
+	// 2026.07.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
-    // 釣り上げ状態コンポーネント
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UFishingCatchingStateComponent> CatchingStateComponent;
+	// リール回転状態コンポーネント
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UFishingReelStateComponent> ReelStateComponent;
 
-    // 釣り上げ結果状態コンポーネント
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UFishingResultStateComponent> ResultStateComponent;
+	// 釣り上げ状態コンポーネント
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UFishingCatchingStateComponent> CatchingStateComponent;
 
-    // 2026.09.01 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-    // 独立型釣り竿の視覚同期コンポーネント（竿スポーン / 1:1 追従 / 手メッシュ非表示 / ピッチ追従）。
-    // BP_XRPawn の Components パネルから調整可能。入力・判定系には非接触。
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    TObjectPtr<UFishingRodVisualizerComponent> RodVisualizerComponent;
-    // 2026.09.01 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 釣り上げ結果状態コンポーネント
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UFishingResultStateComponent> ResultStateComponent;
+
+	// 2026.09.01 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 独立型釣り竿の視覚同期コンポーネント（竿スポーン / 1:1 追従 / 手メッシュ非表示 / ピッチ追従）。
+	// BP_XRPawn の Components パネルから調整可能。入力・判定系には非接触。
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UFishingRodVisualizerComponent> RodVisualizerComponent;
+	// 2026.09.01 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 private:
-    /**
-     * 待機ステート完了時の通知を受け取るハンドラー
-     * @param bIsSuccess 準備が完了したならtrue
-     */
-    UFUNCTION()
-    void OnReadyStateCompleted(bool bIsSuccess);
+	/**
+	 * 待機ステート完了時の通知を受け取るハンドラー
+	 * @param bIsSuccess 準備が完了したならtrue
+	 */
+	UFUNCTION()
+	void OnReadyStateCompleted(bool bIsSuccess);
 
-    // 2026.07.27 Lee start
-    // 手の上下運動完了時の通知を受け取るハンドラー
-    UFUNCTION()
-    void OnHandUpDownCompleted(bool bIsSuccess);
-    // 2026.07.27 Lee end
+	// 2026.07.27 Lee start
+	// 手の上下運動完了時の通知を受け取るハンドラー
+	UFUNCTION()
+	void OnHandUpDownCompleted(bool bIsSuccess);
+	// 2026.07.27 Lee end
 
-    /**
-     * リールステート完了時の通知を受け取るハンドラー
-     * @param bIsSuccess リール操作に成功したならtrue
-     */
-    UFUNCTION()
-    void OnReelStateCompleted(bool bIsSuccess);
+	/**
+	 * リールステート完了時の通知を受け取るハンドラー
+	 * @param bIsSuccess リール操作に成功したならtrue
+	 */
+	UFUNCTION()
+	void OnReelStateCompleted(bool bIsSuccess);
 
-    /**
-     * 釣り上げステート完了時の通知を受け取るハンドラー
-     * @param bIsSuccess 釣り上げに成功したならtrue
-     */
-    UFUNCTION()
-    void OnCatchingStateCompleted(bool bIsSuccess);
+	/**
+	 * 釣り上げステート完了時の通知を受け取るハンドラー
+	 * @param bIsSuccess 釣り上げに成功したならtrue
+	 */
+	UFUNCTION()
+	void OnCatchingStateCompleted(bool bIsSuccess);
 
-    /**
-     * 釣り上げ完了ステート完了時の通知を受け取るハンドラー
-     * @param bIsSuccess 今回のセットに成功したならtrue
-     */
-    UFUNCTION()
-    void OnResultStateCompleted(bool bIsSuccess);
+	/**
+	 * 釣り上げ完了ステート完了時の通知を受け取るハンドラー
+	 * @param bIsSuccess 今回のセットに成功したならtrue
+	 */
+	UFUNCTION()
+	void OnResultStateCompleted(bool bIsSuccess);
 
-    /**
-     * ステート変更時の通知を受け取るハンドラー
-     * @param NewState 新しくアクティブになったステート
-     */
-    UFUNCTION()
-    void OnFishingStateChanged(UFishingStateComponentBase* NewState);
+	/**
+	 * ステート変更時の通知を受け取るハンドラー
+	 * @param NewState 新しくアクティブになったステート
+	 */
+	UFUNCTION()
+	void OnFishingStateChanged(UFishingStateComponentBase* NewState);
 };

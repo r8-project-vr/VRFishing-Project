@@ -5,65 +5,65 @@
 
 UFishingResultStateComponent::UFishingResultStateComponent()
 {
-    // ステート単体でのTickは無効化（Manager経由でUpdateStateが呼ばれる）
-    PrimaryComponentTick.bCanEverTick = false;
+	// ステート単体でのTickは無効化（Manager経由でUpdateStateが呼ばれる）
+	PrimaryComponentTick.bCanEverTick = false;
 
-    ElapsedTime = 0.0f;
-    bIsCompleted = false;
+	ElapsedTime = 0.0f;
+	bIsCompleted = false;
 }
 
 void UFishingResultStateComponent::EnterState()
 {
-    Super::EnterState();
+	Super::EnterState();
 
-    // 経過時間と完了フラグを初期化
-    ElapsedTime = 0.0f;
-    bIsCompleted = false;
+	// 経過時間と完了フラグを初期化
+	ElapsedTime = 0.0f;
+	bIsCompleted = false;
 }
 
 void UFishingResultStateComponent::UpdateState(float DeltaTime)
 {
-    Super::UpdateState(DeltaTime);
+	Super::UpdateState(DeltaTime);
 
-    // 処理完了済みなら判定を行わない
-    if (bIsCompleted) {
-        return;
-    }
+	// 処理完了済みなら判定を行わない
+	if (bIsCompleted) {
+		return;
+	}
 
-    // 経過時間を加算
-    ElapsedTime += DeltaTime;
+	// 経過時間を加算
+	ElapsedTime += DeltaTime;
 
-    // 規定時間に達したら完了イベントを発火
-    if (ElapsedTime >= RequiredHoldTime) {
-        bIsCompleted = true;
-        OnFishingStateCompleted.Broadcast(bIsSuccess);
-    }
+	// 規定時間に達したら完了イベントを発火
+	if (ElapsedTime >= RequiredHoldTime) {
+		bIsCompleted = true;
+		OnFishingStateCompleted.Broadcast(bIsSuccess);
+	}
 }
 
 void UFishingResultStateComponent::ExitState()
 {
-    Super::ExitState();
+	Super::ExitState();
 
-    // 変数リセット
-    ElapsedTime = 0.0f;
-    bIsCompleted = false;
+	// 変数リセット
+	ElapsedTime = 0.0f;
+	bIsCompleted = false;
 }
 
 // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 FString UFishingResultStateComponent::GetStateDisplayName() const
 {
-    return TEXT("つれたかな？");
+	return TEXT("つれたかな？");
 }
 // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 void UFishingResultStateComponent::SetResult(bool bSuccess)
 {
-    // 釣りの成否を設定
-    bIsSuccess = bSuccess;
+	// 釣りの成否を設定
+	bIsSuccess = bSuccess;
 }
 
 bool UFishingResultStateComponent::IsSuccess() const
 {
-    // 釣りの成否を返す
-    return bIsSuccess;
+	// 釣りの成否を返す
+	return bIsSuccess;
 }

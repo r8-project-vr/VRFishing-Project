@@ -13,44 +13,44 @@
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class VRFISHING_API UFishingResultStateComponent : public UFishingStateComponentBase
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    UFishingResultStateComponent();
+	UFishingResultStateComponent();
 
-    // 基底クラスオーバーライド
-    virtual void EnterState() override;
-    virtual void UpdateState(float DeltaTime) override;
-    virtual void ExitState() override;
+	// 基底クラスオーバーライド
+	virtual void EnterState() override;
+	virtual void UpdateState(float DeltaTime) override;
+	virtual void ExitState() override;
 
-    // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-    virtual FString GetStateDisplayName() const override; // ステートの表示名（ログ・UI表示用）
-    // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	virtual FString GetStateDisplayName() const override; // ステートの表示名（ログ・UI表示用）
+	// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
-    /**
-     * 釣りの成否を設定する
-     * @param bSuccess 成功=true / 失敗=false
-     */
-    UFUNCTION(BlueprintCallable, Category = "Fishing|Result")
-    void SetResult(bool bSuccess);
+	/**
+	 * 釣りの成否を設定する
+	 * @param bSuccess 成功=true / 失敗=false
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Fishing|Result")
+	void SetResult(bool bSuccess);
 
-    // 釣りの成否を取得する
-    UFUNCTION(BlueprintPure, Category = "Fishing|Result")
-    bool IsSuccess() const;
+	// 釣りの成否を取得する
+	UFUNCTION(BlueprintPure, Category = "Fishing|Result")
+	bool IsSuccess() const;
 
 protected:
-    // 完了とみなすまでの経過時間（秒）
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Fishing|Result")
-    float RequiredHoldTime = 0.5f;
+	// 完了とみなすまでの経過時間（秒）
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Fishing|Result")
+	float RequiredHoldTime = 0.5f;
 
-    // 釣りの成否（成功=true / 失敗=false）
-    UPROPERTY(BlueprintReadOnly, Category = "Fishing|Result")
-    bool bIsSuccess = true;
+	// 釣りの成否（成功=true / 失敗=false）
+	UPROPERTY(BlueprintReadOnly, Category = "Fishing|Result")
+	bool bIsSuccess = true;
 
 private:
-    // ステート開始からの経過時間
-    float ElapsedTime;
+	// ステート開始からの経過時間
+	float ElapsedTime;
 
-    // 完了フラグ
-    bool bIsCompleted;
+	// 完了フラグ
+	bool bIsCompleted;
 };

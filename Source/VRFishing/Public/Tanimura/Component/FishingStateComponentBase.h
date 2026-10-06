@@ -19,38 +19,38 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFishingStateCompleted, bool, bIsS
 UCLASS(Abstract, Blueprintable, ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class VRFISHING_API UFishingStateComponentBase : public UActorComponent
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    UFishingStateComponentBase();
+	UFishingStateComponentBase();
 
-    // ステート開始時に一度だけ呼ばれる初期化処理
-    UFUNCTION(BlueprintCallable, Category = "Fishing|State")
-    virtual void EnterState();
+	// ステート開始時に一度だけ呼ばれる初期化処理
+	UFUNCTION(BlueprintCallable, Category = "Fishing|State")
+	virtual void EnterState();
 
-    /**
-     * ステート内で毎フレーム呼ばれる更新処理
-     * @param DeltaTime 前フレームからの経過時間（秒）
-     */
-    UFUNCTION(BlueprintCallable, Category = "Fishing|State")
-    virtual void UpdateState(float DeltaTime);
+	/**
+	 * ステート内で毎フレーム呼ばれる更新処理
+	 * @param DeltaTime 前フレームからの経過時間（秒）
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Fishing|State")
+	virtual void UpdateState(float DeltaTime);
 
-    // ステート終了時に一度だけ呼ばれるリセット処理
-    UFUNCTION(BlueprintCallable, Category = "Fishing|State")
-    virtual void ExitState();
+	// ステート終了時に一度だけ呼ばれるリセット処理
+	UFUNCTION(BlueprintCallable, Category = "Fishing|State")
+	virtual void ExitState();
 
-    // ステートが制限時間を進める対象か
-    UFUNCTION(BlueprintPure, Category = "Fishing|State")
-    virtual bool IsTimeCountingState() const;
+	// ステートが制限時間を進める対象か
+	UFUNCTION(BlueprintPure, Category = "Fishing|State")
+	virtual bool IsTimeCountingState() const;
 
-    // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-    // ステートの表示名（ログ・UI表示用）を返す
-    UFUNCTION(BlueprintPure, Category = "Fishing|State")
-    virtual FString GetStateDisplayName() const;
-    // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// ステートの表示名（ログ・UI表示用）を返す
+	UFUNCTION(BlueprintPure, Category = "Fishing|State")
+	virtual FString GetStateDisplayName() const;
+	// 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 public:
-    // ステート完了を外部へ通知するデリゲートのインスタンス
-    UPROPERTY(BlueprintAssignable, Category = "Fishing|Events")
-    FOnFishingStateCompleted OnFishingStateCompleted;
+	// ステート完了を外部へ通知するデリゲートのインスタンス
+	UPROPERTY(BlueprintAssignable, Category = "Fishing|Events")
+	FOnFishingStateCompleted OnFishingStateCompleted;
 };

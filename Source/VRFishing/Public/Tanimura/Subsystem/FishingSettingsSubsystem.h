@@ -12,21 +12,21 @@
 UCLASS()
 class VRFISHING_API UFishingSettingsSubsystem : public UGameInstanceSubsystem
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    /**
-     * 回転の負荷レベルを設定する
-     * @param NewLevel 0=Low, 1=Medium, 2=High
-     */
-    UFUNCTION(BlueprintCallable, Category = "Fishing|Settings")
-    void SetRotationLoadLevel(int32 NewLevel);
+	/**
+	 * 回転の負荷レベルを設定する
+	 * @param NewLevel 0=Low, 1=Medium, 2=High
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Fishing|Settings")
+	void SetRotationLoadLevel(int32 NewLevel);
 
-    // 回転の負荷レベル（0=Low, 1=Medium, 2=High）を取得する
-    UFUNCTION(BlueprintPure, Category = "Fishing|Settings")
-    int32 GetRotationLoadLevel() const;
+	// 回転の負荷レベル（0=Low, 1=Medium, 2=High）を取得する
+	UFUNCTION(BlueprintPure, Category = "Fishing|Settings")
+	int32 GetRotationLoadLevel() const;
 
 private:
-    // 回転の負荷レベル（デフォルトは1=Medium）
-    int32 RotationLoadLevel = 1;
+	// 回転の負荷レベル（デフォルトは1=Medium）
+	int32 RotationLoadLevel = 1;
 };
