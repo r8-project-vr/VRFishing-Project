@@ -67,9 +67,3 @@ bool UFishingResultStateComponent::IsSuccess() const
     // 釣りの成否を返す
     return bIsSuccess;
 }
-
-bool UFishingResultStateComponent::IsSuccessState() const
-{
-    // 釣り成功（bIsSuccess=true）なら true
-    return bIsSuccess;
-}

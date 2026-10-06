@@ -9,10 +9,6 @@ UFishingStateComponentBase::UFishingStateComponentBase()
 
     // 2026.08.20 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     // ステートコンポーネントは ChangeState() の明示的な Activate() まで非アクティブに保つ。
-    // UActorComponent 既定（bAutoActivate=true）のままだと BeginPlay 時に全ステートが自動アクティブ化され、
-    // タイトルメニュー等で IsActive() ガードが効かずリール回転が誤検知されるため無効化する。
-    // ※ Activate()/Deactivate() の可否は bAutoActivate に依存しない
-    //   （UActorComponent::ShouldActivate() は !IsActive() 判定のみ。UE5.8 エンジンソース確認済み）
     bAutoActivate = false;
     // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
@@ -36,12 +32,6 @@ FString UFishingStateComponentBase::GetStateDisplayName() const
     return GetClass()->GetName();
 }
 // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-
-bool UFishingStateComponentBase::IsSuccessState() const
-{
-    // 通常ステートは成功を表さない
-    return false;
-}
 
 bool UFishingStateComponentBase::IsTimeCountingState() const
 {

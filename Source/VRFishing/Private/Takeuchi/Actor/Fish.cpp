@@ -161,7 +161,6 @@ void AFish::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-// 2026.07.27 谷村　startーーーーーーーーーー
 // 釣りモードのステート変更に応じて魚の挙動を制御するハンドラー
 void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 {
@@ -223,16 +222,17 @@ void AFish::OnFishingStateChanged(UFishingStateComponentBase* NewState)
 		// 2026.08.05 竹内　endーーーーーーーーーー
 	}
 
-	// 2026.08.05 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 2026.10.06 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	// 釣り上げ結果モード (Result): 失敗時のみ魚が逃げる（成功時は既に Caught 状態）
-	else if (NewState->IsA<UFishingResultStateComponent>()) {
-		if (!NewState->IsSuccessState()) {
+	else if (UFishingResultStateComponent* ResultState = Cast<UFishingResultStateComponent>(NewState)) {
+	//else if (NewState->IsA<UFishingResultStateComponent>()) {
+		if (!ResultState->IsSuccess()) {
+		//if (!NewState->IsSuccessState()) {
 			EscapeFish();
 		}
 	}
-	// 2026.08.05 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 2026.10.06 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 }
-// 2026.07.27 谷村　endーーーーーーーーーー
 
 void AFish::OnCatchingStateCompleted(bool bIsSuccess)
 {

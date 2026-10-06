@@ -116,10 +116,18 @@ void UFishingLineComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 	UFishingStateManagerComponent* Manager = FindStateManager();
 	UFishingStateComponentBase* Current = Manager ? Manager->GetCurrentState() : nullptr;
 
+	// 2026.10.06 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 結果ステートを取得する（失敗判定は結果ステート固有のため基底の共通問い合わせから外した）
+	UFishingResultStateComponent* ResultState = Cast<UFishingResultStateComponent>(Current);
+	// 2026.10.06 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 	// --- 断線判定: 魚が Escape 状態 or 結果状態が失敗（二重救済で全逃走経路を覆盖） ---
 	if (!bBroken &&
 		((Fish && Fish->CurrentState == EFishState::Escape) ||
-			(Current && Current->IsA<UFishingResultStateComponent>() && !Current->IsSuccessState())))
+	// 2026.10.06 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+			(ResultState && !ResultState->IsSuccess())))
+			//(Current && Current->IsA<UFishingResultStateComponent>() && !Current->IsSuccessState())))
+	// 2026.10.06 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	{
 		BreakLine();
 	}

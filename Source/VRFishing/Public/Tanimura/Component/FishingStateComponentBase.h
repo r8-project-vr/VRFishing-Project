@@ -6,9 +6,16 @@
 #include "Components/ActorComponent.h"
 #include "FishingStateComponentBase.generated.h"
 
-// ステート完了時に発火するデリゲートの型宣言
+/**
+ * ステート完了時に発火するデリゲートの型宣言
+ * @param bIsSuccess true=成功 / false=失敗
+ */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFishingStateCompleted, bool, bIsSuccess);
 
+/**
+ * 釣りゲームの各モード（準備・腕上下・リール・釣り上げ・結果）が共通で継承するステートの基底クラス
+ * UFishingStateManagerComponentのTickで1つだけ駆動するため、各ステートのTickは無効化している
+ */
 UCLASS(Abstract, Blueprintable, ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class VRFISHING_API UFishingStateComponentBase : public UActorComponent
 {
@@ -17,17 +24,21 @@ class VRFISHING_API UFishingStateComponentBase : public UActorComponent
 public:
     UFishingStateComponentBase();
 
-    // ステート開始時の共通処理
+    // ステート開始時に一度だけ呼ばれる初期化処理
     UFUNCTION(BlueprintCallable, Category = "Fishing|State")
     virtual void EnterState();
 
-    // ステート更新時の共通処理
+    // ステート内で毎フレーム呼ばれる更新処理
     UFUNCTION(BlueprintCallable, Category = "Fishing|State")
     virtual void UpdateState(float DeltaTime);
 
-    // ステート終了時の共通処理
+    // ステート終了時に一度だけ呼ばれるリセット処理
     UFUNCTION(BlueprintCallable, Category = "Fishing|State")
     virtual void ExitState();
+
+    // ステートが制限時間を進める対象か
+    UFUNCTION(BlueprintPure, Category = "Fishing|State")
+    virtual bool IsTimeCountingState() const;
 
     // 2026.08.05 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     // ステートの表示名（ログ・UI表示用）を返す
@@ -35,16 +46,8 @@ public:
     virtual FString GetStateDisplayName() const;
     // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
-    // ステートが「釣り成功」を表すか（成功時の挙動分岐用）
-    UFUNCTION(BlueprintPure, Category = "Fishing|State")
-    virtual bool IsSuccessState() const;
-
-    // ステートが「制限時間を進める計時対象」か（本編タイマーの加算判定用）
-    UFUNCTION(BlueprintPure, Category = "Fishing|State")
-    virtual bool IsTimeCountingState() const;
-
 public:
-    // ステート完了を外部へ通知するデリゲートインスタンス
+    // ステート完了を外部へ通知するデリゲートのインスタンス
     UPROPERTY(BlueprintAssignable, Category = "Fishing|Events")
     FOnFishingStateCompleted OnFishingStateCompleted;
 };
