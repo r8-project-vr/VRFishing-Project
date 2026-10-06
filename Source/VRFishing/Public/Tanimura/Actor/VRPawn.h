@@ -32,7 +32,10 @@ class VRFISHING_API AVRPawn : public APawn
 public:
     AVRPawn();
 
-    // スティック入力発生時に呼び出すハンドラー
+    /**
+     * スティック入力発生時に呼び出すハンドラー
+     * @param StickInput スティックの入力値（X=左右, Y=前後）
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Input")
     void InjectReelStickInput(FVector2D StickInput);
 
@@ -89,7 +92,10 @@ protected:
     // 2026.09.01 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 private:
-    // 待機ステート完了時の通知を受け取るハンドラー
+    /**
+     * 待機ステート完了時の通知を受け取るハンドラー
+     * @param bIsSuccess 準備が完了したならtrue
+     */
     UFUNCTION()
     void OnReadyStateCompleted(bool bIsSuccess);
 
@@ -99,19 +105,31 @@ private:
     void OnHandUpDownCompleted(bool bIsSuccess);
     // 2026.07.27 Lee end
 
-    // リールステート完了時の通知を受け取るハンドラー
+    /**
+     * リールステート完了時の通知を受け取るハンドラー
+     * @param bIsSuccess リール操作に成功したならtrue
+     */
     UFUNCTION()
     void OnReelStateCompleted(bool bIsSuccess);
 
-    // 釣り上げステート完了時の通知を受け取るハンドラー
+    /**
+     * 釣り上げステート完了時の通知を受け取るハンドラー
+     * @param bIsSuccess 釣り上げに成功したならtrue
+     */
     UFUNCTION()
     void OnCatchingStateCompleted(bool bIsSuccess);
 
-    // 釣り上げ完了ステート完了時の通知を受け取るハンドラー
+    /**
+     * 釣り上げ完了ステート完了時の通知を受け取るハンドラー
+     * @param bIsSuccess 今回のセットに成功したならtrue
+     */
     UFUNCTION()
     void OnResultStateCompleted(bool bIsSuccess);
 
-    // ステート変更時の通知を受け取るハンドラー
+    /**
+     * ステート変更時の通知を受け取るハンドラー
+     * @param NewState 新しくアクティブになったステート
+     */
     UFUNCTION()
     void OnFishingStateChanged(UFishingStateComponentBase* NewState);
 };

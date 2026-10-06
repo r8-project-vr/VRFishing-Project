@@ -62,19 +62,33 @@ class VRFISHING_API UFishingCatchHistorySubsystem : public UGameInstanceSubsyste
     GENERATED_BODY()
 
 public:
-    // レベル別の通常魚表示情報を設定する（GameModeのBeginPlayで呼ばれる）
+    /**
+     * レベル別の通常魚表示情報を設定する（GameModeのBeginPlayで呼ばれる）
+     * @param InFishDisplays インデックス0がレベル1に対応する通常魚の表示情報
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Catch")
     void SetFishDisplays(const TArray<FFishDisplayInfo>& InFishDisplays);
 
-    // レベル別のレア魚表示情報を設定する（GameModeのBeginPlayで呼ばれる）
+    /**
+     * レベル別のレア魚表示情報を設定する（GameModeのBeginPlayで呼ばれる）
+     * @param InRareFishDisplays インデックス0がレベル1に対応するレア魚の表示情報
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Catch")
     void SetRareFishDisplays(const TArray<FFishDisplayInfo>& InRareFishDisplays);
 
-    // 今回釣った魚を記録する（釣れなかったときはレベル0を渡す）
+    /**
+     * 今回釣った魚を記録する
+     * @param FishLevel 釣った魚のレベル（釣れなかったときは0）
+     * @param bIsRare レア魚ならtrue
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Catch")
     void SetCaughtFishLevel(int32 FishLevel, bool bIsRare);
 
-    // 釣った魚を履歴へ追加する（釣った順に積む。重複もそのまま残す）
+    /**
+     * 釣った魚を履歴へ追加する（釣った順に積む。重複もそのまま残す）
+     * @param FishLevel 釣った魚のレベル
+     * @param bIsRare レア魚ならtrue
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Catch")
     void AddCaughtFish(int32 FishLevel, bool bIsRare);
 
@@ -86,7 +100,10 @@ public:
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     FFishCatchRecord GetCurrentSetFishRecord() const;
 
-    // 釣った順の指定インデックスの釣果を返す（範囲外は空の釣果）
+    /**
+     * 釣った順の指定インデックスの釣果を返す（範囲外は空の釣果）
+     * @param Index 釣った順のインデックス（0始まり）
+     */
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     FFishCatchRecord GetCaughtFishRecord(int32 Index) const;
 
@@ -102,19 +119,33 @@ public:
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     int32 GetCaughtFishCount() const;
 
-    // 指定レベルとレア判定に対応する魚の表示名を返す（レア未設定時は通常魚）
+    /**
+     * 指定レベルとレア判定に対応する魚の表示名を返す（レア未設定時は通常魚）
+     * @param Level 運動レベル（1始まり）
+     * @param bIsRare レア魚ならtrue
+     */
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     FText GetFishNameByLevelAndRare(int32 Level, bool bIsRare) const;
 
-    // 指定レベルとレア判定に対応する魚のイラストを返す（レア未設定時は通常魚）
+    /**
+     * 指定レベルとレア判定に対応する魚のイラストを返す（レア未設定時は通常魚）
+     * @param Level 運動レベル（1始まり）
+     * @param bIsRare レア魚ならtrue
+     */
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     UTexture2D* GetFishTextureByLevelAndRare(int32 Level, bool bIsRare) const;
 
-    // 指定レベルに対応する通常魚の表示名を返す（未設定時は空テキスト）
+    /**
+     * 指定レベルに対応する通常魚の表示名を返す（未設定時は空テキスト）
+     * @param Level 運動レベル（1始まり）
+     */
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     FText GetFishNameByLevel(int32 Level) const;
 
-    // 指定レベルに対応する通常魚のイラストを返す（未設定時はnullptr）
+    /**
+     * 指定レベルに対応する通常魚のイラストを返す（未設定時はnullptr）
+     * @param Level 運動レベル（1始まり）
+     */
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     UTexture2D* GetFishTextureByLevel(int32 Level) const;
 
@@ -123,16 +154,29 @@ public:
     int32 GetFishDisplayCount() const;
 
 private:
-    // レベルが通常魚の表示情報の範囲内か判定する（レベルは1始まり）
+    /**
+     * レベルが通常魚の表示情報の範囲内か判定する（レベルは1始まり）
+     * @param Level 判定する運動レベル
+     */
     bool IsValidLevel(int32 Level) const;
 
-    // レベルがレア魚の表示情報の範囲内か判定する（レベルは1始まり）
+    /**
+     * レベルがレア魚の表示情報の範囲内か判定する（レベルは1始まり）
+     * @param Level 判定する運動レベル
+     */
     bool IsValidRareLevel(int32 Level) const;
 
-    // レベルを配列インデックスへ変換する（レベル1がインデックス0）
+    /**
+     * レベルを配列インデックスへ変換する（レベル1がインデックス0）
+     * @param Level 変換する運動レベル
+     */
     int32 LevelToIndex(int32 Level) const;
 
-    // レベルとレア判定から釣果を組み立てる
+    /**
+     * レベルとレア判定から釣果を組み立てる
+     * @param Level 釣果の運動レベル（0=釣れていない）
+     * @param bIsRare レア魚ならtrue
+     */
     FFishCatchRecord BuildCatchRecord(int32 Level, bool bIsRare) const;
 
     // レベル別の通常魚表示情報（インデックス0がレベル1）

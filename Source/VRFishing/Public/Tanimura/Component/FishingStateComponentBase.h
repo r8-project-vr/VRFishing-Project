@@ -28,7 +28,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Fishing|State")
     virtual void EnterState();
 
-    // ステート内で毎フレーム呼ばれる更新処理
+    /**
+     * ステート内で毎フレーム呼ばれる更新処理
+     * @param DeltaTime 前フレームからの経過時間（秒）
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|State")
     virtual void UpdateState(float DeltaTime);
 

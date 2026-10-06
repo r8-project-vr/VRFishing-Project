@@ -31,7 +31,10 @@ public:
 	// リール操作中は制限時間を進める（計時対象）
 	virtual bool IsTimeCountingState() const override;
 
-	// スティック入力を基にRPMシミュレーションを実行
+	/**
+	 * スティック入力を基にRPMシミュレーションを実行
+	 * @param StickInput スティックの入力値（X=左右, Y=前後）
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
 	void SimulateReelByStick(FVector2D StickInput);
 
@@ -47,7 +50,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Reel Simulator")
 	int32 GetCurrentRevolutionCount() const;
 
-	// 負荷レベル（0=Low, 1=Medium, 2=High）に応じてRPM閾値を設定する
+	/**
+	 * 負荷レベルに応じてRPM閾値を設定する
+	 * @param LoadLevel 0=Low, 1=Medium, 2=High
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator|Config")
 	void ApplyRotationLoadLevel(int32 LoadLevel);
 
@@ -129,7 +135,13 @@ protected:
 	float RemainingExerciseSeconds = 20.0f;
 
 private:
-	// 判定間隔（JudgeIntervalRad）分の角度が溜まるたびにRPMを算出し、デリゲートを呼び出す
+	/**
+	 * 判定間隔分の角度が溜まるたびにRPMを算出し、デリゲートを呼び出す
+	 * @param DeltaAngle 前回判定からの回転角度（ラジアン）
+	 * @param MaxAllowedRPM 速すぎとみなす上限RPM
+	 * @param MinRPM 遅すぎとみなす下限RPM
+	 * @param JudgeIntervalRad RPMを算出する角度間隔（ラジアン）
+	 */
 	void CalculateRPM(float DeltaAngle, float MaxAllowedRPM, float MinRPM, float JudgeIntervalRad);
 
 	float	LastAngle;				// 前フレームの入力角度（ラジアン）
@@ -146,10 +158,21 @@ private:
 	// 遅すぎミスの連続回数（許容範囲内または速すぎミスで0に戻る）
 	int32 UnderRPMCount;
 
-	// RPMの許容範囲判定（速すぎ・遅すぎ）と失敗判定を行う。MistakeCountLimit は連続ミス許容回数（判定間隔換算済み）
+	/**
+	 * RPMの許容範囲判定（速すぎ・遅すぎ）と失敗判定を行う
+	 * @param CalculatedRPM 今回算出したRPM
+	 * @param MaxAllowedRPM 速すぎとみなす上限RPM
+	 * @param MinRPM 遅すぎとみなす下限RPM
+	 * @param MistakeCountLimit 連続ミスの許容回数（判定間隔換算済み）
+	 */
 	void JudgeRPM(float CalculatedRPM, float MaxAllowedRPM, float MinRPM, int32 MistakeCountLimit);
 
-	// ミスログを画面と出力ログに表示する
+	/**
+	 * ミスログを画面と出力ログに表示する
+	 * @param bIsTooFast 速すぎミスならtrue、遅すぎミスならfalse
+	 * @param CurrentRPM ミス時のRPM
+	 * @param MistakeCountLimit 連続ミスの許容回数（判定間隔換算済み）
+	 */
 	void ShowErrorLog(bool bIsTooFast, float CurrentRPM, int32 MistakeCountLimit);
 
 	double	LastRevolutionTime;		// 最後に1回転を完了した時刻（秒、停止検知に使用）

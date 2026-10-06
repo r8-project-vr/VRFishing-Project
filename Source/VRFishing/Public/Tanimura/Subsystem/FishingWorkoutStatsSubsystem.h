@@ -16,15 +16,24 @@ class VRFISHING_API UFishingWorkoutStatsSubsystem : public UGameInstanceSubsyste
     GENERATED_BODY()
 
 public:
-    // 運動していた秒数を加算する（GameModeのTickから呼ばれる）
+    /**
+     * 運動していた秒数を加算する（GameModeのTickから呼ばれる）
+     * @param Seconds 加算する運動時間（秒）
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Workout")
     void AddExerciseSeconds(float Seconds);
 
-    // 今回セットの腕上下回数を加算する（VRPawnの完了通知から呼ばれる）
+    /**
+     * 今回セットの腕上下回数を加算する（VRPawnの完了通知から呼ばれる）
+     * @param Count 今回セットの腕上下回数
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Workout")
     void AddArmUpDownCount(int32 Count);
 
-    // 今回セットのリール回転回数を加算する（VRPawnの完了通知から呼ばれる）
+    /**
+     * 今回セットのリール回転回数を加算する（VRPawnの完了通知から呼ばれる）
+     * @param Count 今回セットのリール回転回数
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Workout")
     void AddReelRevolutionCount(int32 Count);
 

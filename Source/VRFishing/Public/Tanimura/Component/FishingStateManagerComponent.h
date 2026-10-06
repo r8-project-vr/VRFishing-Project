@@ -22,7 +22,10 @@ public:
 	// アクティブなステートの更新を実行
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	// アクティブなステートを変更
+	/**
+	 * アクティブなステートを変更
+	 * @param NewState 次にアクティブにするステート
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Fishing|Manager")
 	void ChangeState(UFishingStateComponentBase* NewState);
 

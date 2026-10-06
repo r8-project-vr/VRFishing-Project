@@ -27,7 +27,10 @@ public:
     virtual FString GetStateDisplayName() const override; // ステートの表示名（ログ・UI表示用）
     // 2026.08.05 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
-    // 釣りの成否（成功=true / 失敗=false）を設定する
+    /**
+     * 釣りの成否を設定する
+     * @param bSuccess 成功=true / 失敗=false
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Result")
     void SetResult(bool bSuccess);
 

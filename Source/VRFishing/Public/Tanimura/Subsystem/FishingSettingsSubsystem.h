@@ -15,7 +15,10 @@ class VRFISHING_API UFishingSettingsSubsystem : public UGameInstanceSubsystem
     GENERATED_BODY()
 
 public:
-    // 回転の負荷レベル（0=Low, 1=Medium, 2=High）を設定する
+    /**
+     * 回転の負荷レベルを設定する
+     * @param NewLevel 0=Low, 1=Medium, 2=High
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Settings")
     void SetRotationLoadLevel(int32 NewLevel);
 

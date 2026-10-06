@@ -32,7 +32,10 @@ public:
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
 
-    // セット完了を通知する（VRPawnから呼ばれる）
+    /**
+     * セット完了を通知する（VRPawnから呼ばれる）
+     * @param bIsSuccess 釣りに成功したならtrue
+     */
     void OnSetCompleted(bool bIsSuccess);
 
     // 次のセットを開始する（リザルトWidgetの「次のセットへ」ボタンから呼ばれる）
@@ -91,11 +94,17 @@ public:
     UFUNCTION(BlueprintPure, Category = "Fishing|Exercise")
     float GetCurrentExerciseSeconds() const;
 
-    // 指定レベルに対応する魚の表示名を返す（サブシステムへ委譲する）
+    /**
+     * 指定レベルに対応する魚の表示名を返す（サブシステムへ委譲する）
+     * @param Level 運動レベル（1始まり）
+     */
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     FText GetFishNameByLevel(int32 Level) const;
 
-    // 指定レベルに対応する魚のイラストを返す（サブシステムへ委譲する）
+    /**
+     * 指定レベルに対応する魚のイラストを返す（サブシステムへ委譲する）
+     * @param Level 運動レベル（1始まり）
+     */
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     UTexture2D* GetFishTextureByLevel(int32 Level) const;
 
@@ -107,11 +116,17 @@ public:
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     FFishCatchRecord GetCurrentSetFishRecord() const;
 
-    // 今回セットの腕上下回数を合計へ加算する（VRPawnの完了通知から呼ばれる）
+    /**
+     * 今回セットの腕上下回数を合計へ加算する（VRPawnの完了通知から呼ばれる）
+     * @param Count 今回セットの腕上下回数
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Workout")
     void AddArmUpDownCount(int32 Count);
 
-    // 今回セットのリール回転回数を合計へ加算する（VRPawnの完了通知から呼ばれる）
+    /**
+     * 今回セットのリール回転回数を合計へ加算する（VRPawnの完了通知から呼ばれる）
+     * @param Count 今回セットのリール回転回数
+     */
     UFUNCTION(BlueprintCallable, Category = "Fishing|Workout")
     void AddReelRevolutionCount(int32 Count);
 
@@ -120,7 +135,10 @@ public:
     float GetRemainingTime() const;
 
 protected:
-    // セット完了時のBPイベント（BPでリザルトWidgetを生成・表示する）
+    /**
+     * セット完了時のBPイベント（BPでリザルトWidgetを生成・表示する）
+     * @param bIsSuccess 釣りに成功したならtrue
+     */
     UFUNCTION(BlueprintImplementableEvent, Category = "Fishing|Game")
     void OnSetCompletedBP(bool bIsSuccess);
 
