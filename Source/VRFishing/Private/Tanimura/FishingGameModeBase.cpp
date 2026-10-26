@@ -13,6 +13,8 @@
 #include "Tanimura/Component/FishingStateComponentBase.h"
 #include "Tanimura/Subsystem/FishingCatchHistorySubsystem.h"
 #include "Tanimura/Subsystem/FishingWorkoutStatsSubsystem.h"
+#include "Tanimura/Subsystem/FishingCatchSaveSubsystem.h"
+#include "Takeuchi/Data/FishDataAsset.h"
 #include "VRFishingLog.h"
 
 AFishingGameModeBase::AFishingGameModeBase()
@@ -93,6 +95,18 @@ void AFishingGameModeBase::OnSetCompleted(bool bIsSuccess)
             CatchHistory->SetCaughtFishLevel(0, false);
         }
     }
+
+	// 釣った魚を水族館用にローカルファイルへ保存
+	if (bIsSuccess) {
+		UFishingCatchSaveSubsystem* CatchSave = GetCatchSaveSubsystem();
+		UFishDataAsset* CaughtFishData = CatchHistory ? CatchHistory->GetFishDataByLevelAndRare(CaughtFishLevel, bCurrentFishIsRare) : nullptr;
+		if (CatchSave && IsValid(CaughtFishData)) {
+			CatchSave->AddCaughtFish(CaughtFishData, CaughtFishLevel, bCurrentFishIsRare);
+		}
+		else if (CatchSave) {
+			UE_LOG(LogFishing, Warning, TEXT("AFishingGameModeBase::OnSetCompleted: FishDisplays または RareFishDisplays に FishData が未設定のため水族館へ保存しませんでした。"));
+		}
+	}
 
     // セット失敗はそのまま「逃がした魚1匹」として数える
     if (!bIsSuccess) {
@@ -317,6 +331,22 @@ UFishingCatchHistorySubsystem* AFishingGameModeBase::GetCatchHistorySubsystem() 
     }
 
     return GameInstance->GetSubsystem<UFishingCatchHistorySubsystem>();
+}
+
+UFishingCatchSaveSubsystem* AFishingGameModeBase::GetCatchSaveSubsystem() const
+{
+	const UWorld* World = GetWorld();
+	if (!World) {
+		return nullptr;
+	}
+
+	// GameInstanceに属するサブシステムを取得する（レベル遷移後も生存する）
+	UGameInstance* GameInstance = World->GetGameInstance();
+	if (!GameInstance) {
+		return nullptr;
+	}
+
+	return GameInstance->GetSubsystem<UFishingCatchSaveSubsystem>();
 }
 
 void AFishingGameModeBase::InitializeCatchHistory()

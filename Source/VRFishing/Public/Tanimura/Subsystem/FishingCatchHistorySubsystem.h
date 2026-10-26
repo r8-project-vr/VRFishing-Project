@@ -7,6 +7,7 @@
 #include "FishingCatchHistorySubsystem.generated.h"
 
 class UTexture2D;
+class UFishDataAsset;
 
 /**
  * レベル別の魚表示情報（リザルトUIへ出す魚名とイラスト）
@@ -24,6 +25,10 @@ struct FFishDisplayInfo
     // リザルトUIへ表示する魚のイラスト（インポートしたテクスチャを割り当てる）
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Catch")
     TObjectPtr<UTexture2D> FishTexture = nullptr;
+
+	// 水族館で泳がせる魚種データ
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Catch")
+	TObjectPtr<UFishDataAsset> FishData = nullptr;
 };
 
 /**
@@ -109,6 +114,10 @@ public:
     // 指定レベルとレア判定に対応する魚のイラストを返す（レア未設定時は通常魚）
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     UTexture2D* GetFishTextureByLevelAndRare(int32 Level, bool bIsRare) const;
+
+	// 指定レベルとレア判定に対応する魚種データを返す（未設定時はnullptr）
+	UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
+	UFishDataAsset* GetFishDataByLevelAndRare(int32 Level, bool bIsRare) const;
 
     // 指定レベルに対応する通常魚の表示名を返す（未設定時は空テキスト）
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")

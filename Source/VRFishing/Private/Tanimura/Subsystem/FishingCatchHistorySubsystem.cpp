@@ -111,6 +111,22 @@ UTexture2D* UFishingCatchHistorySubsystem::GetFishTextureByLevel(int32 Level) co
     return GetFishTextureByLevelAndRare(Level, false);
 }
 
+UFishDataAsset* UFishingCatchHistorySubsystem::GetFishDataByLevelAndRare(int32 Level, bool bIsRare) const
+{
+	// レア魚の魚種が設定済みならレア魚を返す
+	if (bIsRare && IsValidRareLevel(Level)) {
+		if (UFishDataAsset* RareFishData = RareFishDisplays[LevelToIndex(Level)].FishData) {
+			return RareFishData;
+		}
+	}
+
+	// レア魚が未設定または範囲外なら通常魚へフォールバック
+	if (!IsValidLevel(Level)) {
+		return nullptr;
+	}
+	return FishDisplays[LevelToIndex(Level)].FishData;
+}
+
 int32 UFishingCatchHistorySubsystem::GetFishDisplayCount() const
 {
     return FishDisplays.Num();
