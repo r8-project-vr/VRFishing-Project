@@ -12,6 +12,7 @@ class AFish;
 class AVRPawn;
 class UFishingStateManagerComponent;
 class UTexture2D;
+class UFishingCatchSaveSubsystem;
 
 /**
  * 釣りゲーム本編（LV_MainGame）専用のゲームモード
@@ -165,6 +166,9 @@ private:
 
     // 釣果サブシステムを取得する
     UFishingCatchHistorySubsystem* GetCatchHistorySubsystem() const;
+
+	// 釣果保存サブシステムを取得する
+	UFishingCatchSaveSubsystem* GetCatchSaveSubsystem() const;
 
     // 釣果サブシステムへ魚表示情報を転送し、今回の釣果を破棄する
     void InitializeCatchHistory();
