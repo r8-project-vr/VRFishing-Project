@@ -7,6 +7,13 @@
 #include "Components/CanvasPanelSlot.h"
 #include "Engine/Texture2D.h"
 // 2026.09.09 Lee endーーー
+// 2026.10.21 Lee startーーー 原図腕ガイド ーーー
+#include "Components/Border.h"
+#include "Components/CanvasPanel.h"
+#include "Components/ProgressBar.h"
+#include "Components/TextBlock.h"
+#include "UObject/UnrealType.h"
+// 2026.10.21 Lee endーーー
 #include "Tanimura/Component/FishingReelStateComponent.h"
 #include "Tanimura/Component/FishingStateManagerComponent.h"
 #include "Tanimura/Component/FishingStateComponentBase.h"
@@ -33,6 +40,15 @@ UFishFightMeterWidget::UFishFightMeterWidget(const FObjectInitializer& ObjectIni
 void UFishFightMeterWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+
+	// 2026.10.22 Lee startーーー デザイナー用プレビューの実行時隠蔽 ーーー
+	// WBP 内の ArmGuidePreview（Codex 追加・デザイナー表示専用）は、実行時・旧 UI 復帰時とも
+	// 表示させない。ここで一度 Collapsed にすれば以後の表示経路は存在しない
+	if (UWidget* PreviewWidget = GetWidgetFromName(TEXT("ArmGuidePreview")))
+	{
+		PreviewWidget->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	// 2026.10.22 Lee endーーー
 
 	APawn* OwnerPawn = GetOwningPlayerPawn();
 	if (!OwnerPawn)
@@ -115,6 +131,20 @@ void UFishFightMeterWidget::NativeConstruct()
 	{
 		ApplyPhase(EFishingPhase::Ready, TEXT("よーい！"), false);
 	}
+
+	// 2026.10.21 Lee startーーー 原図腕ガイドの生成と初回同期 ーーー
+	// ApplyPhase 内の BP イベントで旧ガイドが再表示され得るため、生成後に強制非表示を 1 回適用する。
+	// 子 Widget の生成に失敗した場合は旧 UI を残す（空白化しない）
+	if (bUseArmGuidePanel)
+	{
+		EnsureArmGuideWidget();
+		if (ArmGuideWidget)
+		{
+			ArmGuideWidget->ApplyGuideInput(BuildArmGuideInput());
+			ForceHideLegacyArrowControls();
+		}
+	}
+	// 2026.10.21 Lee endーーー
 }
 
 /** @brief 毎フレーム処理。ステートコンポーネントから表示データを読み取り BP イベントへプッシュする */
@@ -203,6 +233,28 @@ void UFishFightMeterWidget::NativeTick(const FGeometry& MyGeometry, float InDelt
 			FinalScore, CurrentScore);
 		GEngine->AddOnScreenDebugMessage(4, 0.0f, ScoreColor, ScoreMsg);
 	}
+
+	// 2026.10.21 Lee startーーー 原図腕ガイドの毎フレーム更新 ーーー
+	// BP 側イベント（OnArrowUpdated 等）が同一 Tick 内で旧ガイドの可視性を戻し得るため、
+	// Tick の最後で入力適用と強制非表示を行う（新 UI 有効中のみ。false へ下げたら子 Widget を解放して
+	// 旧 UI の可視性制御を BP 側イベントへ返す）。子 Widget が無い（生成失敗）場合は旧 UI を残す
+	if (bUseArmGuidePanel)
+	{
+		EnsureArmGuideWidget();
+		if (ArmGuideWidget)
+		{
+			ArmGuideWidget->ApplyGuideInput(BuildArmGuideInput());
+			ForceHideLegacyArrowControls();
+		}
+	}
+	else if (ArmGuideWidget)
+	{
+		ReleaseArmGuideWidget();
+		// 同一フェーズ中の切替では BP 側イベントが再発火しないため、旧 UI 群の可視性を手動で現在
+		// フェーズへ同期する（RPM・ステップバー等の状態は触れない）
+		RestoreLegacyArrowVisibility();
+	}
+	// 2026.10.21 Lee endーーー
 }
 
 // 2026.09.07 Lee startーーー 破棄時のタイマー解除とデリゲート購読解除 ーーー
@@ -228,6 +280,10 @@ void UFishFightMeterWidget::NativeDestruct()
 	{
 		StateManager->OnFishingStateChanged.RemoveDynamic(this, &UFishFightMeterWidget::HandleFishingStateChanged);
 	}
+
+	// 2026.10.21 Lee startーーー 原図腕ガイドの解放（二次構築に備える） ーーー
+	ReleaseArmGuideWidget();
+	// 2026.10.21 Lee endーーー
 
 	Super::NativeDestruct();
 }
@@ -644,3 +700,182 @@ void UFishFightMeterWidget::UpdateStepFishPosition(float DeltaTime)
 	Image_PhaseFish->SetRenderTranslation(StepFishCurrentPos);
 }
 // 2026.09.09 Lee endーーー
+
+// 2026.10.21 Lee startーーー 原図腕ガイド（新 UI）の実装 ーーー
+
+void UFishFightMeterWidget::EnsureArmGuideWidget()
+{
+	if (ArmGuideWidget)
+	{
+		return;
+	}
+
+	// 純 C++ 子 Widget を実行時生成する（BP 資産不要。デモは CreateWidget 単体でも可能）
+	UArmGuideWidget* NewGuide = CreateWidget<UArmGuideWidget>(this);
+	if (!NewGuide)
+	{
+		UE_LOG(LogFishing, Warning, TEXT("[FightMeter] ArmGuideWidget の生成に失敗しました"));
+		return;
+	}
+
+	// 2026.10.22 Lee startーーー 挿入先コンテナの解決（任意の ArmGuideHost → ルート Canvas の順） ーーー
+	// WBP 側に ArmGuideHost（任意名の CanvasPanel）があればそこへ入れる（位置・寸法はデザイナー制御
+	// であり、Host 自身の slot は触らない）。無ければ従来どおりルート CanvasPanel へ入れる（旧資産互換）
+	UCanvasPanel* HostCanvas = Cast<UCanvasPanel>(GetWidgetFromName(TEXT("ArmGuideHost")));
+	if (!HostCanvas)
+	{
+		HostCanvas = Cast<UCanvasPanel>(GetRootWidget());
+	}
+	if (!HostCanvas)
+	{
+		UE_LOG(LogFishing, Warning, TEXT("[FightMeter] ルートが CanvasPanel でないため ArmGuideWidget を挿入できません (Root=%s)"),
+			GetRootWidget() ? *GetRootWidget()->GetName() : TEXT("None"));
+		NewGuide->RemoveFromParent();
+		return;
+	}
+
+	ArmGuideWidget = NewGuide;
+	// 選ばれたコンテナへ全面敷き（offset 0・ZOrder 1）。中身（下部パネル）は子 Widget 側のアンカーで配置する
+	if (UCanvasPanelSlot* GuideSlot = HostCanvas->AddChildToCanvas(ArmGuideWidget))
+	{
+		GuideSlot->SetAnchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f));
+		GuideSlot->SetPosition(FVector2D::ZeroVector);
+		GuideSlot->SetSize(FVector2D::ZeroVector);
+		GuideSlot->SetZOrder(1);
+	}
+	// 2026.10.22 Lee endーーー
+	ArmGuideWidget->SetVisibility(ESlateVisibility::Collapsed);
+
+	// 2026.10.22 Lee startーーー WBP テンプレート（デザイナー設定）の複写 ーーー
+	// ArmGuidePreview／ArmGuidePreviewText があれば、その slot レイアウトと padding を実 Widget へ
+	// 複写する（WBP の現在値が優先。生成時に 1 回だけ・毎フレームの再計算なし。テンプレートの
+	// slot 自体は移動・改変しない。無い場合は既定レイアウトのまま）
+	ArmGuideWidget->ApplyDesignerTemplate(
+		Cast<UBorder>(GetWidgetFromName(TEXT("ArmGuidePreview"))),
+		Cast<UTextBlock>(GetWidgetFromName(TEXT("ArmGuidePreviewText"))));
+	// 2026.10.22 Lee endーーー
+
+	UE_LOG(LogFishing, Log, TEXT("[FightMeter] ArmGuideWidget を生成し %s へ挿入しました"), *HostCanvas->GetName());
+}
+
+void UFishFightMeterWidget::ReleaseArmGuideWidget()
+{
+	if (ArmGuideWidget)
+	{
+		ArmGuideWidget->RemoveFromParent();
+		ArmGuideWidget = nullptr;
+		UE_LOG(LogFishing, Log, TEXT("[FightMeter] ArmGuideWidget を解放しました（旧 UI の可視性制御を BP 側へ戻します）"));
+	}
+}
+
+FArmGuideInput UFishFightMeterWidget::BuildArmGuideInput()
+{
+	FArmGuideInput Input;
+
+	// センサ有効性は GetEffectiveHandZCm の戻り値で判断する（未初期化の 0% を達成扱いにしないため）
+	float EffectiveHandZCm = 0.0f;
+	if (HandHeightDetector && HandHeightDetector->GetEffectiveHandZCm(EffectiveHandZCm))
+	{
+		Input.bHandValid = true;
+		Input.HandPercent = HandHeightDetector->HandHeightPercent;
+	}
+
+	switch (CurrentPhase)
+	{
+	case EFishingPhase::Ready:
+		Input.Mode = EArmGuideMode::Ready;
+		// 閾値は Ready コンポーネントの実行時値を反射で読む（失敗時は目標ごと非表示。0 へ落とさない）
+		Input.TargetPercent = ReadReadyDownPercent(Input.bTargetValid);
+		break;
+
+	case EFishingPhase::HandUpDown:
+		Input.Mode = EArmGuideMode::HandUpDown;
+		if (HandUpDownState)
+		{
+			// 状態が有効な間は矢印位置を目標（破線）とし、残り時間は表示専用メンバから取る（回数は使わない）
+			Input.bTargetValid = true;
+			Input.TargetPercent = HandUpDownState->ArrowPosition;
+			Input.ArrowState = HandUpDownState->ArrowState;
+			Input.bShowTimer = true;
+			Input.RemainingSeconds = FMath::Max(0.0f, HandUpDownState->RemainingExerciseSeconds);
+		}
+		break;
+
+	case EFishingPhase::Catching:
+		// つりあげ：目標なし（実線＋上矢印のみ）。終了は実状態切替に任せる（新規計時・成功判定はしない）
+		Input.Mode = EArmGuideMode::Catching;
+		break;
+
+	case EFishingPhase::Reel:
+	case EFishingPhase::Result:
+	default:
+		// リール／結果では本ガイドを隠す（既存の RPM・総時間・ステップバー・結果表示は変更しない）
+		Input.Mode = EArmGuideMode::Hidden;
+		break;
+	}
+
+	return Input;
+}
+
+float UFishFightMeterWidget::ReadReadyDownPercent(bool& bOutValid)
+{
+	bOutValid = false;
+
+	if (!ReadyState)
+	{
+		return 0.0f;
+	}
+
+	// protected 変数のためリフレクションで読む。プロパティポインタは初回のみ解決してキャッシュ
+	// （FField はクラス静的なのでキャッシュは安全。読み取り失敗時は呼び出し側が 0 を使わない）
+	if (!CachedReadyPercentProperty)
+	{
+		CachedReadyPercentProperty = CastField<FFloatProperty>(
+			UFishingReadyStateComponent::StaticClass()->FindPropertyByName(TEXT("RequiredDownPercent")));
+		if (!CachedReadyPercentProperty)
+		{
+			UE_LOG(LogFishing, Warning, TEXT("[FightMeter] ReadyState の RequiredDownPercent が反射で読めません（目標破線と達成提示を非表示にします）"));
+		}
+	}
+
+	if (CachedReadyPercentProperty)
+	{
+		bOutValid = true;
+		return CachedReadyPercentProperty->GetPropertyValue_InContainer(ReadyState.Get());
+	}
+
+	return 0.0f;
+}
+
+void UFishFightMeterWidget::ForceHideLegacyArrowControls()
+{
+	// BP 側イベント（OnArrowUpdated／OnArrowGuideVisibilityChanged 等）が毎フレーム可視性を
+	// 戻し得るため、新 UI 有効中は毎フレーム強制非表示にする（資産・BP は変更しない）
+	if (ProgressBar_HandHeight)
+	{
+		ProgressBar_HandHeight->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	if (Image_ArrowRange)
+	{
+		Image_ArrowRange->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	if (Image_Arrow)
+	{
+		Image_Arrow->SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+
+void UFishFightMeterWidget::RestoreLegacyArrowVisibility()
+{
+	// 強制非表示で上書きしていた旧ガイド群を、現在フェーズの論理状態へ即時復帰させる。
+	// ApplyPhaseVisibility の変化検出キャッシュ（bArrowGuideVisible 等）は論理状態を維持したまま
+	// なので、ここで BP イベントを明示的に再通知する（同一フェーズ中の true→false 切替対策）。
+	// 可視性以外（RPM・総時間・ステップバー・結果）の状態には触れない
+	const bool bArrowGuideShouldBeVisible = (CurrentPhase == EFishingPhase::HandUpDown);
+	const bool bRpmGaugeShouldBeVisible = (CurrentPhase == EFishingPhase::Reel);
+	UE_LOG(LogFishing, Log, TEXT("[FightMeter] 旧ガイドの可視性を復帰: ArrowGuide=%d / RpmGauge=%d (Phase=%d)"),
+		bArrowGuideShouldBeVisible ? 1 : 0, bRpmGaugeShouldBeVisible ? 1 : 0, static_cast<int32>(CurrentPhase));
+	OnArrowGuideVisibilityChanged(bArrowGuideShouldBeVisible);
+	OnRpmGaugeVisibilityChanged(bRpmGaugeShouldBeVisible);
+}
+// 2026.10.21 Lee endーーー

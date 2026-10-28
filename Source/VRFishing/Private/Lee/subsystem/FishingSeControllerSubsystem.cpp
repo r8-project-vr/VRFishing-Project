@@ -1,4 +1,4 @@
-// Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
+ // Copyright 2026 JEC ProjectVR TeamRehab. All Rights Reserved.
 
 #include "Lee/subsystem/FishingSeControllerSubsystem.h"
 

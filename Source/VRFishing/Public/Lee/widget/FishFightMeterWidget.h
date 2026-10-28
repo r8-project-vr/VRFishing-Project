@@ -6,6 +6,9 @@
 #include "Blueprint/UserWidget.h"
 #include "Engine/TimerHandle.h"
 #include "Styling/SlateBrush.h"
+// 2026.10.21 Lee startーーー 原図腕ガイド（FArmGuideInput を値返しするためヘッダ需要） ーーー
+#include "Lee/widget/ArmGuideWidget.h"
+// 2026.10.21 Lee endーーー
 #include "Lee/component/HandHeightDetectorComponent.h"
 #include "Lee/component/FishingStateHandUpDown.h"
 #include "FishFightMeterWidget.generated.h"
@@ -18,6 +21,11 @@ class UFishingStateComponentBase;
 class UFishingReadyStateComponent;
 class UFishingCatchingStateComponent;
 class UFishingResultStateComponent;
+// 2026.10.21 Lee startーーー 原図腕ガイド ーーー
+class UArmGuideWidget;
+class UProgressBar;
+class FFloatProperty;
+// 2026.10.21 Lee endーーー
 
 /**
  * @brief 釣りの進行フェーズ（ステップバー表示用）を定義する列挙型。
@@ -143,6 +151,34 @@ protected:
 	TObjectPtr<UImage> Image_PhaseFish = nullptr;
 
 	// 2026.09.09 Lee endーーー
+
+	// 2026.10.21 Lee startーーー 旧矢印ガイド群の束縛（新 UI 有効中は毎フレーム強制非表示。資産は残す） ーーー
+
+	/** @brief 旧・手高 ProgressBar（WBP 既存コントロール。新 UI 有効中は非表示へ強制する） */
+	UPROPERTY(BlueprintReadOnly, Category = "Meter|LegacyGuide", meta = (BindWidgetOptional))
+	TObjectPtr<UProgressBar> ProgressBar_HandHeight = nullptr;
+
+	/** @brief 旧・推奨範囲帯 Image（同上） */
+	UPROPERTY(BlueprintReadOnly, Category = "Meter|LegacyGuide", meta = (BindWidgetOptional))
+	TObjectPtr<UImage> Image_ArrowRange = nullptr;
+
+	/** @brief 旧・矢印 Image（同上） */
+	UPROPERTY(BlueprintReadOnly, Category = "Meter|LegacyGuide", meta = (BindWidgetOptional))
+	TObjectPtr<UImage> Image_Arrow = nullptr;
+
+	// 2026.10.21 Lee endーーー
+
+	// 2026.10.21 Lee startーーー 原図腕ガイド（新 UI）の切替スイッチ ーーー
+
+	/**
+	 * @brief 原図腕ガイドパネルを使用するか（既定 true）。
+	 * @note false へ下げると子 Widget を解放し、旧矢印ガイド（BP 側イベント制御）へ戻す。
+	 *       実行中切替も可能（Tick で検出して生成／解放する）。二次構築を壊さない。
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meter|ArmGuide")
+	bool bUseArmGuidePanel = true;
+
+	// 2026.10.21 Lee endーーー
 
 	// 2026.09.07 Lee startーーー 推奨範囲表示 ーーー
 
@@ -393,4 +429,42 @@ private:
 
 	/** @brief 一つ前のフェーズ（スキップ判定用） */
 	EFishingPhase PreviousPhase = EFishingPhase::Ready;
+
+	// 2026.10.21 Lee startーーー 原図腕ガイド（新 UI） ーーー
+
+	/** @brief ArmGuideWidget を未生成ならルート Canvas へ生成・挿入する（二重生成しない。ルートが CanvasPanel 以外なら諦めてログへ出す） */
+	void EnsureArmGuideWidget();
+
+	/** @brief ArmGuideWidget を解放する（破棄・旧 UI 復帰時。二次構築に備え参照も空へ戻す） */
+	void ReleaseArmGuideWidget();
+
+	/** @brief 現在フェーズとセンサ値から腕ガイド入力を収集する（判定は行わない純データ収集） */
+	FArmGuideInput BuildArmGuideInput();
+
+	/**
+	 * @brief ReadyState の RequiredDownPercent をリフレクション読み取りする（protected 変数のため）。
+	 * @param bOutValid 読み取り成功か。失敗時は false（0 へのフォールバック禁止・目標非表示へ使う）
+	 * @return 読み取った閾値（失敗時 0。呼び出し側は使わないこと）
+	 */
+	float ReadReadyDownPercent(bool& bOutValid);
+
+	/** @brief 新 UI 有効中、旧矢印ガイド群を毎フレーム強制非表示にする（BP 側イベントの毎フレーム再表示対策） */
+	void ForceHideLegacyArrowControls();
+
+	/**
+	 * @brief 子 Widget 解放後、旧ガイド群の可視性を現在フェーズの論理状態へ即時復帰させる。
+	 * @note ApplyPhaseVisibility は変化検出付きのため同一フェーズでは BP イベントを再発火しない。
+	 *       同一フェーズ中の true→false 切替で子 Widget を解放したとき、強制非表示のまま旧 UI が
+	 *       空白になる対策。ここでは可視性の再通知のみ行い、RPM／ステップバー等の状態は触れない。
+	 */
+	void RestoreLegacyArrowVisibility();
+
+	/** @brief 原図腕ガイド子 Widget（実行時生成。所有は本 Widget、表示制御は子側） */
+	UPROPERTY(Transient)
+	TObjectPtr<UArmGuideWidget> ArmGuideWidget = nullptr;
+
+	/** @brief RequiredDownPercent の反射プロパティキャッシュ（初回読み取り時に解決。FField は GC 対象外） */
+	FFloatProperty* CachedReadyPercentProperty = nullptr;
+
+	// 2026.10.21 Lee endーーー
 };
