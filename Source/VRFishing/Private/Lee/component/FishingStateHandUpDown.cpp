@@ -118,30 +118,35 @@ void UFishingStateHandUpDown::UpdateState(float DeltaTime)
 
 	// ==================== 3. 腕上下回数の判定 ====================
 
-	if (!bIsHandAtTop && HandHeightPercent >= UpperThresholdPercent)
-	{
-		// 手が上端領域に到達
-		bIsHandAtTop = true;
-	}
-	else if (bIsHandAtTop && HandHeightPercent <= LowerThresholdPercent)
-	{
-		// 上端に到達した状態から下端領域まで下がったため 1 回とカウント
-		bIsHandAtTop = false;
-		CurrentUpAndDownCount++;
-
-		// 2026.09.09 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-		// 回数到達での完了判定を廃止し、下記3.5の時間ベース完了へ移行する
-		//		// 目標回数に達したらステート完了を通知
-		//		if (CurrentUpAndDownCount >= TargetUpAndDownCount)
-		//		{
-		//			// 最終スコアを全フレームの真の平均から算出
-		//			FinalScore = (TotalFrameCount > 0) ? (TotalQualitySum / TotalFrameCount) * 100.0f : 0.0f;
-		//
-		//			bIsCompleted = true;
-		//			OnFishingStateCompleted.Broadcast(true);
-		//		}
-		// 2026.09.09 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	}
+	// 2026.09.19 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 手の往復（上端到達→下端到達で1回）でのカウントを廃止し、
+	// 矢印ガイドの単程移動（上端到達・下端到達のたびに1回）でのカウントへ変更した。
+	// 加算処理は TickArrow() 内で行うため、ここでの判定は不要となる。
+	//	if (!bIsHandAtTop && HandHeightPercent >= UpperThresholdPercent)
+	//	{
+	//		// 手が上端領域に到達
+	//		bIsHandAtTop = true;
+	//	}
+	//	else if (bIsHandAtTop && HandHeightPercent <= LowerThresholdPercent)
+	//	{
+	//		// 上端に到達した状態から下端領域まで下がったため 1 回とカウント
+	//		bIsHandAtTop = false;
+	//		CurrentUpAndDownCount++;
+	//
+	// 2026.09.09 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 回数到達での完了判定を廃止し、下記3.5の時間ベース完了へ移行する
+	//		// 目標回数に達したらステート完了を通知
+	//		if (CurrentUpAndDownCount >= TargetUpAndDownCount)
+	//		{
+	//			// 最終スコアを全フレームの真の平均から算出
+	//			FinalScore = (TotalFrameCount > 0) ? (TotalQualitySum / TotalFrameCount) * 100.0f : 0.0f;
+	//
+	//			bIsCompleted = true;
+	//			OnFishingStateCompleted.Broadcast(true);
+	//		}
+	// 2026.09.09 谷村 endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	//	}
+	// 2026.09.19 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 	// 2026.09.09 谷村 startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	//bIsCompleted = true;
@@ -274,6 +279,10 @@ void UFishingStateHandUpDown::TickArrow(float InDeltaTime, float HandPercent)
 		{
 			ArrowPosition = 1.0f;
 			ArrowState = EFishArrowState::WaitingAtTop;
+			// 2026.09.19 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+			// 矢印が上端まで移動しきった「単程1回」として加算する
+			CurrentUpAndDownCount++;
+			// 2026.09.19 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		}
 		break;
 	}
@@ -295,6 +304,10 @@ void UFishingStateHandUpDown::TickArrow(float InDeltaTime, float HandPercent)
 			ArrowPosition = 0.0f;
 			ArrowState = EFishArrowState::WaitingAtBottom;
 
+			// 2026.09.19 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+			// 矢印が下端まで移動しきった「単程1回」として加算する
+			CurrentUpAndDownCount++;
+			// 2026.09.19 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 		}
 		break;
 	}

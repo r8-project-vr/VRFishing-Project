@@ -12,13 +12,16 @@ class AFish;
 class AVRPawn;
 class UFishingStateManagerComponent;
 class UTexture2D;
+class UFishingCatchSaveSubsystem;
 
 /**
  * 釣りゲーム本編（LV_MainGame）専用のゲームモード
  * 制限時間内でモード1（準備）からモード5（結果）のセットを繰り返し、魚の再スポーンも担当する
  * タイトル・リザルト等の他画面は本クラスを継承せず、それぞれ専用のゲームモードを使う
+ * Config指定した時間設定は Config/DefaultGame.ini で調整する
+ * パッケージ後は <パッケージ>/VRFishing/Saved/Config/Windows/Game.ini で上書きできる（再ビルド不要）
  */
-UCLASS()
+UCLASS(Config = Game)
 class VRFISHING_API AFishingGameModeBase : public AGameModeBase
 {
     GENERATED_BODY()
@@ -62,20 +65,28 @@ public:
     int32 ExerciseLevel = 1;
 
     // レベル1のときの1セットあたりの運動時間（秒）
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Exercise")
-    float BaseExerciseSeconds = 20.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Config, Category = "Fishing|Exercise")
+    float BaseExerciseSeconds = 14.0f;
 
     // レベルが1上がるごとに増える運動時間（秒）
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Exercise")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Config, Category = "Fishing|Exercise")
     float ExerciseSecondsPerLevel = 5.0f;
 
     // 運動レベルの上限
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Exercise")
     int32 MaxExerciseLevel = 5;
 
-    // レベル別の魚表示情報（インデックス0がレベル1。MaxExerciseLevelぶん設定する）
+    // レベル別の通常魚表示情報（インデックス0がレベル1。MaxExerciseLevelぶん設定する）
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Catch")
     TArray<FFishDisplayInfo> FishDisplays;
+
+    // レベル別のレア魚表示情報（インデックス0がレベル1。MaxExerciseLevelぶん設定する）
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Catch")
+    TArray<FFishDisplayInfo> RareFishDisplays;
+
+    // レア魚の出現確率（0.0〜1.0。全レベル共通）
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Catch", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float RareFishRate = 0.1f;
 
     // 現在レベルに応じた運動時間（秒）を返す（各運動ステートがEnter時に参照）
     UFUNCTION(BlueprintPure, Category = "Fishing|Exercise")
@@ -92,6 +103,10 @@ public:
     // 今回のセットで釣った魚のレベルを返す（0=釣れていない）
     UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
     int32 GetCaughtFishLevel() const;
+
+    // 今回のセットで釣った魚の釣果を返す（サブシステムへ委譲する）
+    UFUNCTION(BlueprintPure, Category = "Fishing|Catch")
+    FFishCatchRecord GetCurrentSetFishRecord() const;
 
     // 今回セットの腕上下回数を合計へ加算する（VRPawnの完了通知から呼ばれる）
     UFUNCTION(BlueprintCallable, Category = "Fishing|Workout")
@@ -119,8 +134,8 @@ protected:
     void OnEndGameBP();
 
     // 制限時間（秒）
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Game")
-    float TotalGameTime = 300.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Config, Category = "Fishing|Game")
+    float TotalGameTime = 240.0f;
 
     // スポーンする魚クラス
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fishing|Fish")
@@ -134,6 +149,12 @@ private:
     // 魚を生成する
     AFish* SpawnFish();
 
+    // レア魚を出すかどうかを出現率から抽選する
+    bool RollRareFish() const;
+
+    // 今回スポーンした魚がレアかどうか（1セットにつき1回だけ抽選する）
+    bool bCurrentFishIsRare = false;
+
     // レベル上の既存の魚をすべて破棄する
     void DestroyAllFish();
 
@@ -145,6 +166,9 @@ private:
 
     // 釣果サブシステムを取得する
     UFishingCatchHistorySubsystem* GetCatchHistorySubsystem() const;
+
+	// 釣果保存サブシステムを取得する
+	UFishingCatchSaveSubsystem* GetCatchSaveSubsystem() const;
 
     // 釣果サブシステムへ魚表示情報を転送し、今回の釣果を破棄する
     void InitializeCatchHistory();

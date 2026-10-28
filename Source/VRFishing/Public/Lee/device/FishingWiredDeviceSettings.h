@@ -88,6 +88,20 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "模擬データ", meta = (ClampMin = "1.0"))
 	float SimRpsWavePeriodSeconds = 6.0f;
 
+	// 2026.09.11 Tanimura startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// ==================== 自転車デバイス仕様 ====================
+
+	/**
+	 * @brief 自転車デバイスの1回転あたりパルス数（等倍=1 / 2倍=2 / 4倍=4）。
+	 * @note 実機の RPS(0x22) は1回転あたりこのパルス数分だけ加算されて報告されるため、
+	 *       本値で割って実回転数へ換算する（2倍デバイスなら 0.5 倍）。
+	 *       模擬データは元から実回転数の RPS を生成しているため換算対象外。
+	 *       等倍デバイスへ戻す場合は 1 を指定する。
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "自転車デバイス", meta = (ClampMin = "1", ClampMax = "64"))
+	int32 BicyclePulsesPerRevolution = 2;
+	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 	// ==================== ASerial デバイス識別（既定値は仕様書バージョン2 準拠） ====================
 	// ※ 前作『自転車でGo!』の DeviceManager(WiredDeviceID/WiredDeviceVer) と同様に、
 	//    エディタから変更可能なプロパティとしている。実機ファームの報告する ID/Ver が

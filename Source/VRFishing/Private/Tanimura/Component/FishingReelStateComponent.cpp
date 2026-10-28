@@ -17,11 +17,13 @@ UFishingReelStateComponent::UFishingReelStateComponent()
 
     StickThreshold = 0.6f;
     WheelNotchAngleRad = UE_PI / 12.0f; // π/12 ≒ 0.2618rad（15度）
+    StickJudgeIntervalRad = UE_PI * 0.5f; // π/2 ≒ 1.5708rad（1/4回転ごとに判定）
 
     bIsCompleted = false;
 
     LastAngle = 0.0f;
     AccumulatedAngleRad = 0.0f;
+    AccumulatedJudgeAngleRad = 0.0f;
     RotationStartTime = 0.0;
     bIsMeasuringRotation = false;
     bIsStickTracking = false;
@@ -122,6 +124,7 @@ void UFishingReelStateComponent::ResetRevolutionCount()
 {
     CurrentRevolutionCount = 0;
     AccumulatedAngleRad = 0.0f;
+    AccumulatedJudgeAngleRad = 0.0f;
     bIsMeasuringRotation = false;
     bIsStickTracking = false;
 
@@ -217,7 +220,8 @@ void UFishingReelStateComponent::SimulateReelByStick(FVector2D StickInput)
 
 	// 順方向回転のみRPMの算出対象とする
     if (DeltaAngle > 0.0f) {
-        CalculateRPM(DeltaAngle, StickMaxAllowedRPM, MinAllowedRPM);
+        // スティック／ASerial は 1/4 回転ごとに出力・判定する
+        CalculateRPM(DeltaAngle, StickMaxAllowedRPM, MinAllowedRPM, StickJudgeIntervalRad);
     }
 
     // 次フレーム計算用に現在の角度を保存
@@ -248,11 +252,11 @@ void UFishingReelStateComponent::SimulateReelByWheel()
     }
     // 2026.08.20 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
-    // ホイール1ノッチ分の回転角（固定）を流し込む
-    CalculateRPM(WheelNotchAngleRad, WheelMaxAllowedRPM, WheelMinAllowedRPM);
+    // ホイール1ノッチ分の回転角（固定）を流し込む（判定間隔は従来どおり1回転）
+    CalculateRPM(WheelNotchAngleRad, WheelMaxAllowedRPM, WheelMinAllowedRPM, UE_TWO_PI);
 }
 
-void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowedRPM, float MinRPM)
+void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowedRPM, float MinRPM, float JudgeIntervalRad)
 {
     const UWorld* World = GetWorld();
     if (!World) {
@@ -274,6 +278,9 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
     // 下限も同じ理由でここで公開する（ホイールとスティックで下限が異なるため）
     LastAppliedMinAllowedRPM = MinRPM;
 
+    // 0除算を防ぐため、判定間隔は必ず正の値として扱う
+    const float SafeJudgeIntervalRad = FMath::Max(JudgeIntervalRad, 0.01f);
+
     const double CurrentTime = World->GetTimeSeconds();
 
     // 最初の回転入力時に計測開始時間を記録
@@ -281,14 +288,15 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
         RotationStartTime = CurrentTime;
         bIsMeasuringRotation = true;
         AccumulatedAngleRad = 0.0f;
+        AccumulatedJudgeAngleRad = 0.0f;
     }
 
-    // 角度変化量を累積
+    // 角度変化量を累積（回転数カウント用と判定間隔用の2本立てで持つ）
     AccumulatedAngleRad += DeltaAngle;
+    AccumulatedJudgeAngleRad += DeltaAngle;
 
-    // 累積角度が1回転（2π）に達したか判定
-    const float OneRevolutionRad = UE_TWO_PI;   // 2π ≒ 6.28318530717f
-    if (AccumulatedAngleRad >= OneRevolutionRad) {
+    // 累積角度が判定間隔（スティック／ASerial は π/2、ホイールは1回転2π）に達したか判定
+    if (AccumulatedJudgeAngleRad >= SafeJudgeIntervalRad) {
         // 最初の1回転かどうかを判定（回転数加算前の値で判定する）
         const bool bIsFirstRevolution = (CurrentRevolutionCount == 0);
 
@@ -299,13 +307,20 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
 
             // 0で割るのを防止
             if (DeltaTime > 0.001) {
+                // 判定間隔分の所要時間を1回転分の時間へ換算する（間隔が1回転未満でもRPMの口径を変えない）
+                const double OneRevolutionSeconds = DeltaTime * (UE_TWO_PI / SafeJudgeIntervalRad);
                 // 1Min = 60秒で何回転できるか（RPM）を計算
-                const float CalculatedRPM = static_cast<float>(60.0 / DeltaTime);
+                const float CalculatedRPM = static_cast<float>(60.0 / OneRevolutionSeconds);
                 // 算出したRPMをバインド先へ通知
                 OnRPMCalculated.Broadcast(CalculatedRPM);
 
+                // 1回転あたりの判定回数を求め、連続ミスの許容回数を回転数分へ換算する
+                // （判定間隔が1/4回転なら4倍。MaxMistakeCount 回転分のミスで失敗する口径を維持する）
+                const int32 JudgmentsPerRevolution = FMath::Max(FMath::RoundToInt(UE_TWO_PI / SafeJudgeIntervalRad), 1);
+                const int32 MistakeCountLimit = MaxMistakeCount * JudgmentsPerRevolution;
+
                 // 引数で渡された上限・下限RPMで速すぎ・遅すぎを判定
-                JudgeRPM(CalculatedRPM, MaxAllowedRPM, MinRPM);
+                JudgeRPM(CalculatedRPM, MaxAllowedRPM, MinRPM, MistakeCountLimit);
 
                 // ミス累積で失敗が確定した場合は、回転数加算・計時開始へ進まない
                 if (bIsCompleted) {
@@ -314,9 +329,15 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
             }
         }
 
-        // 累積角度と時間をリセット
-        AccumulatedAngleRad -= OneRevolutionRad;   // 誤差の蓄積を防ぐため端数は残す
+        // 判定間隔分の角度と時間をリセット
+        AccumulatedJudgeAngleRad -= SafeJudgeIntervalRad;   // 誤差の蓄積を防ぐため端数は残す
         RotationStartTime = CurrentTime;
+    }
+
+    // 回転数は1回転（2π）分の角度が溜まったときだけ加算する（判定間隔が1回転未満でも変わらない）
+    if (AccumulatedAngleRad >= UE_TWO_PI) {
+        // 誤差の蓄積を防ぐため端数は残す
+        AccumulatedAngleRad -= UE_TWO_PI;
 
         // 回転数を加算する（完了判定はUpdateStateの時間ベース処理へ移行）
         CurrentRevolutionCount++;
@@ -331,7 +352,7 @@ void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowed
     }
 }
 
-void UFishingReelStateComponent::JudgeRPM(float CalculatedRPM, float MaxAllowedRPM, float MinRPM)
+void UFishingReelStateComponent::JudgeRPM(float CalculatedRPM, float MaxAllowedRPM, float MinRPM, int32 MistakeCountLimit)
 {
     // ミスの種別を先に判定する（上限超過を優先する優先順は表示側と共通）
     const bool bIsTooFast = (CalculatedRPM > MaxAllowedRPM);
@@ -349,10 +370,10 @@ void UFishingReelStateComponent::JudgeRPM(float CalculatedRPM, float MaxAllowedR
         OverRPMCount++;
         // 速すぎが来た時点で遅すぎの連続は途切れる
         UnderRPMCount = 0;
-        ShowErrorLog(true, CalculatedRPM);
+        ShowErrorLog(true, CalculatedRPM, MistakeCountLimit);
 
         // 連続で許容回数に達したら釣り失敗
-        if (OverRPMCount >= MaxMistakeCount) {
+        if (OverRPMCount >= MistakeCountLimit) {
             bIsCompleted = true;
             OnFishingStateCompleted.Broadcast(false);
         }
@@ -363,16 +384,16 @@ void UFishingReelStateComponent::JudgeRPM(float CalculatedRPM, float MaxAllowedR
     UnderRPMCount++;
     // 遅すぎが来た時点で速すぎの連続は途切れる
     OverRPMCount = 0;
-    ShowErrorLog(false, CalculatedRPM);
+    ShowErrorLog(false, CalculatedRPM, MistakeCountLimit);
 
     // 連続で許容回数に達したら釣り失敗
-    if (UnderRPMCount >= MaxMistakeCount) {
+    if (UnderRPMCount >= MistakeCountLimit) {
         bIsCompleted = true;
         OnFishingStateCompleted.Broadcast(false);
     }
 }
 
-void UFishingReelStateComponent::ShowErrorLog(bool bIsTooFast, float CurrentRPM)
+void UFishingReelStateComponent::ShowErrorLog(bool bIsTooFast, float CurrentRPM, int32 MistakeCountLimit)
 {
     // ミス種別の表示名を生成
     FString ErrorName = TEXT("遅すぎ");
@@ -391,10 +412,10 @@ void UFishingReelStateComponent::ShowErrorLog(bool bIsTooFast, float CurrentRPM)
         GEngine->AddOnScreenDebugMessage(
             -1, 3.0f, FColor::Red,
             FString::Printf(TEXT("[FishingReel] %sミス RPM=%.1f (%d回連続/%d回で失敗)"),
-                *ErrorName, CurrentRPM, MistakeCount, MaxMistakeCount));
+                *ErrorName, CurrentRPM, MistakeCount, MistakeCountLimit));
     }
 
     // ミスログを出力ログにも表示
     UE_LOG(LogTemp, Error, TEXT("[FishingReel] %sミス RPM=%.1f (%d回連続/%d回で失敗)"),
-        *ErrorName, CurrentRPM, MistakeCount, MaxMistakeCount);
+        *ErrorName, CurrentRPM, MistakeCount, MistakeCountLimit);
 }

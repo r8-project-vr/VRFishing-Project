@@ -13,6 +13,8 @@
 #include "Tanimura/Component/FishingStateComponentBase.h"
 #include "Tanimura/Subsystem/FishingCatchHistorySubsystem.h"
 #include "Tanimura/Subsystem/FishingWorkoutStatsSubsystem.h"
+#include "Tanimura/Subsystem/FishingCatchSaveSubsystem.h"
+#include "Takeuchi/Data/FishDataAsset.h"
 #include "VRFishingLog.h"
 
 AFishingGameModeBase::AFishingGameModeBase()
@@ -84,15 +86,27 @@ void AFishingGameModeBase::OnSetCompleted(bool bIsSuccess)
     UFishingCatchHistorySubsystem* CatchHistory = GetCatchHistorySubsystem();
     if (CatchHistory) {
         if (bIsSuccess) {
-            // 成功時のみ釣果として積み、今回のセット結果にも同じレベルを残す
-            CatchHistory->AddCaughtFish(CaughtFishLevel);
-            CatchHistory->SetCaughtFishLevel(CaughtFishLevel);
+            // 成功時のみ釣果として積み、今回のセット結果にも同じ釣果を残す
+            CatchHistory->AddCaughtFish(CaughtFishLevel, bCurrentFishIsRare);
+            CatchHistory->SetCaughtFishLevel(CaughtFishLevel, bCurrentFishIsRare);
         }
         else {
             // 失敗時は釣れていないため履歴に積まず、レベル0（釣れていない）を残す
-            CatchHistory->SetCaughtFishLevel(0);
+            CatchHistory->SetCaughtFishLevel(0, false);
         }
     }
+
+	// 釣った魚を水族館用にローカルファイルへ保存
+	if (bIsSuccess) {
+		UFishingCatchSaveSubsystem* CatchSave = GetCatchSaveSubsystem();
+		UFishDataAsset* CaughtFishData = CatchHistory ? CatchHistory->GetFishDataByLevelAndRare(CaughtFishLevel, bCurrentFishIsRare) : nullptr;
+		if (CatchSave && IsValid(CaughtFishData)) {
+			CatchSave->AddCaughtFish(CaughtFishData, CaughtFishLevel, bCurrentFishIsRare);
+		}
+		else if (CatchSave) {
+			UE_LOG(LogFishing, Warning, TEXT("AFishingGameModeBase::OnSetCompleted: FishDisplays または RareFishDisplays に FishData が未設定のため水族館へ保存しませんでした。"));
+		}
+	}
 
     // セット失敗はそのまま「逃がした魚1匹」として数える
     if (!bIsSuccess) {
@@ -141,7 +155,10 @@ void AFishingGameModeBase::EndGame()
 
 AFish* AFishingGameModeBase::SpawnFish()
 {
-	// 魚クラス未設定なら生成せずに警告ログを出す
+    // このセットの魚がレアかどうかを1回だけ抽選する（釣果の記録に使う）
+    bCurrentFishIsRare = RollRareFish();
+
+    // 魚クラス未設定なら生成せずに警告ログを出す
     if (!FishClass) {
         UE_LOG(LogFishing, Warning, TEXT("AFishingGameModeBase::SpawnFish: FishClass が未設定のため魚をスポーンできません。BPのClass Defaultsで設定してください。"));
         return nullptr;
@@ -150,6 +167,26 @@ AFish* AFishingGameModeBase::SpawnFish()
     // 指定位置に魚を生成する
     FActorSpawnParameters SpawnParams;
     return GetWorld()->SpawnActor<AFish>(FishClass, FishSpawnLocation, FRotator::ZeroRotator, SpawnParams);
+}
+
+bool AFishingGameModeBase::RollRareFish() const
+{
+    // 出現率0以下ならレアは出さない
+    if (RareFishRate <= 0.0f) {
+        return false;
+    }
+
+    // 出現率1以上なら必ずレアにする
+    if (RareFishRate >= 1.0f) {
+        return true;
+    }
+
+    // 0〜1の乱数が出現率を下回ったときだけレアにする
+    if (FMath::FRand() < RareFishRate) {
+        return true;
+    }
+
+    return false;
 }
 
 void AFishingGameModeBase::DestroyAllFish()
@@ -211,6 +248,16 @@ int32 AFishingGameModeBase::GetCaughtFishLevel() const
         return 0;
     }
     return CatchHistory->GetCaughtFishLevel();
+}
+
+FFishCatchRecord AFishingGameModeBase::GetCurrentSetFishRecord() const
+{
+    // 釣果サブシステムへ委譲する（未取得時は空の釣果を返す）
+    UFishingCatchHistorySubsystem* CatchHistory = GetCatchHistorySubsystem();
+    if (!CatchHistory) {
+        return FFishCatchRecord();
+    }
+    return CatchHistory->GetCurrentSetFishRecord();
 }
 
 void AFishingGameModeBase::AddArmUpDownCount(int32 Count)
@@ -286,6 +333,22 @@ UFishingCatchHistorySubsystem* AFishingGameModeBase::GetCatchHistorySubsystem() 
     return GameInstance->GetSubsystem<UFishingCatchHistorySubsystem>();
 }
 
+UFishingCatchSaveSubsystem* AFishingGameModeBase::GetCatchSaveSubsystem() const
+{
+	const UWorld* World = GetWorld();
+	if (!World) {
+		return nullptr;
+	}
+
+	// GameInstanceに属するサブシステムを取得する（レベル遷移後も生存する）
+	UGameInstance* GameInstance = World->GetGameInstance();
+	if (!GameInstance) {
+		return nullptr;
+	}
+
+	return GameInstance->GetSubsystem<UFishingCatchSaveSubsystem>();
+}
+
 void AFishingGameModeBase::InitializeCatchHistory()
 {
     UFishingCatchHistorySubsystem* CatchHistory = GetCatchHistorySubsystem();
@@ -297,12 +360,20 @@ void AFishingGameModeBase::InitializeCatchHistory()
     // 前回プレイの釣果を破棄してから、今回の魚表示情報を転送する
     CatchHistory->ResetCaughtFish();
     CatchHistory->SetFishDisplays(FishDisplays);
+    CatchHistory->SetRareFishDisplays(RareFishDisplays);
 
     // Class Defaultsの設定漏れ（レベル数より魚表示情報が少ない）を警告する
     if (FishDisplays.Num() < MaxExerciseLevel) {
         UE_LOG(LogFishing, Warning,
             TEXT("AFishingGameModeBase::InitializeCatchHistory: FishDisplays が %d 件しか設定されていません（MaxExerciseLevel は %d）。BPのClass Defaultsで設定してください。"),
             FishDisplays.Num(), MaxExerciseLevel);
+    }
+
+    // レア魚の設定漏れも警告する（未設定のレベルは通常魚が表示される）
+    if (RareFishDisplays.Num() < MaxExerciseLevel) {
+        UE_LOG(LogFishing, Warning,
+            TEXT("AFishingGameModeBase::InitializeCatchHistory: RareFishDisplays が %d 件しか設定されていません（MaxExerciseLevel は %d）。BPのClass Defaultsで設定してください。"),
+            RareFishDisplays.Num(), MaxExerciseLevel);
     }
 }
 
