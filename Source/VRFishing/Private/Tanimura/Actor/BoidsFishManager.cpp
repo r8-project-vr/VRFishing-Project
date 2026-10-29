@@ -120,16 +120,30 @@ void ABoidsFishManager::SpawnFishFromCatchSave()
 		return;
 	}
 
-	// 保存済みの釣果を上限まで1匹ずつ生成する
+	// 保存済みの釣果を魚種ごとの上限まで1匹ずつ生成する
 	const TArray<FFishCatchSaveEntry> Entries = SaveSubsystem->GetCaughtFish();
-	const int32 SpawnCount = FMath::Min(Entries.Num(), MaxSpawnCount);
 	const FBox Bounds = GetBounds();
+	TMap<const UFishDataAsset*, int32> SpawnedPerSpecies;
 	int32 SpawnedCount = 0;
+	int32 SkippedByLimit = 0;
 
-	for (int32 Index = 0; Index < SpawnCount; ++Index) {
+	for (int32 Index = 0; Index < Entries.Num(); ++Index) {
+		// 全体の上限に達したら打ち切る
+		if (SpawnedCount >= MaxSpawnCount) {
+			break;
+		}
+
 		UFishDataAsset* FishData = Entries[Index].FishData.LoadSynchronous();
 		if (!IsValid(FishData)) {
 			UE_LOG(LogFishing, Warning, TEXT("ABoidsFishManager::SpawnFishFromCatchSave: 魚種データを読み込めないため %d 匹目を飛ばします。"), Index);
+			continue;
+		}
+
+		// 魚種ごとの上限に達した魚は飛ばす
+		int32& SpeciesCount = SpawnedPerSpecies.FindOrAdd(FishData);
+		const int32 MaxCount = IsValid(SettingsTable) ? SettingsTable->FindMaxCount(FishData) : 0;
+		if (MaxCount > 0 && SpeciesCount >= MaxCount) {
+			++SkippedByLimit;
 			continue;
 		}
 
@@ -145,10 +159,11 @@ void ABoidsFishManager::SpawnFishFromCatchSave()
 
 		Fish->SetFishData(FishData);
 		Fish->RegisterWithManager(this);
+		++SpeciesCount;
 		++SpawnedCount;
 	}
 
-	UE_LOG(LogFishing, Log, TEXT("ABoidsFishManager::SpawnFishFromCatchSave: 保存済みの釣果 %d 件から %d 匹を生成しました。"), Entries.Num(), SpawnedCount);
+	UE_LOG(LogFishing, Log, TEXT("ABoidsFishManager::SpawnFishFromCatchSave: 保存済みの釣果 %d 件から %d 匹を生成しました（魚種上限で %d 件を飛ばしました）。"), Entries.Num(), SpawnedCount, SkippedByLimit);
 }
 
 void ABoidsFishManager::CollectAgents()
