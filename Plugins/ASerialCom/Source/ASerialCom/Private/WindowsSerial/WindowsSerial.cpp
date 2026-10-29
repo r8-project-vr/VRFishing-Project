@@ -45,7 +45,13 @@ int WindowsSerial::OpenPort(int com_num,
     );
 
     if (m_serial_handle == INVALID_HANDLE_VALUE) {  // ハンドル取得に失敗した場合
+        // 2026.10.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+        // 失敗時に無効ハンドルを保持し続けない（所有権の明確化。以降の ClosePort 二重解放を防ぐ）
+        // 元コード（消さずにコメントで残す）:
+        //     return -1;
+        m_serial_handle = nullptr;
         return -1;
+        // 2026.10.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
     }
 
     st = ComSetting(m_baudrate);
@@ -71,9 +77,32 @@ int WindowsSerial::OpenPort(int com_num,
     return 0;
 }
 
+// 2026.10.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// 安全なクローズへ改修（デバイス抜去対応）。元コード（消さずにコメントで残す）:
+//     int WindowsSerial::ClosePort(void)
+//     {
+//         int ret = CloseHandle(m_serial_handle);
+//         m_connect_comnum = 0;     // 接続しているポート番号をリセット
+//         m_connect_state = false;  // 接続ステータスを更新
+//         if (ret == FALSE) {
+//             return -1;
+//         }
+//
+//         return 0;
+//     }
+// 改修点:
+//   1. 無効ハンドル(INVALID_HANDLE_VALUE/nullptr)の二重解放を防ぐ
+//   2. CloseHandle の前に CancelIoEx を発行し、自己スレッドの未完了 I/O を解除する
+//      （抜去直後のドライバ滞留 I/O があると CloseHandle が長時間ブロックする既知問題の緩和）
+//   3. CloseHandle の成否にかかわらず状態とハンドルを必ずリセット（所有権の一貫性）
 int WindowsSerial::ClosePort(void)
 {
-    int ret = CloseHandle(m_serial_handle);
+    int ret = TRUE;
+    if (m_serial_handle != nullptr && m_serial_handle != INVALID_HANDLE_VALUE) {
+        CancelIoEx((HANDLE)m_serial_handle, NULL);  // 未完了I/Oの取消（失敗は許容: 取消対象が無いだけ）
+        ret = CloseHandle((HANDLE)m_serial_handle);
+    }
+    m_serial_handle = nullptr; // 2026.10.29 Lee: ハンドル所有権を必ず解放
     m_connect_comnum = 0;     // 接続しているポート番号をリセット
     m_connect_state = false;  // 接続ステータスを更新
     if (ret == FALSE) {
@@ -82,11 +111,33 @@ int WindowsSerial::ClosePort(void)
 
     return 0;
 }
+// 2026.10.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 bool WindowsSerial::GetState(void) { return m_connect_state; }
 
 int WindowsSerial::GetConnectCOM(void) { return m_connect_comnum; }
 
+// 2026.10.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// 元コード（消さずにコメントで残す）:
+//     int WindowsSerial::available(void)
+//     {
+//         if (GetState() == false) {
+//             return -1;
+//         }
+//
+//         COMSTAT ComStat;
+//
+//         ClearCommError(m_serial_handle, NULL, &ComStat);
+//
+//         return (int)ComStat.cbInQue;
+//     }
+// 改修点（デバイス抜去時の根因の一つ）:
+//   1. COMSTAT をゼロ初期化する（未初期化のまま ClearCommError が失敗すると
+//      cbInQue がゴミ値を返し、呼び出し側の受信ループが実在しないバイトを
+//      消費し続ける＝実質無限ループの原因だった）
+//   2. ClearCommError の戻り値を検査する（ハンドル無効＝抜去後は -1 を返す）
+//   3. エラーフラグに CE_IOE（恒常的な I/O エラー）が立っていたら -1 を返す
+//      （抜去後も成功時に見える一部ドライバでの遅延検知を防ぐ）
 int WindowsSerial::available(void)
 {
     if (GetState() == false) {
@@ -94,19 +145,62 @@ int WindowsSerial::available(void)
     }
 
     COMSTAT ComStat;
+    ZeroMemory(&ComStat, sizeof(ComStat));
+    DWORD Errors = 0;
 
-    ClearCommError(m_serial_handle, NULL, &ComStat);
+    if (ClearCommError(m_serial_handle, &Errors, &ComStat) == FALSE) {
+        return -1;  // ポート状態の取得失敗（抜去・ハンドル無効など）
+    }
+    if (Errors & CE_IOE) {
+        return -1;  // 恒常的なI/Oエラー（抜去後の遅延検知対策）
+    }
 
     return (int)ComStat.cbInQue;
 }
+// 2026.10.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
+// 2026.10.29 Lee(2) startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// 戻り値規約の修正（2026-10-29 独立審査指摘の回帰対応）。
+// 元コード（消さずにコメントで残す）:
+//     int WindowsSerial::read(void)
+//     {
+//         if (GetState() == false) {
+//             return -1;
+//         }
+//
+//         int8_t read_data = 0;
+//         DWORD dwSendSize = 0;
+//
+//         int ret = ReadFile(   // データの受信
+//             m_serial_handle,  // 　通信デバイスのハンドル：　CreateFile()で取得したハンドルを指定
+//             &read_data,       // 受信バッファーのポインタを指定：　受信データがここに格納されます。
+//             1,  // 　受信するバイト数を指定：　ここで指定するバイト数を受信するかまたはタイムアウト時間がくるまで
+//             // ReadFile()関数は（　getc()のように　）待ちます
+//             &dwSendSize,  //  実際に受信したバイト数（DWORD)が格納されるポインタを指定
+//             NULL          // 通信とは関係ない引数なのでNULLを指定
+//         );
+//
+//         if (ret == FALSE || dwSendSize != 1) {
+//             return -1;
+//         }
+//
+//         return static_cast<int>(read_data);
+//     }
+// 問題点: 受信バッファが int8_t のため、0x80..0xFF の正規バイトが static_cast<int> の
+//   符号拡張で負値になる（0xD0→-48、0xAD→-83、0xFF→-1）。特に 0xFF は失敗値 -1 と
+//   完全に同値になり、呼び出し側の「負値=失敗」判定（ReadDataProcess の -2 伝播）が
+//   フレームヘッダ(D0)・エスケープ(AD)・正規データを誤って失敗扱いにしていた。
+// 改修点:
+//   1. 受信バッファを uint8_t へ変更（符号拡張の除去）
+//   2. 成功値は ByteToReturnValue（0..255 の固定点）経由で返し、失敗は -1 のまま。
+//      戻り値規約「成功 0..255 / 失敗 -1」をヘッダの純関数で固定し注入テスト可能にした
 int WindowsSerial::read(void)
 {
     if (GetState() == false) {
         return -1;
     }
 
-    int8_t read_data = 0;
+    uint8_t read_data = 0;
     DWORD dwSendSize = 0;
 
     int ret = ReadFile(   // データの受信
@@ -122,8 +216,9 @@ int WindowsSerial::read(void)
         return -1;
     }
 
-    return static_cast<int>(read_data);
+    return ByteToReturnValue(read_data);
 }
+// 2026.10.29 Lee(2) endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 int WindowsSerial::write(uint8_t val)
 {
