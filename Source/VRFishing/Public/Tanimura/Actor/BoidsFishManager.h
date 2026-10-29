@@ -49,7 +49,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Boids|Spawn")
 	bool bSpawnFromCatchSave = true;
 
-	// 生成する魚の上限
+	// 生成する魚の全体上限。魚種ごとの上限はSettingsTableで指定する
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Boids|Spawn", meta = (ClampMin = "0"))
 	int32 MaxSpawnCount = 100;
 
