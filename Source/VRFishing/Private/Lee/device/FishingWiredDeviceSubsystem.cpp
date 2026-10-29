@@ -63,6 +63,20 @@ namespace
 		}
 	}
 
+	// 2026.10.28 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/** @brief 自転車の測定フェーズ表示タグ（画面デバッグ/ログ共用） */
+	const TCHAR* GetBicyclePhaseTag(EBicycleMotionPhase Phase)
+	{
+		switch (Phase)
+		{
+		case EBicycleMotionPhase::Measuring: return TEXT("測定中");
+		case EBicycleMotionPhase::Forward:   return TEXT("正方向");
+		case EBicycleMotionPhase::Reverse:   return TEXT("逆方向");
+		default:                             return TEXT("停止");
+		}
+	}
+	// 2026.10.28 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 	/** @brief 画面デバッグ表示の ON/OFF（PIE 中に editor コンソール / ~ で切替可） */
 	TAutoConsoleVariable<int32> CVarFishingWiredDeviceDebugStatus(
 		TEXT("fishing.WiredDevice.DebugStatus"), 1,
@@ -191,6 +205,11 @@ void UFishingWiredDeviceSubsystem::StopConnection()
 		FScopeLock Lock(&BicycleSampleMutex);
 		LatestBicycleSample = FFishingDeviceSampleCore();
 	}
+	// 2026.10.28 Lee: 自転車の運動復号スナップショットも停止時にクリア
+	{
+		FScopeLock Lock(&BicycleMotionMutex);
+		LatestBicycleMotion = FBicycleMotionSnapshotCore();
+	}
 
 	LastBroadcastStates[0] = EFishingWiredDeviceState::Idle;
 	LastBroadcastStates[1] = EFishingWiredDeviceState::Idle;
@@ -271,6 +290,53 @@ FBicycleSample UFishingWiredDeviceSubsystem::GetLatestBicycleSample()
 	Sample.Direction = Core.Direction;
 	return Sample;
 }
+
+// 2026.10.28 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+FBicycleMotionSample UFishingWiredDeviceSubsystem::GetLatestBicycleMotion()
+{
+	const FBicycleMotionSnapshotCore Core = CopyBicycleMotion();
+	const UFishingWiredDeviceSettings* Settings = GetDefault<UFishingWiredDeviceSettings>();
+
+	FBicycleMotionSample Sample;
+	Sample.bValid = Core.bValid;
+	Sample.AgeSeconds = Core.GetAgeSeconds(FPlatformTime::Seconds());
+	Sample.Rpm = Core.Rpm;
+	Sample.PhysDir = Core.PhysDir;
+	// 数値対応を固定している（Stopped=0/Measuring=1/Forward=2/Reverse=3）ため静的変換のみ
+	Sample.Phase = static_cast<EFishingBicycleMotionPhase>(Core.Phase);
+	Sample.ForwardCycles = Core.ForwardCycles;
+	Sample.ReverseCycles = Core.ReverseCycles;
+	Sample.NetEdges = Core.NetEdges;
+	Sample.Generation = static_cast<int32>(Core.Generation);
+	// 正反对調は値を書き換えず設定値の回示のみ（使用側が適用を判断する）
+	Sample.bDirectionInverted = Settings ? Settings->bInvertBicycleDirection : false;
+	return Sample;
+}
+
+// 2026.10.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+TArray<FBicycleCycleEventCore> UFishingWiredDeviceSubsystem::DrainBicycleCycleEvents()
+{
+	const FDeviceWorkerSlot* Slot = FindSlot(EFishingWiredDeviceType::Bicycle);
+	if (Slot && Slot->Worker)
+	{
+		return Slot->Worker->DrainBicycleCycleEvents();
+	}
+	return TArray<FBicycleCycleEventCore>();
+}
+
+// 2026.10.29 Lee(8) startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+FBicycleDrainResult UFishingWiredDeviceSubsystem::DrainBicycleState()
+{
+	const FDeviceWorkerSlot* Slot = FindSlot(EFishingWiredDeviceType::Bicycle);
+	if (Slot && Slot->Worker)
+	{
+		return Slot->Worker->DrainBicycleState();
+	}
+	return FBicycleDrainResult();
+}
+// 2026.10.29 Lee(8) endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// 2026.10.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// 2026.10.28 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 void UFishingWiredDeviceSubsystem::RequestDeviceCalibration()
 {
@@ -368,6 +434,8 @@ bool UFishingWiredDeviceSubsystem::HandleTicker(float DeltaTime)
 		if (BikeSlot && BikeSlot->Worker)
 		{
 			StoreBicycleSample(BikeSlot->Worker->GetLatestSample());
+			// 2026.10.28 Lee: デコーダ復号の運動スナップショットも実機ワーカーから複写
+			StoreBicycleMotion(BikeSlot->Worker->GetLatestBicycleMotionSnapshot());
 		}
 	}
 
@@ -467,6 +535,20 @@ FFishingDeviceSampleCore UFishingWiredDeviceSubsystem::CopyBicycleSample() const
 	return LatestBicycleSample;
 }
 
+// 2026.10.28 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+void UFishingWiredDeviceSubsystem::StoreBicycleMotion(const FBicycleMotionSnapshotCore& Sample)
+{
+	FScopeLock Lock(&BicycleMotionMutex);
+	LatestBicycleMotion = Sample;
+}
+
+FBicycleMotionSnapshotCore UFishingWiredDeviceSubsystem::CopyBicycleMotion() const
+{
+	FScopeLock Lock(&BicycleMotionMutex);
+	return LatestBicycleMotion;
+}
+// 2026.10.28 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 FString UFishingWiredDeviceSubsystem::BuildDeviceStatusLine(EFishingWiredDeviceType DeviceType) const
 {
 	// --- 接続状態部分（模擬モードは模擬接続として表示） ---
@@ -523,9 +605,33 @@ FString UFishingWiredDeviceSubsystem::BuildDeviceStatusLine(EFishingWiredDeviceT
 	}
 	else
 	{
-		ValueText = FString::Printf(TEXT(" | RPS=%.2f RPM=%.0f Dir=%d Age=%.2fs"),
-			Sample.Rps, Sample.Rpm, static_cast<int32>(Sample.Direction),
-			Sample.GetAgeSeconds(FPlatformTime::Seconds()));
+		// 2026.10.28 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+		if (bSimulatorActive)
+		{
+			// 模擬モードは従来どおり生成値（RPS/RPM/Dir）を表示する（模擬の挙動は変更しない）
+			ValueText = FString::Printf(TEXT(" | RPS=%.2f RPM=%.0f Dir=%d Age=%.2fs"),
+				Sample.Rps, Sample.Rpm, static_cast<int32>(Sample.Direction),
+				Sample.GetAgeSeconds(FPlatformTime::Seconds()));
+		}
+		else
+		{
+			// 実機はデコーダ復号の運動スナップショットを表示。
+			// 旧 RPS 一問一答(0x22)は状態ストリームへ置換済みのため、実機では旧値は更新されない。
+			// 受信フレーム内訳も併記（静止時は st が増えない=正常 / info は 10 秒毎に増える=生存）
+			const FBicycleMotionSnapshotCore Motion = CopyBicycleMotion();
+			FString MotionText = TEXT("状態フレーム無し(静止 or 未受信)");
+			if (Motion.bValid)
+			{
+				MotionText = FString::Printf(TEXT("RPM=%.1f %s 圈+=%lld 圈-=%lld Gen=%u st=%u info=%u oth=%u"),
+					Motion.Rpm, GetBicyclePhaseTag(Motion.Phase),
+					Motion.ForwardCycles, Motion.ReverseCycles,
+					Motion.Generation,
+					Motion.StateFrameCount, Motion.InfoFrameCount, Motion.OtherFrameCount);
+			}
+			ValueText = FString::Printf(TEXT(" | %s Age=%.2fs"),
+				*MotionText, Motion.GetAgeSeconds(FPlatformTime::Seconds()));
+		}
+		// 2026.10.28 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 	}
 
 	return FString::Printf(TEXT("[WiredDevice] %s: %s%s%s"),

@@ -102,6 +102,18 @@ public:
 	int32 BicyclePulsesPerRevolution = 2;
 	// 2026.09.11 Tanimura endーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
+	// 2026.10.28 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/**
+	 * @brief 自転車の正反方向を取り替える（既定 false = 反転しない）。
+	 * @note デバイスの取付方向が想定と逆の場合に使用側（Bridge/Widget）へ正反对調を指示する
+	 *       ためのスイッチ。本設定はスナップショット（FBicycleMotionSample）の保存値
+	 *       （PhysDir/Phase は物理方向のまま）を変更せず、bDirectionInverted として回示するのみ。
+	 *       旧フィールド（FBicycleSample.Direction 等）の意味には影響しない。
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category = "自転車デバイス")
+	bool bInvertBicycleDirection = false;
+	// 2026.10.28 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 	// ==================== ASerial デバイス識別（既定値は仕様書バージョン2 準拠） ====================
 	// ※ 前作『自転車でGo!』の DeviceManager(WiredDeviceID/WiredDeviceVer) と同様に、
 	//    エディタから変更可能なプロパティとしている。実機ファームの報告する ID/Ver が
@@ -141,6 +153,20 @@ public:
 
 	/** @brief 自転車: RPS 取得コマンド（仕様書: 0x22, 符号付き4Byte, 100倍） */
 	static constexpr uint8 BicycleCmdGetRps = 0x22;
+
+	// 2026.10.28 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/**
+	 * @brief 自転車: 状態フレーム（1 バイト, 0..3）の連続送信を開始するコマンド（0x22）。
+	 * @note 仕様書 V2 では 0x22 = RPS 取得だが、2026-10-28 の実機計測（RPM標定資料）では
+	 *       同コマンド送信後に 1 バイト状態フレームの連続送信へ切り替わる。値は同じ 0x22 で
+	 *       旧定義（BicycleCmdGetRps）は意味を変えずに残す。接続確立後に 1 回だけ送る。
+	 */
+	static constexpr uint8 BicycleCmdGetState = 0x22;
+
+	/** @brief 自転車: 心跳用デバイス情報リクエスト（ASerial 予約コマンド 0x01）。10 秒毎に送信し、
+	 *       有効な情報応答（4 バイト・ID/Ver 一致）のみで通信生存を判定する */
+	static constexpr uint8 BicycleCmdHeartbeat = 0x01;
+	// 2026.10.28 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 	/** @brief 自転車: 回転方向取得コマンド（仕様書: 0x23, 符号なし1Byte, 1=正転/0=逆転） */
 	static constexpr uint8 BicycleCmdGetDirection = 0x23;

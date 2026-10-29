@@ -256,6 +256,77 @@ void UFishingReelStateComponent::SimulateReelByWheel()
     CalculateRPM(WheelNotchAngleRad, WheelMaxAllowedRPM, WheelMinAllowedRPM, UE_TWO_PI);
 }
 
+// 2026.10.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+bool UFishingReelStateComponent::ProcessDeviceCycle(bool bForwardCycle, float CycleRPM, bool bMeasuringCycle, double EventGameTimeSec)
+{
+    // 通常入力と同一の入口ガード（非アクティブ・完了済みは無視して「継続不可」を返す）
+    if (!IsActive() || bIsCompleted) {
+        return false;
+    }
+
+    // --- 逆方向の周期は推進も停止基準更新も一切行わない（要求仕様） ---
+    if (!bForwardCycle) {
+        return true;
+    }
+
+    // 2026.10.29 Lee(7) startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+    // --- 停止検知の先典（積压イベントによる失敗の复活防止） ---
+    // 前回の前進完走圈から本イベントまでが停止タイムアウト（RevolveStopTimeoutSeconds）
+    // を超えている場合は、LastRevolutionTime を更新する**前に**既存規則どおり
+    // 「停止 = 失敗」を先に確定させる（先に基準を進めると 5 秒無回転の失敗が复活する）。
+    // 逆方向は上で除外済みのため停止基準へ影響しない。初圈前（CurrentRevolutionCount == 0）
+    // は比較対象となる前回基準が無いため検査しない。
+    // 2026.10.29 Lee(8): 閾値比較は UpdateState の停止検知と同一の「>=」を使用する
+    // （ちょうど 5 秒差のイベントでも既存規則どおり失敗に揃える）
+    if (CurrentRevolutionCount > 0
+        && (EventGameTimeSec - LastRevolutionTime) >= RevolveStopTimeoutSeconds)
+    {
+        bIsCompleted = true;
+        OnFishingStateCompleted.Broadcast(false);
+        UE_LOG(LogFishing, Warning, TEXT("[FishingReel] 停止検知(デバイス): 完走圈間隔 %.1f 秒（許容 %.1f 秒超）で失敗"),
+            EventGameTimeSec - LastRevolutionTime, RevolveStopTimeoutSeconds);
+        return false;
+    }
+    // 2026.10.29 Lee(7) endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
+    // --- 完走圈の反映。停止検知の基準はイベントの実時刻（ゲーム時刻へ写像済み）で更新する ---
+    // 最初の完走圈で CurrentRevolutionCount が 0→1 になり、UpdateState の計時・停止検知と
+    // IsTimeCountingState がここから起動する
+    CurrentRevolutionCount++;
+    LastRevolutionTime = EventGameTimeSec;
+    UE_LOG(LogFishing, Log, TEXT("[FishingReel] Revolution(device): %d/%d"), CurrentRevolutionCount, TargetRevolutionCount);
+
+    // --- 測定中の初回周期は推進のみ（速度未確定のため判定・RPM 通知を行わない＝虚構しない） ---
+    if (bMeasuringCycle) {
+        return true;
+    }
+
+    // --- 速度判定: その周期の標定 RPM を直接使う（角度積分での再計算は行わない） ---
+    // 表示側（FishFightMeter / RpmGauge / SE 制御）へ判定と同じ値を通知するため
+    // LastApplied 系をここで公開する（CalculateRPM のスティック入力時と同一のタイミング）
+    LastAppliedMaxAllowedRPM = StickMaxAllowedRPM;
+    LastAppliedMinAllowedRPM = MinAllowedRPM;
+
+    // 標定 RPM をそのまま通知（周期 1 回のみ。同一値の重複通知は行わない）
+    OnRPMCalculated.Broadcast(CycleRPM);
+
+    // 1/4 圈判定間隔の維持: 1 周期を 4 判定として JudgeRPM に流す。
+    // 連続ミス許容も既存口径（MaxMistakeCount × 判定回数/圈 = 3 × 4 = 12 回＝3 圈分）を保つ
+    constexpr int32 JudgmentsPerRevolution = 4;
+    const int32 MistakeCountLimit = MaxMistakeCount * JudgmentsPerRevolution;
+    for (int32 i = 0; i < JudgmentsPerRevolution; ++i)
+    {
+        JudgeRPM(CycleRPM, StickMaxAllowedRPM, MinAllowedRPM, MistakeCountLimit);
+        if (bIsCompleted)
+        {
+            // 成功/失敗が確定した瞬間に打ち切る（残判定・残イベントは呼び出し側へ false で通知）
+            return false;
+        }
+    }
+    return true;
+}
+// 2026.10.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 void UFishingReelStateComponent::CalculateRPM(float DeltaAngle, float MaxAllowedRPM, float MinRPM, float JudgeIntervalRad)
 {
     const UWorld* World = GetWorld();

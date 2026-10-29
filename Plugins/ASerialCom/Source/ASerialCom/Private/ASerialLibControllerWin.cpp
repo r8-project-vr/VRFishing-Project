@@ -50,13 +50,29 @@ ConnectResult UASerialLibControllerWin::ConnectDevice(int COM_num)
 
     m_inteface->clear(); //接続したときにバッファをクリア
 
-    st = WriteData(RESERVED_COMMAND_GET_INFO);
+    // 2026.10.29 Lee(2): 情報リクエストの送信失敗を明示検査する。
+    // 旧コードは戻り値を st に保持したまま読取ループへ入り、最初の ReadDataProcess で
+    // 上書きされるため、書込失敗が検出されないまま待ちに入っていた。
+    // 失敗時はここでポートを閉じて Fail へ（書込エラーとポート後片付けの正規化）
+    if (WriteData(RESERVED_COMMAND_GET_INFO) != 0) {
+        m_inteface->ClosePort();
+        return ConnectResult::Fail;
+    }
 
-    ASerialDataStruct::ASerialData data_buf;
+    // 2026.10.29 Lee(2): 応答バッファを明示ゼロ初期化する。
+    // （NSDMI 付き構造体だが、既定初期化の暗黙依存を排し、未受信時の残留/不定値判定を構造的に排除）
+    ASerialDataStruct::ASerialData data_buf{};
 
     clock_t read_time = clock();
 
+    bool bAborted = false;
     while (1) {
+        // 2026.10.29 Lee: 停止要求があれば即座に待ちを打ち切る（スレッド停止のブロック回避）。
+        // 中断時は応答未検証として扱うため、フラグを破棄せず保持する
+        if (IsAbortRequested()) {
+            bAborted = true;
+            break;
+        }
         st = ReadDataProcess(&data_buf);
 
         if (st != 0 || clock() - read_time >= 50) {
@@ -64,18 +80,37 @@ ConnectResult UASerialLibControllerWin::ConnectDevice(int COM_num)
         }
     }
 
-// 2026.08.26 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-// デバイスVer判定の論理誤りを修正（元コードは && で常に false になり、Ver が一切判定されていなかった）。
-// ASerial 規格 4-6（デバイスID 一致かつ Ver が対応範囲内）に準拠させるため || に変更。
-// 元コード（消さずにコメントで残す）:
+// 2026.10.29 Lee(2) startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// 接続成立の判定を「応答フレームの実在」ベースへ厳格化（独立審査指摘対応）。
+// 2026.08.26 Lee 改修後の旧条件（消さずにコメントで残す）:
 //     if (clock() - read_time >= 50 || st == -1 || data_buf.data[0] != GetID() ||
-//         (data_buf.data[1] < m_device_ver_min && data_buf.data[1] > m_device_ver_max)) {
-    if (clock() - read_time >= 50 || st == -1 || data_buf.data[0] != GetID() ||
-        (data_buf.data[1] < m_device_ver_min || data_buf.data[1] > m_device_ver_max)) {
-// 2026.08.26 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+//         (data_buf.data[1] < m_device_ver_min || data_buf.data[1] > m_device_ver_max)) {
+//         m_inteface->ClosePort();
+//         return ConnectResult::Fail;
+//     }
+// 問題点:
+//   - 失敗判定が st == -1 のみのため、-2（ポート読取失敗）や中断時の残留 st
+//     （情報リクエスト書込成功の 0 など）が失敗条件に掛からない
+//   - 応答の data_num（payload 長）を検証していなかったため、実フレーム未受信の
+//     まま data_buf の値が偶然 ID/Ver と一致しても誤って接続成功になり得た
+// 改修: ①未中断 ②タイムアウト無し ③st == 1（校験合格の完成フレーム受信）
+//   ④payload 長 2 以上 ⑤ID 一致 ⑥Ver が対応範囲内、の全条件を満たす場合にのみ
+//   Succ とする。いずれかでも欠けたらポートを閉じて Fail へ
+    const bool bTimedOut = (clock() - read_time >= 50);
+    const bool bInfoFrameValid =
+        !bAborted &&
+        !bTimedOut &&
+        st == 1 &&
+        data_buf.data_num >= 2 &&
+        data_buf.data[0] == GetID() &&
+        data_buf.data[1] >= m_device_ver_min &&
+        data_buf.data[1] <= m_device_ver_max;
+
+    if (!bInfoFrameValid) {
         m_inteface->ClosePort();
         return ConnectResult::Fail;
     }
+// 2026.10.29 Lee(2) endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
     SetConnectionState(true);
     m_com = COM_num;
@@ -99,6 +134,13 @@ ConnectResult UASerialLibControllerWin::AutoConnectDevice() {
     //     for (int i = 1; i <= 255; ++i) {
     for (int i = 1; i <= 256; ++i) {
     // 2026.09.02 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+        // 2026.10.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+        // 全 COM 走査中も停止要求を検査する（以前は COM256 まで走り切るため、
+        // スレッド停止時に走査完了まで待たされることがあった）
+        if (IsAbortRequested()) {
+            break;
+        }
+        // 2026.10.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
         int st = ConnectDevice(i);
 
         if (st == 0) {
@@ -138,16 +180,49 @@ ConnectResult UASerialLibControllerWin::DisConnectDevice() {
 
 void UASerialLibControllerWin::SetInterfacePt(WindowsSerial* interface_pt) { m_inteface = interface_pt; }
 
+// 2026.10.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+// システムコール失敗を -2 で区別して上位へ伝播するよう改修。
+// 元コード（消さずにコメントで残す）:
+//     int UASerialLibControllerWin::ReadDataProcess(ASerialDataStruct::ASerialData* read_data_buf)
+//     {
+//         if (m_inteface->GetState() == false) {
+//             return -1;
+//         }
+//
+//         int st = 0;
+//         if (m_inteface->available() > 0) {
+//             uint8_t read_c = (uint8_t)m_inteface->read();
+//             st = this->ReadPacketData(read_c, read_data_buf);
+//         }
+//
+//         if (st == -1) {
+//             return -1;
+//         }
+//
+//         return st;
+//     }
+// 改修点（デバイス抜去時の根因の一つ）:
+//   1. available() が負値（ポート状態取得失敗）なら解析へ入らず -2 を返す
+//   2. read() の失敗値 -1 を uint8_t へキャストして 0xFF データ byte として
+//      解析へ混入させない（失敗は -2 で伝播。0xFF 混入はフレーム解析状態の破壊原因）
 int UASerialLibControllerWin::ReadDataProcess(ASerialDataStruct::ASerialData* read_data_buf)
 {
     if (m_inteface->GetState() == false) {
         return -1;
     }
 
+    const int avail = m_inteface->available();
+    if (avail < 0) {
+        return -2;  // ポート状態取得失敗（抜去・I/Oエラー等）
+    }
+
     int st = 0;
-    if (m_inteface->available() > 0) {
-        uint8_t read_c = (uint8_t)m_inteface->read();
-        st = this->ReadPacketData(read_c, read_data_buf);
+    if (avail > 0) {
+        const int read_c = m_inteface->read();
+        if (read_c < 0) {
+            return -2;  // 読取失敗（失敗値をデータ byte として解析へ渡さない）
+        }
+        st = this->ReadPacketData((uint8_t)read_c, read_data_buf);
     }
 
     if (st == -1) {
@@ -156,6 +231,7 @@ int UASerialLibControllerWin::ReadDataProcess(ASerialDataStruct::ASerialData* re
 
     return st;
 }
+// 2026.10.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 
 int UASerialLibControllerWin::ReadData(ASerialDataStruct::ASerialData* read_data_buf) {
     if (m_inteface->GetState() == false) {
@@ -169,12 +245,20 @@ int UASerialLibControllerWin::ReadData(ASerialDataStruct::ASerialData* read_data
 
     clock_t time_buf = clock();
     while (1) {
+        // 2026.10.29 Lee: 停止要求があればタイムアウト待ちを打ち切る
+        if (IsAbortRequested()) {
+            time_out_flag = true;
+            break;
+        }
+
         int st = ReadDataProcess(read_data_buf);
 
         if (st == 1) {
             break;
         }
-        else if (st == -1) {
+        // 2026.10.29 Lee: -2（ポート読取失敗）もエラー扱いへ（従来は -1 のみ。放置で
+        // 抜去後もタイムアウトまで回り続けていた。負値はすべて読取失敗として扱う）
+        else if (st < 0) {
             error_flag = true;
             break;
         }

@@ -39,6 +39,26 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
 	void SimulateReelByWheel();
 
+	// 2026.10.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/**
+	 * @brief 自転車ブリッジからの完走周期イベント 1 件を処理する（C++ 専用入口。イベント駆動）。
+	 * @param bForwardCycle ゲーム内前進方向の周期か（false=逆方向。推進も停止基準更新も一切行わない）
+	 * @param CycleRPM その周期の実効 RPM（イベントの平均周期間隔から換算し RpsScale を適用した値）。
+	 *        角度積分での再計算は行わず、この標定値をそのまま判定・通知へ使う。
+	 * @param bMeasuringCycle 測定中の初回周期か（true は推進のみ。速度判定・RPM 通知は行わない）
+	 * @param EventGameTimeSec イベント完了時刻をゲーム時刻（GetTimeSeconds 軸）へ写像した値。
+	 *        停止検知の基準（LastRevolutionTime）はこの実時刻で更新する（消費遅延の影響を受けない）
+	 * @return 処理を継続できるか（true=未完了 / false=完了済み。呼び出し側は残イベントを破棄すること）
+	 * @note 1 周期 = 1/4 圈判定 4 回として JudgeRPM に流す（判定間隔・連続ミス許容の既存口径を維持）。
+	 *       OnRPMCalculated は同一標定値の重複通知を避けるため周期 1 回のみ発火する。
+	 *       完了（成功/失敗）が確定した瞬間に以降の処理を打ち切る。
+	 */
+	bool ProcessDeviceCycle(bool bForwardCycle, float CycleRPM, bool bMeasuringCycle, double EventGameTimeSec);
+
+	/** @brief 最後の完走周期の停止検知基準時刻を取得する（デバッグ/自動テスト用。GetTimeSeconds 軸） */
+	double GetLastRevolutionTime() const { return LastRevolutionTime; }
+	// 2026.10.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 	// 回転カウントを初期化する関数
 	UFUNCTION(BlueprintCallable, Category = "Reel Simulator")
 	void ResetRevolutionCount();

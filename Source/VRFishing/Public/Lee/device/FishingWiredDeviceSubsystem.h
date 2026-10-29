@@ -102,6 +102,36 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Fishing|WiredDevice")
 	FBicycleSample GetLatestBicycleSample();
 
+	// 2026.10.28 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/**
+	 * @brief 自転車デコーダ（生状態 0..3 復号）の最新運動スナップショットを取得する。
+	 * @return 実際の RPM・物理方向・測定フェーズ・正逆の完了周回数・接続代次を含む。
+	 *         bValid=false は実機未接続/状態フレーム未受信/模擬モード（模擬は本経路に快照を書かない）。
+	 *         方向の正反对調は bDirectionInverted（Project Settings 設定の回示）を使用側で適用する。
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Fishing|WiredDevice")
+	FBicycleMotionSample GetLatestBicycleMotion();
+
+	// 2026.10.29 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/**
+	 * @brief 自転車の完走周期イベント（実時刻・物理方向・周期の実効 RPM・接続代次）を
+	 *        ワーカーのキューから全て取り出して空にする（ゲームスレッドから呼ぶ）。
+	 * @note 受信順（時系列順）で返す。フェーズ切替・再接続・方向設定変更時の履歴破棄も
+	 *       本メソッドで行う（取り出した配列を破棄すればよい）。未接続時は空配列。
+	 */
+	TArray<FBicycleCycleEventCore> DrainBicycleCycleEvents();
+
+	// 2026.10.29 Lee(8) startーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/**
+	 * @brief 接続代次・復号快照・完走周期イベント批次を同一ロック内で取得する（ゲームスレッドから呼ぶ）。
+	 * @return 取得後キューは空。未接続時は代次 0・空批次。消費基準と対象の対応を保証する
+	 *         アトミックビュー（Bridge の再構築判定とイベント消費は本結果のみを根拠にする）。
+	 */
+	FBicycleDrainResult DrainBicycleState();
+	// 2026.10.29 Lee(8) endーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 2026.10.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// 2026.10.28 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 	/**
 	 * @brief アームトラッカーのデバイス側キャリブレーション(0x20)送信を要求する。
 	 * @note 返答の無いコマンドのため送信要求をキューに入れるのみ（ワーカースレッドで送信）。
@@ -142,6 +172,14 @@ private:
 	/** @brief 自転車サンプルを共有バッファへ格納する（mutex 保護） */
 	void StoreBicycleSample(const FFishingDeviceSampleCore& Sample);
 
+	// 2026.10.28 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	/** @brief 自転車の運動復号スナップショットを共有バッファへ格納する（mutex 保護） */
+	void StoreBicycleMotion(const FBicycleMotionSnapshotCore& Sample);
+
+	/** @brief 自転車の運動復号スナップショットのコピーを取得（mutex 保護） */
+	FBicycleMotionSnapshotCore CopyBicycleMotion() const;
+	// 2026.10.28 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
 	/** @brief アームサンプルのコピーを取得（mutex 保護） */
 	FFishingDeviceSampleCore CopyArmSample() const;
 
@@ -177,4 +215,10 @@ private:
 	FFishingDeviceSampleCore LatestArmSample;
 	mutable FCriticalSection BicycleSampleMutex;
 	FFishingDeviceSampleCore LatestBicycleSample;
+
+	// 2026.10.28 Lee startーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+	// --- 自転車の運動復号スナップショット（実機ワーカーのみ書き込む。模擬モードは書かない） ---
+	mutable FCriticalSection BicycleMotionMutex;
+	FBicycleMotionSnapshotCore LatestBicycleMotion;
+	// 2026.10.28 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 };
