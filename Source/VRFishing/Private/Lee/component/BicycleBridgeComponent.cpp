@@ -48,9 +48,7 @@ void UBicycleBridgeComponent::TickSimulator(UFishingWiredDeviceSubsystem* Subsys
 	const FBicycleSample Sample = Subsystem->GetLatestBicycleSample();
 	const bool bFresh = Sample.bValid && Sample.AgeSeconds <= DataStaleTimeoutSeconds;
 
-	// 有効 RPS。模擬データは元から実回転数で生成されるためパルス換算（BicyclePulsesPerRevolution）
-	// は適用されない（旧コードの !IsSimulatorMode 分岐は本関数では恒真のため省略。
-	// 旧実機向けのパルス換算は新経路（TickDevice）でも使用しない）
+	/** @brief 模擬データは実回転数のため周期換算を適用しない。 */
 	const float Rps = FMath::Abs(Sample.Rps) * RpsScale;
 
 	// --- Debug 表示（毎フレーム必ず出す。停止中は灰色で状態を明示） ---
@@ -101,6 +99,12 @@ void UBicycleBridgeComponent::TickDevice(UFishingWiredDeviceSubsystem* Subsystem
 	const uint32 CurrentGeneration = Drain.Generation;
 	const UFishingWiredDeviceSettings* Settings = GetDefault<UFishingWiredDeviceSettings>();
 	const bool bInverted = Settings ? Settings->bInvertBicycleDirection : false;
+	const int32 CyclesPerRevolution = FMath::Clamp(Settings ? Settings->BicyclePulsesPerRevolution : 1, 1, 64);
+	if (CyclesPerRevolution != BaselineCyclesPerRevolution)
+	{
+		PendingForwardCycles = 0;
+		BaselineCyclesPerRevolution = CyclesPerRevolution;
+	}
 
 	// --- Debug 表示（スナップショットは状態/診断表示用。圈の駆動はイベント経路のみ） ---
 	if (bShowDebug && GEngine)
@@ -122,8 +126,8 @@ void UBicycleBridgeComponent::TickDevice(UFishingWiredDeviceSubsystem* Subsystem
 			default: break;
 			}
 			const double AgeSec = FPlatformTime::Seconds() - Motion.TimestampSec;
-			DebugMsg = FString::Printf(TEXT("[BicycleBridge] 復号RPM: %.1f | %s | 圈 +%lld -%lld | Gen:%u | Age: %.2fs"),
-				Motion.Rpm, PhaseTag, Motion.ForwardCycles, Motion.ReverseCycles,
+			DebugMsg = FString::Printf(TEXT("[BicycleBridge] RPM: %.1f | %s | Invert:%d | Cycles/rev:%d | +%lld -%lld | Gen:%u | Age: %.2fs"),
+				Motion.Rpm / CyclesPerRevolution, PhaseTag, bInverted ? 1 : 0, CyclesPerRevolution, Motion.ForwardCycles, Motion.ReverseCycles,
 				CurrentGeneration, AgeSec);
 		}
 		GEngine->AddOnScreenDebugMessage(31, 0.0f, Motion.bValid ? FColor::Orange : FColor::Silver, DebugMsg);
@@ -142,6 +146,7 @@ void UBicycleBridgeComponent::TickDevice(UFishingWiredDeviceSubsystem* Subsystem
 			CurrentGeneration, BaselineGeneration,
 			bInverted, bBaselineDirectionInverted))
 	{
+		PendingForwardCycles = 0;
 		const bool bConsumeNewBatch = UBicycleBridgeComponent::ShouldConsumeEventsOnRebuild(
 			bReelActive, bWasReelActive, bGenerationChanged, bDirectionChanged);
 		BaselineGeneration = CurrentGeneration;
@@ -183,13 +188,26 @@ void UBicycleBridgeComponent::TickDevice(UFishingWiredDeviceSubsystem* Subsystem
 
 		// ゲーム内前進方向のみ推進する（逆方向は ProcessDeviceCycle 内でも破棄される）
 		const bool bForwardCycle = UBicycleBridgeComponent::IsGameForwardEvent(bInverted, Event.Dir);
+		if (!bForwardCycle)
+		{
+			PendingForwardCycles = 0;
+			continue;
+		}
+		if (Event.IsMeasuring())
+		{
+			PendingForwardCycles = 0;
+		}
+		if (++PendingForwardCycles < CyclesPerRevolution)
+		{
+			continue;
+		}
+		PendingForwardCycles = 0;
 
-		// 周期ごとの実効 RPM（旧プロトコルのパルス換算は適用しない）。
-		// 測定中の初回周期は RPM 未確定のため 0 を渡す（推進のみで判定・通知を行わない）
+		/** @brief 周期速度を設定された周期数で割り、実回転の RPM に換算する。 */
 		float CycleRPM = 0.0f;
 		if (!Event.IsMeasuring() && bForwardCycle)
 		{
-			CycleRPM = static_cast<float>(Event.GetRpm() * RpsScale);
+			CycleRPM = static_cast<float>(Event.GetRpm() * RpsScale / CyclesPerRevolution);
 		}
 
 		const double EventGameTimeSec = Event.DeviceTimeSec + GameToDeviceOffset;
