@@ -300,7 +300,7 @@ FBicycleMotionSample UFishingWiredDeviceSubsystem::GetLatestBicycleMotion()
 	FBicycleMotionSample Sample;
 	Sample.bValid = Core.bValid;
 	Sample.AgeSeconds = Core.GetAgeSeconds(FPlatformTime::Seconds());
-	Sample.Rpm = Core.Rpm;
+	Sample.Rpm = Core.Rpm / FMath::Clamp(Settings ? Settings->BicyclePulsesPerRevolution : 1, 1, 64);
 	Sample.PhysDir = Core.PhysDir;
 	// 数値対応を固定している（Stopped=0/Measuring=1/Forward=2/Reverse=3）ため静的変換のみ
 	Sample.Phase = static_cast<EFishingBicycleMotionPhase>(Core.Phase);
@@ -622,8 +622,10 @@ FString UFishingWiredDeviceSubsystem::BuildDeviceStatusLine(EFishingWiredDeviceT
 			FString MotionText = TEXT("状態フレーム無し(静止 or 未受信)");
 			if (Motion.bValid)
 			{
-				MotionText = FString::Printf(TEXT("RPM=%.1f %s 圈+=%lld 圈-=%lld Gen=%u st=%u info=%u oth=%u"),
-					Motion.Rpm, GetBicyclePhaseTag(Motion.Phase),
+				const UFishingWiredDeviceSettings* DeviceSettings = GetDefault<UFishingWiredDeviceSettings>();
+				const int32 CyclesPerRevolution = FMath::Clamp(DeviceSettings ? DeviceSettings->BicyclePulsesPerRevolution : 1, 1, 64);
+				MotionText = FString::Printf(TEXT("RPM=%.1f RawRPM=%.1f Cycles/rev=%d %s 圈+=%lld 圈-=%lld Gen=%u st=%u info=%u oth=%u"),
+					Motion.Rpm / CyclesPerRevolution, Motion.Rpm, CyclesPerRevolution, GetBicyclePhaseTag(Motion.Phase),
 					Motion.ForwardCycles, Motion.ReverseCycles,
 					Motion.Generation,
 					Motion.StateFrameCount, Motion.InfoFrameCount, Motion.OtherFrameCount);

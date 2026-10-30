@@ -132,5 +132,9 @@ private:
 	bool bBaselineDirectionInverted = false;
 	/** 前フレームのリール状態アクティブ値（false→true の立ち上がり＝フェーズ入替で再構築） */
 	bool bWasReelActive = false;
+	/** @brief 実回転の完成までに受信した前進周期数。 */
+	int32 PendingForwardCycles = 0;
+	/** @brief 前回適用した実回転あたりの周期数。 */
+	int32 BaselineCyclesPerRevolution = 0;
 	// 2026.10.29 Lee endーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
 };
