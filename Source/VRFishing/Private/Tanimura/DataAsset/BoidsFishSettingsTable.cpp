@@ -6,6 +6,25 @@
 
 UBoidsFishSettings* UBoidsFishSettingsTable::FindSettings(const UFishDataAsset* FishData) const
 {
+	if (const FBoidsFishSettingsTableEntry* Entry = FindEntry(FishData)) {
+		return Entry->Settings.LoadSynchronous();
+	}
+
+	return nullptr;
+}
+
+int32 UBoidsFishSettingsTable::FindMaxCount(const UFishDataAsset* FishData) const
+{
+	if (const FBoidsFishSettingsTableEntry* Entry = FindEntry(FishData)) {
+		return FMath::Max(Entry->MaxCount, 0);
+	}
+
+	// 未登録の魚種は上限なし
+	return 0;
+}
+
+const FBoidsFishSettingsTableEntry* UBoidsFishSettingsTable::FindEntry(const UFishDataAsset* FishData) const
+{
 	if (!IsValid(FishData)) {
 		return nullptr;
 	}
@@ -13,9 +32,9 @@ UBoidsFishSettings* UBoidsFishSettingsTable::FindSettings(const UFishDataAsset* 
 	const FSoftObjectPath FishDataPath(FishData);
 
 	for (const FBoidsFishSettingsTableEntry& Entry : Entries) {
-		// パスが一致する魚種の設定を返す
+		// パスが一致する魚種の項目を返す
 		if (Entry.FishData.ToSoftObjectPath() == FishDataPath) {
-			return Entry.Settings.LoadSynchronous();
+			return &Entry;
 		}
 	}
 

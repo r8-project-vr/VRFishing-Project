@@ -10,7 +10,7 @@ class UFishDataAsset;
 class UBoidsFishSettings;
 
 /**
- * 魚種と操舵パラメータの対応1件分
+ * 魚種と操舵パラメータ・生成上限の対応1件分
  */
 USTRUCT(BlueprintType)
 struct FBoidsFishSettingsTableEntry
@@ -24,10 +24,14 @@ struct FBoidsFishSettingsTableEntry
 	// この魚種で使う操舵パラメータ
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Boids")
 	TSoftObjectPtr<UBoidsFishSettings> Settings;
+
+	// 水族館で同時に泳がせる上限数。0なら上限なし
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Boids", meta = (ClampMin = "0"))
+	int32 MaxCount = 0;
 };
 
 /**
- * 魚種ごとのBoids設定をまとめた対応表
+ * 魚種ごとのBoids設定と生成上限をまとめた対応表
  */
 UCLASS(BlueprintType)
 class VRFISHING_API UBoidsFishSettingsTable : public UPrimaryDataAsset
@@ -42,4 +46,12 @@ public:
 	// 指定した魚種の設定を返す。未登録ならnullptr
 	UFUNCTION(BlueprintPure, Category = "Boids")
 	UBoidsFishSettings* FindSettings(const UFishDataAsset* FishData) const;
+
+	// 指定した魚種の上限数を返す。未登録または0なら上限なし
+	UFUNCTION(BlueprintPure, Category = "Boids")
+	int32 FindMaxCount(const UFishDataAsset* FishData) const;
+
+private:
+	// 指定した魚種の項目を返す
+	const FBoidsFishSettingsTableEntry* FindEntry(const UFishDataAsset* FishData) const;
 };
